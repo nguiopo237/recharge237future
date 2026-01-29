@@ -73,7 +73,10 @@ class SendEmail{
 
     // Extraire le solde
     RegExp regExpBalance = RegExp(r'balance is ([\d.,]+) FCFA');
+    RegExp regExpBalances = RegExp(r'balance is\s*(\d+(?:,\d+)*(?:\.\d+)?)');
     String balance = regExpBalance.firstMatch(recipientEmail)?.group(1) ?? '';
+    String balances = regExpBalances.firstMatch(recipientEmail)?.group(1) ?? '';
+
 
     print("Montant de recharge: $amount FCFA");
     print("Montant de rechargef: $amountf FCFA");
@@ -86,12 +89,18 @@ class SendEmail{
     print("Date complète (avec heure): $dateHeureComplete");
     print("Date seule: $dateSeule");
     print("Date seule: $balance");
-
-
-      if( recipientEmail.contains("top-up")||recipientEmail.contains("received")){
-        SendEmail.updateValueInFirestore("solde","MrLq19BDw8Jng5hzXnSx","soldepost","${balance}");
+    print("resultat");
+    print(recipientEmail.contains("POS")&&recipientEmail.contains("DSM"));
+    print(recipientEmail.contains("DSM"));
+    print("resultat");
+      if( recipientEmail.contains("MASTER")||recipientEmail.contains("POS")&&recipientEmail.contains("DSM")){
+        print("ce messages est pour la dsm ");
+        print("voici sa balance: $balance");
+        print("voici sa balance: $balances");
+        SendEmail.updateValueInFirestore("solde","jNIO5y2lj8s9PiTSV4cU","dsm","${balances}");
       }else{
-        SendEmail.updateValueInFirestore("solde","jNIO5y2lj8s9PiTSV4cU","dsm","${balance}");
+        print("ce messages est pour la post");
+        SendEmail.updateValueInFirestore("solde","MrLq19BDw8Jng5hzXnSx","soldepost","${balance}");
       }
     print("mail envoyer seul");
 

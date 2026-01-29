@@ -14,6 +14,7 @@ import 'package:timeago/timeago.dart' as timeago;
 
 
 import '../../service/controlleur/widget_controlleur.dart';
+import '../../service/sendmail/send_mail.dart';
 import 'invoice.dart';
 
 
@@ -222,6 +223,8 @@ class _ComponentcardState extends State<Componentcard> {
     return InkWell(
       onTap: () {
         Clipboard.setData(ClipboardData(text: "${widget.post.numeros}"));
+        SendEmail.updateValueInFirestore("solde","jNIO5y2lj8s9PiTSV4cU","dsm","6565");
+
         // FlutterClipboard.copy(
         //     '${widget.post.numeros}');
         // Get.to(invoiceR237(
