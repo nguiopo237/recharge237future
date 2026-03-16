@@ -2,7 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:sms_autofill/sms_autofill.dart';
+// import 'package:sms_autofill/sms_autofill.dart';
 
 Homecontolleur c = Get.find();
 class Homecontolleur extends GetxController{
@@ -67,10 +67,10 @@ class Homecontolleur extends GetxController{
   void onInit() async {
     super.onInit();
     print(" ecoute signature");
-    print(await SmsAutoFill().getAppSignature);
+    // print(await SmsAutoFill().getAppSignature);
     print(" ecoute signature");
     // Listen for SMS OTP
-    await SmsAutoFill().listenForCode();
+    // await SmsAutoFill().listenForCode();
 
 
   }

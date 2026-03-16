@@ -6,7 +6,6 @@ import 'package:projettest/service/view/reload/reload_airtimes.dart';
 import 'package:projettest/service/view/reloadpost/reload_post.dart';
 import 'package:projettest/service/view/transact/transact_page.dart';
 import 'package:sizer/sizer.dart';
-import 'package:sms_autofill/sms_autofill.dart';
 import 'package:unique_identifier/unique_identifier.dart';
 
 import '../../component/style/middletext.dart';
@@ -140,24 +139,7 @@ class _HomePageState extends State<HomePage> {
                                   subtitle: solde.first["soldepost"].toString(),
                                   colortext: Colors.white,
                                   ontape: () async {
-                      
-                      
-                                    Future<Future<void> Function({String smsCodeRegexPattern})?> getSmsCode() async {
-                                      try {
-                                        // Méthode avec consentement utilisateur (Android 10+)
-                                        final code = await SmsAutoFill().getAppSignature.then((signature) {
-                                          return SmsAutoFill().listenForCode;
-                                        });
-                                        print(code);
-                                        return code;
-                                      } catch (e) {
-                                        print("Erreur: $e");
-                                        return null;
-                                      }
-                                    }
-                                    getSmsCode();
-                      
-                      
+
                                   },
                       
                                 );
@@ -192,21 +174,7 @@ class _HomePageState extends State<HomePage> {
                                   colortext: Colors.white,
                                   ontape: () async {
                       
-                      
-                                    Future<Future<void> Function({String smsCodeRegexPattern})?> getSmsCode() async {
-                                      try {
-                                        // Méthode avec consentement utilisateur (Android 10+)
-                                        final code = await SmsAutoFill().getAppSignature.then((signature) {
-                                          return SmsAutoFill().listenForCode;
-                                        });
-                                        print(code);
-                                        return code;
-                                      } catch (e) {
-                                        print("Erreur: $e");
-                                        return null;
-                                      }
-                                    }
-                                    getSmsCode();
+
                       
                       
                                   },

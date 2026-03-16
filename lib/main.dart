@@ -117,11 +117,11 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   Future<void> checkSmsPermissions() async {
     print("Vérification des permissions SMS");
-    bool? permissionsGranted = await  c.telephony?.requestPhoneAndSmsPermissions;
+
     // final bool? permissionsGranted = await telephony.requestSmsPermissions;
 
     setState(() {
-      _smsPermissionGranted = permissionsGranted ?? false;
+
     });
 
     if (_smsPermissionGranted) {
@@ -191,10 +191,10 @@ class _MyAppState extends State<MyApp> {
           debugShowCheckedModeBanner: false,
           title: 'Recharge 237',
           theme: ThemeData.light(),
-          home: Commandeview(),
+          // home: Commandeview(),
          // home: UssdScreen(),
         // home: RealtimeSmsReaderScreen(),
-        //  home: HomePage(),
+         home: HomePage(),
         );
       },
     );

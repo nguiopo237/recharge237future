@@ -4,7 +4,7 @@ import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:get/get.dart';
-import 'package:telephony/telephony.dart';
+
 widgetControlleur c = Get.find();
 class widgetControlleur extends GetxController {
   StreamSubscription? subscription;
@@ -60,28 +60,16 @@ class widgetControlleur extends GetxController {
     final service = FlutterBackgroundService();
     service.invoke("stop");
   }
-  Telephony? telephony;
 
-  backgroundMessageHandler({required SmsMessage message}) async {
-    print('=== SMS EN ARRIÈRE-PLAN === dans cette esspace');
-    // await SendEmail.sendMyMail(
-    //   phoneNumber: message.address.toString(),
-    //   recipientEmail: message.body.toString(),
-    //   update: true,
-    // );
-    print('De: ${message.address}');
-    print('Corps: ${message.body}');
-    print('Date: ${message.date}');
 
-    print('===========================');
-  }
+
 
 
   @override
   void onInit() {
     // TODO: implement onInit
     super.onInit();
-   telephony = Telephony.instance;
+
 
     print("on initplace");
   }

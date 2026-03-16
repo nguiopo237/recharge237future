@@ -11,9 +11,6 @@ import 'package:get/get.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:telephony/telephony.dart';
-import 'package:ussd_flutter/ussd_service.dart';
-import 'package:ussd_launcher/ussd_launcher.dart';
 
 import '../../component/widget/component_card.dart';
 import '../../model/listnumbermode.dart';
@@ -31,7 +28,7 @@ class Commandeview extends StatefulWidget {
 class _CommandeviewState extends State<Commandeview> {
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
   bool _isLoading = false;
-  final UssdService _ussdService = UssdService();
+
   String _ussdResult = 'No USSD response yet.';
   final TextEditingController ussdController = TextEditingController();
   void deleteDocument(String collectionPath, String documentId) async {
@@ -135,7 +132,6 @@ class _CommandeviewState extends State<Commandeview> {
         print(optionControllers.first.text);
         print("charger les element");
 
-        await  launchMultiSessionUssd(amount: amount,number: numerocam,post: type=="1"?false:true);
         print("message camtel");
         print(ussdSuccessMessage);
         print("message camtel");
@@ -379,31 +375,13 @@ class _CommandeviewState extends State<Commandeview> {
   }
 
   List<String> _ussdMessages = [];
-  StreamSubscription<UssdResponse>? ussdSubscription;
   String sessionStatus = '';
   String eventLog = "En attente d'événements...";
   bool isUssdSessionActive = false;
   final EventChannel _accessibilityChannel =
   EventChannel('com.example.projettest');
 
-  void _handleUssdResponse(UssdResponse response) {
-    print("session d ecoute et reponse");
-    setState(() {
-      _ussdMessages.add('${response.message}\n État de la sitation: ${response.state}');
 
-      if (response.state == UssdSessionState.error ||
-          response.state == UssdSessionState.error ||
-          response.state == UssdSessionState.error) {
-        isUssdSessionActive = false;
-        sessionStatus = "Session USSD terminée (${response.state})";
-        print("session terminé et verification ");
-        setState(() {
-          _isLoading = false;
-        });
-      }
-      print("session de reponse et reponse  ${response.message} ");
-    });
-  }
 
   void _handleUssdError(dynamic error) {
     setState(() {
@@ -417,16 +395,7 @@ class _CommandeviewState extends State<Commandeview> {
   }
 
 
-  void _setupUssdResponseListener() {
-    ussdSubscription = _ussdService.ussdResponseStream.listen(
-          (UssdResponse response) {
-        _handleUssdResponse(response);
-      },
-      onError: (error) {
-        _handleUssdError(error);
-      },
-    );
-  }
+
 
   void _onUssdMessageReceived(String message) {
     print("Message USSD reçu: $message");
@@ -443,7 +412,7 @@ class _CommandeviewState extends State<Commandeview> {
 
 
   checkstate() {
-    UssdLauncher.setUssdMessageListener(_onUssdMessageReceived);
+
      print("_onUssdMessageReceived");
      print(_onUssdMessageReceived);
      print("_onUssdMessageReceived");
@@ -470,93 +439,8 @@ class _CommandeviewState extends State<Commandeview> {
   }
 
 
-  Future<void> _sendUssdCode(String ussdCode) async {
-    print("_ussdResult");
-    try {
-      final response = await _ussdService.sendUssd(
-        ussdCode,
-      );
-      setState(() {
-        _ussdResult = 'Message: ${response.message}\nState: ${response.state}';
-      });
-      print("_ussdResult");
-      print(_ussdResult);
-      print("_ussdResult");
-    } catch (e) {
-      setState(() {
-        _ussdResult = 'Error sending USSD: $e';
-      });
-    }
-  }
 
 
-
-  Future<void> launchMultiSessionUssd({amount,number,bool post = false}) async {
-    print("ecoute du ussd kmille");
-    print(post);
-    print("ecoute du ussd kmille");
-    setState(() {
-      _isLoading = true;
-      _ussdMessages.clear();
-      sessionStatus = '';
-    });
-
-    try {
-
-
-      // optionControllers.clear();
-      List<String> options =
-      optionControllers.map((controller) => controller.text).toList();
-      print("ici");
-
-      _ussdService.ussdResponseStream.listen((response) {
-
-        setState(() {
-          _ussdResult =
-          'Message: ${response.message}\nState: ${response.state}';
-        });
-      }, onError: (error) {
-        setState(() {
-          _ussdResult = 'Error: ${error.message}';
-        });
-      });
-      print(_ussdResult);
-      print("debut de l action");
-
-
-      //  _sendUssdCode(_ussdController.text);
-     // _launchMultiSessionUssd();
-
-      UssdLauncher.setUssdMessageListener((String message) {
-        print("Message USSD reçu apres : $message");
-        // Mettre à jour votre UI avec le message reçu
-      });
-      _sendUssdCode(ussdController.text);
-      final data = await UssdLauncher.multisessionUssd(
-        // code: ussdController.text,
-        code: "*550*${post==false?"1":"2"}*${number}*${amount}#",
-        //code: "*825*1*2*1*2#",
-        slotIndex: post==false?0:1,
-        options: options,
-      );
-      print("data suite a l action");
-      print(data);
-      print("data suite a l action");
-      if (data != null) {
-        print("voici les retours");
-        print(data);
-        print(data);
-        print("voici les retours");
-      }
-    } catch (e) {
-      print("other");
-      _updateUssdMessages('\nErreur : ${e.toString()}');
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
 
    MethodChannel _channel = MethodChannel('ussd_launcher');
 
@@ -641,26 +525,26 @@ class _CommandeviewState extends State<Commandeview> {
   }
 
 
-  Future<void> loadSimCards() async {
-    var status = await Permission.phone.request();
-    if (status.isGranted) {
-      try {
-        final simCards = await UssdLauncher.getSimCards();
-        setState(() {
-          simCardsList = simCards;
-          print(simCards.first);
-          if (simCardsList.isNotEmpty) {
-            selectedSlotIndex = simCardsList[0]['slotIndex'];
-            addOptionField();
-          }
-        });
-      } catch (e) {
-        print("Erreur lors du chargement des cartes SIM: $e");
-      }
-    } else {
-      print("Permission téléphone non accordée");
-    }
-  }
+  // Future<void> loadSimCards() async {
+  //   var status = await Permission.phone.request();
+  //   if (status.isGranted) {
+  //     try {
+  //       final simCards = await UssdLauncher.getSimCards();
+  //       setState(() {
+  //         simCardsList = simCards;
+  //         print(simCards.first);
+  //         if (simCardsList.isNotEmpty) {
+  //           selectedSlotIndex = simCardsList[0]['slotIndex'];
+  //           addOptionField();
+  //         }
+  //       });
+  //     } catch (e) {
+  //       print("Erreur lors du chargement des cartes SIM: $e");
+  //     }
+  //   } else {
+  //     print("Permission téléphone non accordée");
+  //   }
+  // }
 
 
 
@@ -668,9 +552,7 @@ class _CommandeviewState extends State<Commandeview> {
   void initState() {
     // TODO: implement initState
     super.initState();
-    readSMS();
-    loadSimCards();
-    _setupUssdResponseListener();
+
     getConnectivity();
     check();
 
@@ -690,57 +572,49 @@ class _CommandeviewState extends State<Commandeview> {
 
 bool _hasFocus =false;
 
-  @pragma('vm:entry-point')
-  static Future<void> backgroundMessageHandlers(SmsMessage message) async {
-    print('📱 SMS reçu en arrière-plan: ${message.body}');
-    // Tu peux stocker en local ou envoyer une notification
-    SendEmail.sendMyMail(
-        phoneNumber: message.address.toString(),
-        recipientEmail: message.body.toString());
-  }
 
-  void readSMS() {
-    print('Message reçu: 2.0');
-    c.telephony?.listenIncomingSms(
-      onNewMessage: (SmsMessage message) {
-        print('Message reçu: ${message.body}');
-        SendEmail.sendMessagewithtelegram(message: message.body.toString());
-        SendEmail.sendMyMail(
-            phoneNumber: message.address.toString(),
-            recipientEmail: message.body.toString());
-
-        if(message.body.toString().contains("System is processing your requestion by SMS, please wait")){
-         // updateValueInFirestore("Transact",documentid,"status","3");
-
-          // SendEmail.sendMyMail(
-          //     phoneNumber: message.address.toString(),
-          //  recipientEmail: message.body.toString(),
-          //  //   recipientEmail: 'Your top-up service for ${numerocam} on ${dateTimeString} is successful. TransactionID is ${idtransact}, amount is ${amount} FCFA. Now your balance is ${amount} FCFA.'
-          // );
-
-          ScaffoldMessenger.of(context)
-              .hideCurrentSnackBar(reason: SnackBarClosedReason.swipe);
-        }else{
-          // print("message camtel");
-          // print(numerocam);
-          // print(amount);
-          // print(idtransact);
-          // print("message camtel");
-          //API.sendMyMail(numeroc: numerocam,amount: amount,idtransact:idtransact );
-          //updateValueInFirestore("Transact",documentid,"status","4");
-          ScaffoldMessenger.of(context)
-              .hideCurrentSnackBar(reason: SnackBarClosedReason.swipe);
-
-          // restartapp(documentid,numerocam,amount);
-        }
-
-
-      },
-      listenInBackground: true,
-
-      onBackgroundMessage: backgroundMessageHandlers
-    );
-  }
+  // void readSMS() {
+  //   print('Message reçu: 2.0');
+  //   c.telephony?.listenIncomingSms(
+  //     onNewMessage: (SmsMessage message) {
+  //       print('Message reçu: ${message.body}');
+  //       SendEmail.sendMessagewithtelegram(message: message.body.toString());
+  //       SendEmail.sendMyMail(
+  //           phoneNumber: message.address.toString(),
+  //           recipientEmail: message.body.toString());
+  //
+  //       if(message.body.toString().contains("System is processing your requestion by SMS, please wait")){
+  //        // updateValueInFirestore("Transact",documentid,"status","3");
+  //
+  //         // SendEmail.sendMyMail(
+  //         //     phoneNumber: message.address.toString(),
+  //         //  recipientEmail: message.body.toString(),
+  //         //  //   recipientEmail: 'Your top-up service for ${numerocam} on ${dateTimeString} is successful. TransactionID is ${idtransact}, amount is ${amount} FCFA. Now your balance is ${amount} FCFA.'
+  //         // );
+  //
+  //         ScaffoldMessenger.of(context)
+  //             .hideCurrentSnackBar(reason: SnackBarClosedReason.swipe);
+  //       }else{
+  //         // print("message camtel");
+  //         // print(numerocam);
+  //         // print(amount);
+  //         // print(idtransact);
+  //         // print("message camtel");
+  //         //API.sendMyMail(numeroc: numerocam,amount: amount,idtransact:idtransact );
+  //         //updateValueInFirestore("Transact",documentid,"status","4");
+  //         ScaffoldMessenger.of(context)
+  //             .hideCurrentSnackBar(reason: SnackBarClosedReason.swipe);
+  //
+  //         // restartapp(documentid,numerocam,amount);
+  //       }
+  //
+  //
+  //     },
+  //     listenInBackground: true,
+  //
+  //     onBackgroundMessage: backgroundMessageHandlers
+  //   );
+  // }
 
 
 
