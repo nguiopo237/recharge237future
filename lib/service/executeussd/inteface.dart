@@ -10,6 +10,7 @@ import 'package:ussd_launcher/ussd_launcher.dart';
 import '../../component/widget/component_card.dart';
 import '../../main.dart';
 import '../../model/listnumbermode.dart';
+import '../fonctionfire.dart';
 import 'natifplace.dart';
 
 class UssdScreen extends StatefulWidget {
@@ -86,7 +87,7 @@ class _UssdScreenState extends State<UssdScreen> {
     super.initState();
     // viewsimcard();
     // Écouter les messages USSD
-    check();
+    getConnectivity(context);
   }
 
   getdata(documentid, numerocam, amount, idtransact, type) async {
@@ -132,90 +133,7 @@ class _UssdScreenState extends State<UssdScreen> {
     }
   }
 
-  check() async {
-    // checkstate();
-    // listenToAccessibilityEvents();
 
-    // // scrollToIndex1();
-    // if (!await UssdLauncher.isOverlayPermissionGranted()) {
-    //   await UssdLauncher.openOverlaySettings();
-    //   // await UssdLauncher.openOverlaySettings();
-    // }
-
-    FirebaseFirestore.instance
-        .collection('Transact')
-        .orderBy("heure", descending: true)
-        .snapshots()
-        .listen((QuerySnapshot snapshot) async {
-
-      await Future.delayed(Duration(seconds: 5));
-      await Future.forEach(snapshot.docChanges, (DocumentChange change) async {
-        print("search");
-        print("search");
-        if (change.doc["status"] == "1" || change.doc["status"] == "9") {
-          print("change");
-          print( change.doc.id,);
-          print("change");
-          await Future.delayed(Duration(seconds: 5));
-          getdata(
-              change.doc.id,
-              change.doc["numerocamtel"],
-              change.doc["amount"],
-              change.doc["idtransact"],
-              change.doc["status"]);
-        }
-      });
-
-      // for (var change in snapshot.docChanges) {
-      //   switch (change.type) {
-      //     case DocumentChangeType.added:
-      //
-      //       print("✏️ Message ajout");
-      //       // showSimpleNotification(message: data);
-      //       if (change.doc["status"] == "1" || change.doc["status"] == "9") {
-      //         print("change");
-      //         print(change.doc.id);
-      //         print(change.doc["status"]);
-      //         print("start continuesdsd");
-      //         await Future.delayed(Duration(seconds: 5));
-      //         getdata(
-      //             change.doc.id,
-      //             change.doc["numerocamtel"],
-      //             change.doc["amount"],
-      //             change.doc["idtransact"],
-      //             change.doc["status"]);
-      //       }
-      //
-      //       // showSimpleNotification(message: '')
-      //       // _onMessageAdded(change.doc);
-      //       break;
-      //     case DocumentChangeType.modified:
-      //       print("✏️ Message modif");
-      //       if (change.doc["status"] == "1" || change.doc["status"] == "9") {
-      //         print("change");
-      //         print(change.doc.id);
-      //         print(change.doc["status"]);
-      //         print("start continuesdsd");
-      //         await Future.delayed(Duration(seconds: 5));
-      //         getdata(
-      //             change.doc.id,
-      //             change.doc["numerocamtel"],
-      //             change.doc["amount"],
-      //             change.doc["idtransact"],
-      //             change.doc["status"]);
-      //       }
-      //
-      //       // _onMessageModified(change.doc);
-      //       // showSimpleNotification(message: data);
-      //       break;
-      //     case DocumentChangeType.removed:
-      //       print("❌ Message supprimé: ${change.doc.data()}");
-      //       // _onMessageRemoved(change.doc);
-      //       break;
-      //   }
-      // }
-    });
-  }
 
   late ScrollController _controller;
 
@@ -231,7 +149,8 @@ class _UssdScreenState extends State<UssdScreen> {
   }
 
   Future<void> sendUssd(
-      {String? number, String? amount, int statut = 1, documentid}) async {
+      {String? number, String? amount, int statut = 1, documentid}) async
+  {
     String code = "";
     String codecredit = "*550*3*1#";
     String codecredits = "*825*3*3#";

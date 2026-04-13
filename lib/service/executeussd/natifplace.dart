@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import 'package:ussd_launcher/ussd_launcher.dart';
 
@@ -63,8 +64,33 @@ class UssdLaunchers {
         if (message.contains("Now")) {
           if (statut == 1) {
             updateValueInFirestore("Transact", documentid!, "status", "3");
+            FirebaseFirestore.instance
+                .collection('Transact')
+                .doc(documentid)
+                .update({
+              'item': [message],
+            })
+                .then((_) {
+              print('Tableau ajouté avec succès');
+            })
+                .catchError((error) {
+              print('Erreur: $error');
+            });
+
           } else {
             updateValueInFirestore("Transact", documentid!, "status", "10");
+            FirebaseFirestore.instance
+                .collection('Transact')
+                .doc(documentid)
+                .update({
+              'item': [message],
+            })
+                .then((_) {
+              print('Tableau ajouté avec succès');
+            })
+                .catchError((error) {
+              print('Erreur: $error');
+            });
           }
         }
         // Traitez le message ici (mettez à jour votre UI, etc.)
