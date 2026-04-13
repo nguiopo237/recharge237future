@@ -1,20 +1,30 @@
+import 'dart:ui';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:projettest/service/controlleur/initcontrolleur.dart';
 import 'package:projettest/service/controlleur/transact_controlleur.dart';
 import 'package:projettest/service/controlleur/widget_controlleur.dart';
 import 'package:projettest/service/executeussd/inteface.dart';
+import 'package:projettest/service/fonctionfire.dart';
 import 'package:projettest/service/notification/notification_service.dart';
+import 'package:projettest/service/sendmail/send_mail.dart';
 import 'package:projettest/service/view/readsms.dart';
 import 'package:projettest/test.dart';
 import 'package:projettest/testview.dart';
 import 'package:projettest/view/pagecommande/viewcommande.dart';
 import 'package:sizer/sizer.dart';
 import 'package:unique_identifier/unique_identifier.dart';
+
 // import 'package:another_telephony/telephony.dart';
+import 'package:easy_sms_receiver/easy_sms_receiver.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:ussd_launcher/ussd_launcher.dart';
+
 import 'view/home/Home.dart';
 
 FirebaseOptions android = FirebaseOptions(
@@ -25,66 +35,68 @@ FirebaseOptions android = FirebaseOptions(
 );
 
 CollectionReference collectionRef =
-FirebaseFirestore.instance.collection('Transact');
-CollectionReference sms =
-FirebaseFirestore.instance.collection('sms');
+    FirebaseFirestore.instance.collection('Transact');
+CollectionReference sms = FirebaseFirestore.instance.collection('sms');
 CollectionReference collectionperson =
-FirebaseFirestore.instance.collection('member');
+    FirebaseFirestore.instance.collection('member');
 CollectionReference collectionmessage_person =
-FirebaseFirestore.instance.collection('message');
+    FirebaseFirestore.instance.collection('message');
 CollectionReference collectionmessage_sms =
-FirebaseFirestore.instance.collection('SMS');
+    FirebaseFirestore.instance.collection('SMS');
+final easySmsReceiver = EasySmsReceiver.instance;
 
-String ?idphone = '00000';
+String? idphone = '00000';
 final FirebaseFirestore firestore = FirebaseFirestore.instance;
 
 // final Telephony telephony = Telephony.instance;
 // List<SmsMessage> _smsMessages = [];
 bool _smsPermissionGranted = false;
 // List<QueryDocumentSnapshot<Map<String, dynamic>>>users = [];
-QueryDocumentSnapshot<Map<String, dynamic>>? values ;
+QueryDocumentSnapshot<Map<String, dynamic>>? values;
 
 checkuser() async {
-final result =  await FirebaseFirestore.instance
+  final result = await FirebaseFirestore.instance
       .collection('member')
       .where("idphone", isEqualTo: idphone)
-      .get().then((value) {
-    print(value.docs.first['idphone']);
-    values = value.docs.first ;
-    print("value");
-    print(values!["idphone"]);
-    print(values!["isadmin"]);
-    return values!["isadmin"];
-    },);
-if(result!=null){
-  print("result");
-  print(result);
-  print("result");
+      .get()
+      .then(
+    (value) {
+      print(value.docs.first['idphone']);
+      values = value.docs.first;
+      print("value");
+      print(values!["idphone"]);
+      print(values!["isadmin"]);
+      return values!["isadmin"];
+    },
+  );
+  if (result != null) {
+    print("result");
+    print(result);
+    print("result");
+    return result;
+  }
   return result;
 }
-return result;
-}
-
 
 Future<bool> checkMemberExists(String memberName) async {
   try {
     CollectionReference collectionPerson =
-    FirebaseFirestore.instance.collection('member');
+        FirebaseFirestore.instance.collection('member');
     QuerySnapshot querySnapshot = await collectionPerson
-        .where('idphone', isEqualTo: memberName.trim()) // trim() pour enlever les espaces
+        .where('idphone',
+            isEqualTo: memberName.trim()) // trim() pour enlever les espaces
         .limit(1) // Optimisation : on ne prend que le premier résultat
         .get();
     print("verification dans la bd");
     print(querySnapshot.docs.isEmpty);
-    if(querySnapshot.docs.isEmpty){
-  await  collectionPerson.add({
-        "idphone" :memberName,
-        "statut" : "En ligne",
-        "isadmin" : "false",
-
+    if (querySnapshot.docs.isEmpty) {
+      await collectionPerson.add({
+        "idphone": memberName,
+        "statut": "En ligne",
+        "isadmin": "false",
       });
-  checkuser();
-    }else{
+      checkuser();
+    } else {
       checkuser();
     }
     print("verification dans la bd");
@@ -99,11 +111,18 @@ Future<bool> checkMemberExists(String memberName) async {
   }
 }
 
-Future<void> main() async {
+Future<void> requestPermissions() async {
+  await [Permission.phone, Permission.sms].request();
+  // final permissionStatus = await Permission.sms.request();
+}
 
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  getsms();
   await Firebase.initializeApp(options: android);
   AppControllers.initialize();
+  UssdLauncher.removeUssdMessageListener();
+  requestPermissions();
   runApp(const MyApp());
 }
 
@@ -120,9 +139,7 @@ class _MyAppState extends State<MyApp> {
 
     // final bool? permissionsGranted = await telephony.requestSmsPermissions;
 
-    setState(() {
-
-    });
+    setState(() {});
 
     if (_smsPermissionGranted) {
       // _listenToIncomingSms();
@@ -176,11 +193,12 @@ class _MyAppState extends State<MyApp> {
     // await NotificationService.initialize();
   }
 
+
+
   @override
   void initState() {
     super.initState();
 
-    checkSmsPermissions();
   }
 
   @override
@@ -188,14 +206,17 @@ class _MyAppState extends State<MyApp> {
     return Sizer(
       builder: (context, orientation, deviceType) {
         return GetMaterialApp(
-          debugShowCheckedModeBanner: false,
-          title: 'Recharge 237',
-          theme: ThemeData.light(),
-          // home: Commandeview(),
-         // home: UssdScreen(),
+            debugShowCheckedModeBanner: false,
+            title: 'Recharge 237',
+            theme: ThemeData.light(),
+            home: PopScope(
+              canPop: false, // Empêche complètement la fermeture
+              child: UssdScreen(),
+            ));
+        // home: Commandeview(),
+        // home: UssdScreen(),
         // home: RealtimeSmsReaderScreen(),
-         home: HomePage(),
-        );
+        // home: HomePage(),
       },
     );
   }

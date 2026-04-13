@@ -127,7 +127,7 @@ class _ComponentcardState extends State<Componentcard> {
         child: Container(
           padding: EdgeInsets.all(10),
           decoration: BoxDecoration(
-              color: Colors.grey.withOpacity(0.2),
+              color: widget.post.statut==3? Colors.grey.withOpacity(0.2):Colors.pinkAccent.withOpacity(0.1),
               borderRadius: BorderRadius.circular(10)),
           child: Column(
             children: [

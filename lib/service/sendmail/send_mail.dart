@@ -889,6 +889,66 @@ class SendEmail{
         final response = await http.post(url);
 
         if (response.statusCode == 200) {
+
+          RegExp regExp = RegExp(r'\b\d{9}\b');
+          String? numeroTelephone = regExp.stringMatch(message);
+          RegExp regExpdate = RegExp(r'\b(\d{2}/\d{2}/\d{2}\s\d{2}:\d{2}\s(?:AM|PM))\b');
+          RegExp regExpDateSeule = RegExp(r'\b(\d{2}/\d{2}/\d{2})\b');
+          RegExp regExpheure = RegExp(r'\b\d{2}:\d{2}\s(?:AM|PM)\b');
+          String? dateHeureComplete = regExpdate.stringMatch(message);
+          String? dateSeule = regExpDateSeule.stringMatch(message);
+          String? heureComplete = regExpheure.stringMatch(message);
+          int result=0;
+
+
+          RegExp regExptransact = RegExp(r'TransactionID is (\d+)');
+          String transactionId = regExptransact.firstMatch(message)?.group(1) ?? '';
+
+          RegExp regExpTransactionID = RegExp(r'TransactionID (\d+), (\d{2}-\d{2}-\d{4}) at (\d{2}:\d{2}:\d{2})');
+          var transactionDetails = regExpTransactionID.firstMatch(message);
+          String transactionID = transactionDetails?.group(1) ?? '';
+          String date = transactionDetails?.group(2) ?? '';
+          String time = transactionDetails?.group(3) ?? '';
+
+
+          RegExp regExpost = RegExp(r'- ([A-Z0-9_]+)');
+          String codePOS = regExpost.firstMatch(message)?.group(1) ?? '';
+
+
+
+          RegExp regExpAmount = RegExp(r'amount is ([\d.,]+) FCFA');
+          RegExp regExpAmountfailed = RegExp(r'send ([\d.,]+) FCFA');
+          RegExp regExpAmounts = RegExp(r'Amount is ([\d,.]+) FCFA');
+          String amount = regExpAmount.firstMatch(message)?.group(1) ?? '';
+          String amountf = regExpAmountfailed.firstMatch(message)?.group(1) ?? '';
+          String amounts = regExpAmounts.firstMatch(message)?.group(1) ?? '';
+
+          // Extraire le solde
+          RegExp regExpBalance = RegExp(r'balance is ([\d.,]+) FCFA');
+          RegExp regExpBalances = RegExp(r'balance is\s*(\d+(?:,\d+)*(?:\.\d+)?)');
+          String balance = regExpBalance.firstMatch(message)?.group(1) ?? '';
+          String balances = regExpBalances.firstMatch(message)?.group(1) ?? '';
+          print("Montant de recharge: $amount FCFA");
+          print("Montant de rechargef: $amountf FCFA");
+          print("Montant de recharges: $codePOS FCFA");
+          print("Solde actuel: $balance FCFA");
+
+
+
+          print("Numéro de téléphone extrait: $numeroTelephone");
+          print("Date complète (avec heure): $dateHeureComplete");
+          print("Date seule: $dateSeule");
+          print("Date seule: $balance");
+          print("resultat");
+          print("mail envoyer seul");
+
+          if(message.contains("DSM")||message.contains("top-up")){
+            SendEmail.updateValueInFirestore("solde","MrLq19BDw8Jng5hzXnSx","soldepost","${balance}");
+          }
+          if(message.contains("POS")&&message.contains("_DSM")){
+            SendEmail.updateValueInFirestore("solde","jNIO5y2lj8s9PiTSV4cU","dsm","${balances}");
+
+          }
           print('Message envoyé avec succès à $chatId: ${response.body}');
         } else {
           print('Erreur pour $chatId: ${response.statusCode} - ${response.body}');
