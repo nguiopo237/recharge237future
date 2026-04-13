@@ -83,8 +83,10 @@ class UssdLaunchers {
       isRunning = false;
       print('finish place');
       if (statut == 1) {
+        print('pas de place');
         updateValueInFirestore("Transact", documentid!, "status", "3");
-      } else {
+      } else if (statut == 9) {
+        print('pas de place');
         updateValueInFirestore("Transact", documentid!, "status", "10");
       }
     }
