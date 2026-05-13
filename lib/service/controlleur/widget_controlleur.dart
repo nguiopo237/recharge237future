@@ -5,6 +5,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:get/get.dart';
 
+import '../fonctionfire.dart';
+
 widgetControlleur c = Get.find();
 class widgetControlleur extends GetxController {
   StreamSubscription? subscription;
@@ -69,8 +71,7 @@ class widgetControlleur extends GetxController {
   void onInit() {
     // TODO: implement onInit
     super.onInit();
-
-
+    getcodefirebase();
     print("on initplace");
   }
 

@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import 'package:ussd_launcher/ussd_launcher.dart';
 
+import '../controlleur/ussdcontrolleur.dart';
 import '../fonctionfire.dart';
 
 class UssdLaunchers {
@@ -11,6 +12,8 @@ class UssdLaunchers {
 
   // Variable pour stocker le callback
   static Function(String)? _ussdMessageCallback;
+
+
 
   // Initialisation du listener
   static void _initializeListener() {
@@ -44,9 +47,10 @@ class UssdLaunchers {
     required int subscriptionId,
     String? documentid,
     int? statut = 1,
+    String? number,
   }) async {
 
-
+    // ussd.listenToUssdEvents()
 
     if (isRunning){
       isRunning = false;
@@ -59,48 +63,49 @@ class UssdLaunchers {
 
     try {
       print('debut');
-      UssdLauncher.setUssdMessageListener((message) {
-        print("message flutter  $message");
-        if (message.contains("Now")) {
-          if (statut == 1) {
-            updateValueInFirestore("Transact", documentid!, "status", "3");
-            FirebaseFirestore.instance
-                .collection('Transact')
-                .doc(documentid)
-                .update({
-              'item': [message],
-            })
-                .then((_) {
-              print('Tableau ajouté avec succès');
-            })
-                .catchError((error) {
-              print('Erreur: $error');
-            });
-
-          } else {
-            updateValueInFirestore("Transact", documentid!, "status", "10");
-            FirebaseFirestore.instance
-                .collection('Transact')
-                .doc(documentid)
-                .update({
-              'item': [message],
-            })
-                .then((_) {
-              print('Tableau ajouté avec succès');
-            })
-                .catchError((error) {
-              print('Erreur: $error');
-            });
-          }
-        }
-        // Traitez le message ici (mettez à jour votre UI, etc.)
-        // Ce callback sera appelé à chaque fois qu'un nouveau message USSD arrive
-      });
+      // UssdLauncher.setUssdMessageListener((message) {
+      //   print("message flutter  $message");
+      //   if (message.contains("Now")) {
+      //     if (statut == 1) {
+      //       updateValueInFirestore("Transact", documentid!, "status", "3");
+      //       FirebaseFirestore.instance
+      //           .collection('Transact')
+      //           .doc(documentid)
+      //           .update({
+      //         'item': [message],
+      //       })
+      //           .then((_) {
+      //         print('Tableau ajouté avec succès');
+      //       })
+      //           .catchError((error) {
+      //         print('Erreur: $error');
+      //       });
+      //
+      //     } else {
+      //       updateValueInFirestore("Transact", documentid!, "status", "10");
+      //       FirebaseFirestore.instance
+      //           .collection('Transact')
+      //           .doc(documentid)
+      //           .update({
+      //         'item': [message],
+      //       })
+      //           .then((_) {
+      //         print('Tableau ajouté avec succès');
+      //       })
+      //           .catchError((error) {
+      //         print('Erreur: $error');
+      //       });
+      //     }
+      //   }
+      //   // Traitez le message ici (mettez à jour votre UI, etc.)
+      //   // Ce callback sera appelé à chaque fois qu'un nouveau message USSD arrive
+      // });
       final String? response = await _channel.invokeMethod('multisessionUssd', {
         'ussdCode': ussdCode,
         'slotIndex': subscriptionId,
-        'options': ["2006"],
+        'options': number==null? ["2006"]:["${number}","${number}","1"],
       });
+
       print("resultat de la reponse 2.0 ${response}");
       return response;
     } catch (e) {
@@ -108,13 +113,28 @@ class UssdLaunchers {
     } finally {
       isRunning = false;
       print('finish place');
-      if (statut == 1) {
-        print('pas de place');
-        updateValueInFirestore("Transact", documentid!, "status", "3");
-      } else if (statut == 9) {
-        print('pas de place');
-        updateValueInFirestore("Transact", documentid!, "status", "10");
+
+      if (!await UssdLauncher.isAccessibilityEnabled()) {
+        await UssdLauncher.openAccessibilitySettings();
+      }else{
+        if (statut == 1) {
+          print('pas de place 1');
+          updateValueInFirestore("Transact", ussd.idtransacts.value??"0", "status", "2");
+          ussd.statuts.value=1;
+        }
+        if (statut == 5) {
+          print('pas de place');
+          updateValueInFirestore("Transact", ussd.idtransacts.value??"0", "status", "6");
+          ussd.statuts.value=5;
+        }
+        if (statut == 9) {
+          print('pas de place 9');
+
+          updateValueInFirestore("Transact", ussd.idtransacts.value??"0", "status", "11");
+          ussd.statuts.value=9;
+        }
       }
+
     }
     }
   }

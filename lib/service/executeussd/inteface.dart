@@ -8,8 +8,10 @@ import 'package:ussd_launcher/ussd_launcher.dart';
 // import 'package:ussd_launcher/ussd_launcher.dart%20';
 
 import '../../component/widget/component_card.dart';
+import '../../component/widget/solde.dart';
 import '../../main.dart';
 import '../../model/listnumbermode.dart';
+import '../controlleur/ussdcontrolleur.dart';
 import '../fonctionfire.dart';
 import 'natifplace.dart';
 
@@ -30,13 +32,8 @@ class _UssdScreenState extends State<UssdScreen> {
   //   }
   // }
 
-
-
-
   Future<void> updateValueInFirestore(String collectionName, String documentId,
-      String fieldName, dynamic newValue) async
-
-  {
+      String fieldName, dynamic newValue) async {
     try {
       // Récupérer une référence à la collection et au document
       DocumentReference docRef =
@@ -51,7 +48,7 @@ class _UssdScreenState extends State<UssdScreen> {
     }
   }
 
-  listenmessage({documentid, int ?statut}) {
+  listenmessage({documentid, int? statut}) {
     UssdLaunchers.listenToUssdMessages((String message) {
       print("Nouveau message USSD: $message");
       // if(message.contains("amount")){
@@ -61,10 +58,10 @@ class _UssdScreenState extends State<UssdScreen> {
         currentMessage = message;
       });
 
-      if(statut==1){
+      if (statut == 1) {
         updateValueInFirestore("Transact", documentid, "status", "3");
         UssdLauncher.removeUssdMessageListener();
-      }else{
+      } else {
         updateValueInFirestore("Transact", documentid, "status", "10");
         UssdLauncher.removeUssdMessageListener();
       }
@@ -85,14 +82,16 @@ class _UssdScreenState extends State<UssdScreen> {
   @override
   void initState() {
     super.initState();
+    print("recheck");
     // viewsimcard();
     // Écouter les messages USSD
-    getConnectivity(context);
+    // getConnectivity(context);
   }
 
   getdata(documentid, numerocam, amount, idtransact, type) async {
     print("started transact");
     print(type);
+    print(ussd.idtransacts.value);
     print("started transact");
     await Future.delayed(Duration(seconds: 15));
     // updateValueInFirestore(
@@ -100,31 +99,44 @@ class _UssdScreenState extends State<UssdScreen> {
     bool result = await InternetConnectionChecker().hasConnection;
     if (result == true) {
       if (type == "1") {
-        sendUssd(
-            amount: amount,
-            number: numerocam,
-            statut: int.parse(type),
-            documentid: documentid);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            backgroundColor: Colors.blue,
-            duration: Duration(seconds: 18),
-            content: Text(
-              idtransact,
-              style: TextStyle(color: Colors.white),
-            )));
-      }else{
-        sendUssd(
-            amount: amount,
-            number: numerocam,
-            statut: int.parse(type),
-            documentid: documentid);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            backgroundColor: Colors.blue,
-            duration: Duration(seconds: 18),
-            content: Text(
-              idtransact,
-              style: TextStyle(color: Colors.white),
-            )));
+        if (ussd.idtransacts.value == "") {
+          ussd.idtransacts.value = documentid;
+
+          ussd.statuts.value = int.parse(type);
+          print("ussd.idtransacts.value");
+          print(ussd.idtransacts.value);
+          sendUssd(
+              amount: amount,
+              number: numerocam,
+              statut: int.parse(type),
+              documentid: documentid);
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              backgroundColor: Colors.blue,
+              duration: Duration(seconds: 18),
+              content: Text(
+                idtransact,
+                style: TextStyle(color: Colors.white),
+              )));
+        }
+      } else {
+        if (ussd.idtransacts.value == "") {
+          ussd.idtransacts.value = documentid;
+          ussd.statuts.value = int.parse(type);
+          print("ussd.idtransacts.value");
+          print(ussd.idtransacts.value);
+          sendUssd(
+              amount: amount,
+              number: numerocam,
+              statut: int.parse(type),
+              documentid: documentid);
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              backgroundColor: Colors.blue,
+              duration: Duration(seconds: 18),
+              content: Text(
+                idtransact,
+                style: TextStyle(color: Colors.white),
+              )));
+        }
       }
       // await Future.delayed(Duration(seconds: 6));
     } else {
@@ -132,8 +144,6 @@ class _UssdScreenState extends State<UssdScreen> {
       print('No internet :( Reason:');
     }
   }
-
-
 
   late ScrollController _controller;
 
@@ -149,8 +159,7 @@ class _UssdScreenState extends State<UssdScreen> {
   }
 
   Future<void> sendUssd(
-      {String? number, String? amount, int statut = 1, documentid}) async
-  {
+      {String? number, String? amount, int statut = 1, documentid}) async {
     String code = "";
     String codecredit = "*550*3*1#";
     String codecredits = "*825*3*3#";
@@ -180,143 +189,164 @@ class _UssdScreenState extends State<UssdScreen> {
       print("pas de vision: $response");
     }
   }
+
   DateTime? _lastPressedAt;
   bool _isLoading = false;
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
         canPop: false,
         onPopInvoked: (bool didPop) async {
-      if (_lastPressedAt == null ||
-          DateTime.now().difference(_lastPressedAt!) > Duration(seconds: 2)) {
-        // Premier clic ou délai dépassé
-        _lastPressedAt = DateTime.now();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Appuyez à nouveau pour quitter')),
-        );
-        return;
-      }
-      // Deuxième clic dans les 2 secondes : on ferme
-      Navigator.of(context).pop();
-    },
-    child: WillPopScope(
-    onWillPop: () async {
-    if (_isLoading) {
-    return false;
-    }
-    return true;
-    },
-    child:Scaffold(
-        appBar: AppBar(title: Text("USSD Messages")),
-        body: WillPopScope(
+          if (_lastPressedAt == null ||
+              DateTime.now().difference(_lastPressedAt!) >
+                  Duration(seconds: 2)) {
+            // Premier clic ou délai dépassé
+            _lastPressedAt = DateTime.now();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Appuyez à nouveau pour quitter')),
+            );
+            return;
+          }
+          // Deuxième clic dans les 2 secondes : on ferme
+          Navigator.of(context).pop();
+        },
+        child: WillPopScope(
           onWillPop: () async {
-            return false;
+            if (_isLoading) {
+              return false;
+            }
+            return true;
           },
-          child: Column(
-            children: [
-              ElevatedButton(
-                onPressed: () =>
-                    sendUssd(statut: 1, number: "620046820", amount: "10"),
-                child: Text("Envoyer USSD"),
-              ),
-              SizedBox(height: 20),
-              Text(
-                "Message actuel:",
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Container(
-                padding: EdgeInsets.all(16),
-                margin: EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.blue),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  currentMessage.isEmpty
-                      ? "En attente de message..."
-                      : currentMessage,
-                  style: TextStyle(fontSize: 16),
-                ),
-              ),
-              SizedBox(height: 20),
-              Text(
-                "Historique des messages:",
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              // Expanded(
-              //   child: ListView.builder(
-              //     itemCount: ussdMessages.length,
-              //     itemBuilder: (context, index) {
-              //       final data = ussdMessages[index];
-              //       return ListTile(
-              //         title: Text(data),
-              //         subtitle: Text("Message ${data}"),
-              //       );
-              //     },
-              //   ),
-              // ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: StreamBuilder(
-                    stream: firestore
-                        .collection('Transact')
-                        .orderBy("heure", descending: true)
-                        .snapshots(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return Center(child: CircularProgressIndicator());
-                      } else if (snapshot.hasError) {
-                        return Text('Erreur : ${snapshot.error}');
-                      } else if (!snapshot.hasData) {
-                        return Text('Pas de données disponibles');
-                      } else {
-                        return Container(
-                          height: Get.height,
-                          alignment: Alignment.topCenter,
-                          child: ListView.builder(
-                            reverse: false,
-                            // controller: _controller,
-                            shrinkWrap: true,
-                            itemCount: snapshot.data!.docs.length,
-                            itemBuilder: (context, index) {
-                              DocumentSnapshot document =
-                                  snapshot.data!.docs[index];
-                              Listnumberspaymodel post = Listnumberspaymodel(
-                                amount: document['amount'].toString(),
-                                numeror: document['numeroorange'].toString(),
-                                numeros: document['numerocamtel'].toString(),
-                                heure: document['heure'].toString(),
-                                statut: int.parse(document['status']),
-                                id: int.parse(document['idtransact']),
-                              );
-
-                              // filtrerDocuments();
-
-                              // return ListTile(
-                              //   trailing: IconButton(
-                              //     onPressed: () {
-                              //       // updateValue("Transact",document.id,{'amount': '3000'});
-                              //     },
-                              //     icon: Icon(Icons.add),
-                              //   ),
-                              //   title: Text(post.amount.toString()),
-                              // );
-                              return Componentcard(
-                                post: post,
-                              );
-                            },
-                          ),
-                        );
-                      }
-                    },
+          child: Scaffold(
+            appBar: AppBar(title: Text("USSD Messages")),
+            body: WillPopScope(
+              onWillPop: () async {
+                return false;
+              },
+              child: Column(
+                children: [
+                  buildKPISection(Theme.of(context)),
+                  ElevatedButton(
+                    onPressed: () => sendUssd(
+                        statut: 1, number: "620046820", amount: "100000000"),
+                    child: Text("Envoyer USSD"),
                   ),
-                ),
-              )
-            ],
+                  SizedBox(height: 20),
+                  Text(
+                    "Message actuel:",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Container(
+                    padding: EdgeInsets.all(16),
+                    margin: EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.blue),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      currentMessage.isEmpty
+                          ? "En attente de message..."
+                          : currentMessage,
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  ),
+                  SizedBox(height: 20),
+
+                  SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      Text(
+                        "Historique des messages:",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      Obx(
+                        () => Text(
+                          ussd.operationlengh.value.toString(),
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      )
+                    ],
+                  ),
+                  // Expanded(
+                  //   child: ListView.builder(
+                  //     itemCount: ussdMessages.length,
+                  //     itemBuilder: (context, index) {
+                  //       final data = ussdMessages[index];
+                  //       return ListTile(
+                  //         title: Text(data),
+                  //         subtitle: Text("Message ${data}"),
+                  //       );
+                  //     },
+                  //   ),
+                  // ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: StreamBuilder(
+                        stream: firestore
+                            .collection('Transact')
+                            .orderBy("heure", descending: true)
+                            .snapshots(),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return Center(child: CircularProgressIndicator());
+                          } else if (snapshot.hasError) {
+                            return Text('Erreur : ${snapshot.error}');
+                          } else if (!snapshot.hasData) {
+                            return Text('Pas de données disponibles');
+                          } else {
+                            return Container(
+                              height: Get.height,
+                              alignment: Alignment.topCenter,
+                              child: ListView.builder(
+                                reverse: false,
+                                // controller: _controller,
+                                shrinkWrap: true,
+                                itemCount: snapshot.data!.docs.length,
+                                itemBuilder: (context, index) {
+                                  DocumentSnapshot document =
+                                      snapshot.data!.docs[index];
+                                  Listnumberspaymodel post =
+                                      Listnumberspaymodel(
+                                    amount: document['amount'].toString(),
+                                    numeror:
+                                        document['numeroorange'].toString(),
+                                    numeros:
+                                        document['numerocamtel'].toString(),
+                                    heure: document['heure'].toString(),
+                                    statut: int.parse(document['status']),
+                                    id: int.parse(document['idtransact']),
+                                  );
+
+                                  // filtrerDocuments();
+
+                                  // return ListTile(
+                                  //   trailing: IconButton(
+                                  //     onPressed: () {
+                                  //       // updateValue("Transact",document.id,{'amount': '3000'});
+                                  //     },
+                                  //     icon: Icon(Icons.add),
+                                  //   ),
+                                  //   title: Text(post.amount.toString()),
+                                  // );
+                                  return Componentcard(
+                                    post: post,
+                                  );
+                                },
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                  )
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
-    ));
+        ));
   }
 }

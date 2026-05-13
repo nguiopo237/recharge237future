@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_phoenix/flutter_phoenix.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:projettest/service/controlleur/initcontrolleur.dart';
@@ -11,18 +12,11 @@ import 'package:projettest/service/controlleur/transact_controlleur.dart';
 import 'package:projettest/service/controlleur/widget_controlleur.dart';
 import 'package:projettest/service/executeussd/inteface.dart';
 import 'package:projettest/service/fonctionfire.dart';
-import 'package:projettest/service/notification/notification_service.dart';
-import 'package:projettest/service/sendmail/send_mail.dart';
-import 'package:projettest/service/view/readsms.dart';
-import 'package:projettest/test.dart';
-import 'package:projettest/testview.dart';
-import 'package:projettest/view/pagecommande/viewcommande.dart';
-import 'package:sizer/sizer.dart';
-import 'package:unique_identifier/unique_identifier.dart';
 
-// import 'package:another_telephony/telephony.dart';
+import 'package:sizer/sizer.dart';
+
 import 'package:easy_sms_receiver/easy_sms_receiver.dart';
-import 'package:flutter_background_service/flutter_background_service.dart';
+
 import 'package:ussd_launcher/ussd_launcher.dart';
 
 import 'view/home/Home.dart';
@@ -116,17 +110,49 @@ Future<void> requestPermissions() async {
   // final permissionStatus = await Permission.sms.request();
 }
 
-Future<void> main() async {
+Future<void> mains() async {
   WidgetsFlutterBinding.ensureInitialized();
   getsms();
   await Firebase.initializeApp(options: android);
+  requestPermissions();
   AppControllers.initialize();
   UssdLauncher.removeUssdMessageListener();
-  requestPermissions();
-  runApp(const MyApp());
+
+  runApp(
+    Phoenix(
+      child: MyApp(),
+    ),
+  );
 }
 
+// Ajoute temporairement ce code dans main() pour voir ce qui se passe
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  print('📱 Firebase.apps avant init : ${Firebase.apps.length}');
+
+  try {
+    await Firebase.initializeApp(options: android);
+    print('✅ Firebase initialisé avec succès');
+  } catch (e) {
+    print('❌ Erreur : $e');
+    // Si l'app existe déjà, utilise-la
+    if (Firebase.apps.isNotEmpty) {
+      print('📱 App existante trouvée : ${Firebase.apps.first.options.projectId}');
+    }
+  }
+  getsms();
+  requestPermissions();
+  AppControllers.initialize();
+  UssdLauncher.removeUssdMessageListener();
+
+  print('📱 Firebase.apps après : ${Firebase.apps.length}');
+  runApp(MyApp());
+}
+
+
 class MyApp extends StatefulWidget {
+
   const MyApp({super.key});
 
   @override
@@ -134,20 +160,7 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  Future<void> checkSmsPermissions() async {
-    print("Vérification des permissions SMS");
 
-    // final bool? permissionsGranted = await telephony.requestSmsPermissions;
-
-    setState(() {});
-
-    if (_smsPermissionGranted) {
-      // _listenToIncomingSms();
-      // _loadExistingSms();
-    } else {
-      print("Permissions SMS non accordées");
-    }
-  }
 
   // Future<void> _loadExistingSms() async {
   //   try {
@@ -189,9 +202,7 @@ class _MyAppState extends State<MyApp> {
   //   );
   // }
 
-  Future<void> _initializeNotifications() async {
-    // await NotificationService.initialize();
-  }
+
 
 
 
@@ -203,21 +214,24 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return Sizer(
-      builder: (context, orientation, deviceType) {
-        return GetMaterialApp(
-            debugShowCheckedModeBanner: false,
-            title: 'Recharge 237',
-            theme: ThemeData.light(),
-            home: PopScope(
-              canPop: false, // Empêche complètement la fermeture
-              child: UssdScreen(),
-            ));
-        // home: Commandeview(),
-        // home: UssdScreen(),
-        // home: RealtimeSmsReaderScreen(),
-        // home: HomePage(),
-      },
+    return Phoenix(
+      child: Sizer(
+        builder: (context, orientation, deviceType) {
+          return GetMaterialApp(
+              debugShowCheckedModeBanner: false,
+              title: 'Recharge 237',
+              // navigatorKey: MyApp.navigatorKey,
+              theme: ThemeData.light(),
+              home: PopScope(
+                canPop: false, // Empêche complètement la fermeture
+                child: UssdScreen(),
+              ));
+          // home: Commandeview(),
+          // home: UssdScreen(),
+          // home: RealtimeSmsReaderScreen(),
+          // home: HomePage(),
+        },
+      ),
     );
   }
 }

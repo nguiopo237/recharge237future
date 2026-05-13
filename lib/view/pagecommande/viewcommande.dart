@@ -563,7 +563,7 @@ class _CommandeviewState extends State<Commandeview> {
     super.initState();
     // requestPermissions();
      getsms();
-    getConnectivity();
+    // getConnectivity();
     check();
 
     // backgroundMessageHandler();

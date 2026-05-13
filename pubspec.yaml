@@ -39,6 +39,7 @@ dependencies:
   http:
   ussd_launcher: ^1.5.0
   easy_sms_receiver: ^0.0.2
+  flutter_phoenix: ^1.1.0
 
 
 
