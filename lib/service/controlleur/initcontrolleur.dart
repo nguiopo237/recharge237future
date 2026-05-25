@@ -14,7 +14,7 @@ import 'home_controlleur.dart';
 
 class AppControllers {
 
-  static initialize() async {
+  static initialize() async {  
 
     Get.put(widgetControlleur(), permanent: true);
     // Get.put(IdleController(), permanent: true);

@@ -302,6 +302,31 @@ void checkoperations(context) async {
     // print(idle.isIdle.value);
     // print("Inactif");
     for (var change in snapshot.docChanges) {
+      int count = snapshot.docs.where((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        print("verifier");
+        print(data["idtransact"]);
+        print(data["status"]);
+        print("verifier");
+        if (data['status'] == "1") {
+          print(data["idtransact"]);
+        }
+        return data['status'] == "1";
+      }).length;
+      int counts = snapshot.docs.where((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        print("verifier");
+        print(data["idtransact"]);
+        print(data["status"]);
+        print("verifier");
+        if (data['status'] == "1") {
+          print(data["idtransact"]);
+        }
+        return data['status'] == "9";
+      }).length;
+
+      ussd.operationlengh.value = count + counts;
+      print("Total  donc le statut es  : $count");
       switch (change.type) {
         case DocumentChangeType.added:
           //  print("✏️ Nouvelle transaction ajoutée");
@@ -314,16 +339,7 @@ void checkoperations(context) async {
 
             // ✅ AU LIEU D'APPELER DIRECTEMENT getdata()
             // ✅ Ajouter à la file d'attente
-            int count = snapshot.docs.where((doc) {
-              final data = doc.data() as Map<String, dynamic>;
 
-              if (data['status'] == "1") {
-                print(data["idtransact"]);
-              }
-              return data['status'] == "1";
-            }).length;
-            ussd.operationlengh.value = count;
-            print("Total  donc le statut es 1 : $count");
 
             transactionProcess.addTransaction(
                 change.doc.data() as Map<String, dynamic>,
@@ -392,6 +408,59 @@ void checkoperations(context) async {
     }
   });
 }
+
+final Set<String> _processing = {};
+final Set<String> _completed = {};
+
+
+Future<void> processTransaction(DocumentSnapshot doc, BuildContext context) async {
+  try {
+    await getdata(
+        doc.id,
+        doc["numerocamtel"],
+        doc["amount"],
+        doc["idtransact"],
+        doc["status"],
+        context,
+        doc["retry"]
+    );
+  } finally {
+    // Même en cas d'erreur, retirer de processing
+    _processing.remove(doc.id);
+  }
+}
+
+void startMonitoring(BuildContext context) {
+  FirebaseFirestore.instance
+      .collection('Transact')
+      .snapshots()
+      .listen((snapshot) {
+    for (var change in snapshot.docChanges) {
+      final id = change.doc.id;
+      final status = change.doc["status"]?.toString() ?? "";
+
+      // Transaction terminée → nettoyer
+      if (status == "2" || status == "10" || status == "99") {
+        _processing.remove(id);
+        _completed.add(id);
+        // Nettoyer les anciennes après 1 heure
+        Future.delayed(Duration(hours: 1), () => _completed.remove(id));
+        continue;
+      }
+
+      // Transaction à traiter (uniquement si pas déjà en cours)
+      if ((status == "1" || status == "5" || status == "9") &&
+          !_processing.contains(id) &&
+          !_completed.contains(id)) {
+        print("start recharge");
+        _processing.add(id);
+        processTransaction(change.doc, context);
+      }
+    }
+  });
+}
+
+
 
 // Option 2: Alternative avec un Set pour plus de clarté
 Set<String> executedTransactions = {};
@@ -484,7 +553,8 @@ getConnectivity(context) {
           ));
         } else {
           // verifiedoc.loadData();
-          checkoperations(context);
+        //  checkoperations(context);
+          startMonitoring(Get.context!);
           //  checkoperation(context);
           ScaffoldMessenger.of(Get.context!)
               .hideCurrentSnackBar(reason: SnackBarClosedReason.swipe);

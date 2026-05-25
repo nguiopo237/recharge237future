@@ -117,7 +117,6 @@ Future<void> mains() async {
   requestPermissions();
   AppControllers.initialize();
   UssdLauncher.removeUssdMessageListener();
-
   runApp(
     Phoenix(
       child: MyApp(),
