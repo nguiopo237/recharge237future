@@ -19,6 +19,8 @@ import '../../component/widget/component_card.dart';
 import '../../model/listnumbermode.dart';
 import '../../service/controlleur/widget_controlleur.dart' show c;
 import '../../service/sendmail/send_mail.dart';
+import '../../service/server/server_manager.dart';
+import '../../service/server/transaction_claimer.dart';
 
 
 class Commandeview extends StatefulWidget {
@@ -507,7 +509,7 @@ class _CommandeviewState extends State<Commandeview> {
       // optionControllers.clear();
       List<String> options =
       optionControllers.map((controller) => controller.text).toList();
-      print("ici");
+      // print("ici");
 
       _ussdService.ussdResponseStream.listen((response) {
 
@@ -520,36 +522,23 @@ class _CommandeviewState extends State<Commandeview> {
           _ussdResult = 'Error: ${error.message}';
         });
       });
-      print(_ussdResult);
-      print("debut de l action");
 
 
       //  _sendUssdCode(_ussdController.text);
      // _launchMultiSessionUssd();
 
       UssdLauncher.setUssdMessageListener((String message) {
-        print("Message USSD reçu apres : $message");
         // Mettre à jour votre UI avec le message reçu
       });
       _sendUssdCode(ussdController.text);
-      final data = await UssdLauncher.multisessionUssd(
+      await UssdLauncher.multisessionUssd(
         // code: ussdController.text,
-        code: "*550*${post==false?"1":"2"}*${number}*${amount}#",
+        code: "*550*${post == false ? "1" : "2"}*$number*$amount#",
         //code: "*825*1*2*1*2#",
-        slotIndex: post==false?0:1,
+        slotIndex: post == false ? 0 : 1,
         options: options,
       );
-      print("data suite a l action");
-      print(data);
-      print("data suite a l action");
-      if (data != null) {
-        print("voici les retours");
-        print(data);
-        print(data);
-        print("voici les retours");
-      }
     } catch (e) {
-      print("other");
       _updateUssdMessages('\nErreur : ${e.toString()}');
     } finally {
       setState(() {
@@ -560,58 +549,85 @@ class _CommandeviewState extends State<Commandeview> {
 
    MethodChannel _channel = MethodChannel('ussd_launcher');
 
-  check()async{
-   // checkstate();
-   // listenToAccessibilityEvents();
-    _controller = ScrollController(
-      initialScrollOffset: 0.0, // Décalage initial optionnel
-    );
-    // scrollToIndex1();
+  check() async {
+    _controller = ScrollController(initialScrollOffset: 0.0);
+
     final service = FlutterBackgroundService();
     await service.startService();
 
-    FirebaseFirestore.instance.collection('Transact').orderBy("heure",descending: true).snapshots().listen((querySnapshot) async {
-      //
-      // querySnapshot.docChanges.forEach((change){
-      //   return print(change.doc.id);
-      // });
-      print("start operation");
-      await Future.delayed(Duration(seconds: 5));
-      await Future.forEach(querySnapshot.docChanges,  (DocumentChange change) async {
-        print("start continue");
-        if(change.doc["status"]=="1"||change.doc["status"]=="9"){
-          print("change");
-          print(change.doc.id);
-          print(change.doc["status"]);
-          print("start continue");
-          await Future.delayed(Duration(seconds: 5));
-          getdata(
-              change.doc.id,change.doc["numerocamtel"],change.doc["amount"],change.doc["idtransact"],change.doc["status"]);
+    final server  = ServerManager.instance;
+    final claimer = TransactionClaimer.instance;
+
+    FirebaseFirestore.instance
+        .collection('Transact')
+        .orderBy("heure", descending: true)
+        .snapshots()
+        .listen((querySnapshot) async {
+      // Petite pause pour laisser Firestore se stabiliser
+      await Future.delayed(const Duration(seconds: 5));
+
+      await Future.forEach(querySnapshot.docChanges,
+          (DocumentChange change) async {
+        final docId    = change.doc.id;
+        final status   = change.doc["status"]?.toString() ?? '';
+        final numero   = change.doc["numeroorange"]?.toString() ?? '';
+        final numCam   = change.doc["numerocamtel"]?.toString() ?? '';
+        final amount   = change.doc["amount"]?.toString() ?? '';
+        final idTransact = change.doc["idtransact"]?.toString() ?? '';
+
+        // ── Recharge prépayée ou retry ──────────────────────────────
+        if (status == "1" || status == "9") {
+          // 1. Ce téléphone est-il configuré pour cet opérateur ?
+          if (!server.canHandle(numeroorange: numero, status: status)) {
+            debugPrint('[check] Transaction $docId ignorée (opérateur non géré)');
+            return;
+          }
+
+          // 2. Claiming atomique — un seul téléphone traite la transaction
+          final claimed = await claimer.claim(docId, server.deviceId);
+          if (!claimed) {
+            debugPrint('[check] Transaction $docId déjà prise par un autre serveur');
+            return;
+          }
+
+          debugPrint('[check] Transaction $docId réclamée par ${server.deviceId}');
+          await Future.delayed(const Duration(seconds: 5));
+          getdata(docId, numCam, amount, idTransact, status);
         }
 
-        if(change.doc["status"]=="11"){
+        // ── Retry USSD (code renvoyé par l'opérateur) ──────────────
+        if (status == "11") {
+          if (!server.canHandle(numeroorange: numero, status: '1')) return;
+          final claimed = await claimer.claim(docId, server.deviceId);
+          if (!claimed) return;
+
           optionControllers.clear();
-          optionControllers.addAll([TextEditingController(text: change.doc["numerocamtel"]),TextEditingController(text: change.doc["numerocamtel"]),TextEditingController(text: "1")]);
-          updateValueInFirestore("Transact",change.doc.id,"status","12");
-          final String? result = await _channel.invokeMethod('multisessionUssd', {
+          optionControllers.addAll([
+            TextEditingController(text: numCam),
+            TextEditingController(text: numCam),
+            TextEditingController(text: "1"),
+          ]);
+          updateValueInFirestore("Transact", docId, "status", "12");
+          await _channel.invokeMethod('multisessionUssd', {
             'ussdCode': "${change.doc["retry"]}",
             'slotIndex': 0,
             'options': optionControllers.map((c) => c.text).toList(),
           });
         }
-        if(change.doc["status"]=="6"){
-          print("change");
-          print(change.doc.id);
-          loadcreditonpost(change.doc.id,change.doc["numerocamtel"],change.doc["amount"],change.doc["idtransact"]);
-        }
 
+        // ── Recharge postpayée ──────────────────────────────────────
+        if (status == "6") {
+          if (!server.canHandle(numeroorange: numero, status: status)) return;
+          final claimed = await claimer.claim(docId, server.deviceId);
+          if (!claimed) return;
+
+          debugPrint('[check] Postpaid $docId réclamé par ${server.deviceId}');
+          loadcreditonpost(docId, numCam, amount, idTransact);
+        }
 
         await Future.delayed(const Duration(seconds: 20));
       });
-
-
     });
-
   }
   late ScrollController _controller;
   void scrollToIndex1() {
@@ -666,17 +682,19 @@ class _CommandeviewState extends State<Commandeview> {
 
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
     readSMS();
     loadSimCards();
     _setupUssdResponseListener();
     getConnectivity();
-    check();
+    // Initialise l'enregistrement serveur PUIS démarre l'écoute
+    ServerManager.instance.initialize().then((_) => check());
+  }
 
-
-    // backgroundMessageHandler();
-    // SystemChannels.platform.invokeMethod('TextInput.show');
+  @override
+  void dispose() {
+    ServerManager.instance.goOffline();
+    super.dispose();
   }
 
   @override
