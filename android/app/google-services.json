@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "512370632694",
+    "project_id": "bdtestserveur",
+    "storage_bucket": "bdtestserveur.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:512370632694:android:d2641ef949c3c35d70c9d7",
+        "android_client_info": {
+          "package_name": "com.example.projettest"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyADnzij5B4ImSvnkTSff-cUnIt_y1JTvYg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

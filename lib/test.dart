@@ -290,15 +290,11 @@ class _SessionState extends State<Session> {
       debugPrint("Slot: $_selectedSlotIndex");
       debugPrint("Options: $options");
 
-      final result = await UssdLauncher.multisessionUssd(
+      await UssdLauncher.multisessionUssd(
         code: _ussdController.text,
         slotIndex: _selectedSlotIndex ?? 0,
         options: options,
       );
-
-      if (result != null) {
-        debugPrint("Résultat USSD: $result");
-      }
     } catch (e) {
       _ussdMessages.add('\nErreur : ${e.toString()}');
     } finally {

@@ -129,22 +129,13 @@ class _ComponentcardState extends State<Componentcard> {
       //  _sendUssdCode(_ussdController.text);
       // _launchMultiSessionUssd();
       _sendUssdCode(ussdController.text);
-      final data = await UssdLauncher.multisessionUssd(
+      await UssdLauncher.multisessionUssd(
         // code: ussdController.text,
         code: "*825*1*2*1*2#",
         //code: "*825*1*2*1*2#",
         slotIndex: 0,
         options: options,
       );
-      print("data suite a l action");
-      print(data);
-      print("data suite a l action");
-      if (data != null) {
-        print("voici les retours");
-        print(data);
-        print(data);
-        print("voici les retours");
-      }
     } catch (e) {
       print("other");
       _updateUssdMessages('\nErreur : ${e.toString()}');
