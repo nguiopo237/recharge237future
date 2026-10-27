@@ -139,11 +139,11 @@ class MtnUssdManager {
     await _updateStatus(docId, '30');
     debugPrint('[MtnUssdManager] ForfaitQuery → $clientNumber, slot=${sim.slot}');
 
-    // Première tentative : charger la liste sans pagination
+    // Raccourci direct MTN Boost / Good Deal : *126*7*{numéroClient}#
     final session = await _runSession(
-      code: '*126#',
+      code: '*126*7*$clientNumber#',
       simSlot: sim.slot,
-      options: ['8', clientNumber],
+      options: [],
     );
 
     // Si la réponse contient "suite" → relancer avec "00" pour tout charger
@@ -196,11 +196,12 @@ class MtnUssdManager {
     await _updateStatus(docId, '33');
     debugPrint('[MtnUssdManager] ActivateForfait → $clientNumber, offre=$forfaitIndex, slot=${sim.slot}');
 
-    // Étapes : *126# → 8 → numéroClient → indexForfait → PIN
+    // Raccourci direct MTN Boost / Good Deal : *126*7*{numéroClient}#
+    // puis sélection de l'offre et confirmation PIN
     final session = await _runSession(
-      code: '*126#',
+      code: '*126*7*$clientNumber#',
       simSlot: sim.slot,
-      options: ['8', clientNumber, forfaitIndex, sim.pin],
+      options: [forfaitIndex, sim.pin],
     );
 
     final success = _containsKeyword(session.rawMessage, _mtnSuccessKeywords);
@@ -278,15 +279,15 @@ class MtnUssdManager {
     );
   }
 
-  /// Recharge la liste des forfaits avec pagination ("00").
+  /// Recharge la liste complète avec pagination ("00").
   Future<String> _loadFullList({
     required String clientNumber,
     required SimConfig sim,
   }) async {
     final session = await _runSession(
-      code: '*126#',
+      code: '*126*7*$clientNumber#',
       simSlot: sim.slot,
-      options: ['8', clientNumber, '00'],
+      options: ['00'],
     );
     return session.allMessages.join('\n');
   }
