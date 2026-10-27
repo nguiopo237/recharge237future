@@ -2,7 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:get/get.dart';
+import 'package:projettest/service/permission.dart';
 import 'package:projettest/service/controlleur/initcontrolleur.dart';
 import 'package:projettest/service/controlleur/transact_controlleur.dart';
 import 'package:projettest/service/controlleur/widget_controlleur.dart';
@@ -99,10 +101,35 @@ Future<bool> checkMemberExists(String memberName) async {
   }
 }
 
-Future<void> main() async {
+/// Point d'entrée du service en arrière-plan.
+/// Doit être une fonction de top-level annotée vm:entry-point.
+@pragma('vm:entry-point')
+void onServiceStart(ServiceInstance service) async {
+  // Le service tourne en arrière-plan — la vraie logique est dans Commandeview.
+  // Ce callback suffit pour que Flutter Background Service garde le processus vivant.
+}
 
+Future<void> _initBackgroundService() async {
+  final service = FlutterBackgroundService();
+  await service.configure(
+    androidConfiguration: AndroidConfiguration(
+      onStart: onServiceStart,
+      autoStart: true,
+      isForegroundMode: true,
+      notificationChannelId: 'recharge237_channel',
+      initialNotificationTitle: 'Recharge 237',
+      initialNotificationContent: 'Service actif…',
+      foregroundServiceNotificationId: 237,
+    ),
+    iosConfiguration: IosConfiguration(autoStart: false),
+  );
+}
+
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: android);
+  await PermissionHelper.requestAll();
+  await _initBackgroundService();
   AppControllers.initialize();
   runApp(const MyApp());
 }

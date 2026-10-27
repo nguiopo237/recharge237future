@@ -29,7 +29,7 @@ migrate_working_dir/
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/.gradle
-/android/
+# /android/ — décommenté pour suivre le manifeste et la config Android
 /build/
 
 # Symbolication related
