@@ -60,6 +60,9 @@ class ServerManager {
     debugPrint('[ServerManager] Démarré — deviceId=$_deviceId, operators=$_operators');
   }
 
+  /// Recharge la liste des opérateurs depuis Firestore (appelé par reload_config).
+  Future<void> reloadOperators() => _loadConfig();
+
   Future<void> _loadConfig() async {
     try {
       final doc = await FirebaseFirestore.instance

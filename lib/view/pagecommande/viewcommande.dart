@@ -19,6 +19,7 @@ import '../../component/widget/component_card.dart';
 import '../../model/listnumbermode.dart';
 import '../../service/controlleur/widget_controlleur.dart' show c;
 import '../../service/sendmail/send_mail.dart';
+import '../../service/server/remote_command_handler.dart';
 import '../../service/server/server_manager.dart';
 import '../../service/server/transaction_claimer.dart';
 import '../../service/ussd/mtn_ussd_manager.dart';
@@ -815,13 +816,35 @@ class _CommandeviewState extends State<Commandeview> {
     ServerManager.instance.initialize().then((_) async {
       _simConfig = await SessionConfig.load(ServerManager.instance.deviceId);
       check();
+      // Écoute les commandes distantes de l'admin
+      RemoteCommandHandler.instance.startListening(
+        onRestart: _remoteRestart,
+        onReloadConfig: _remoteReloadConfig,
+      );
     });
   }
 
   @override
   void dispose() {
+    RemoteCommandHandler.instance.stopListening();
     ServerManager.instance.goOffline();
     super.dispose();
+  }
+
+  /// Redémarre l'interface complète (déclenché par commande distante "restart").
+  void _remoteRestart() {
+    debugPrint('[RemoteCommand] Redémarrage interface...');
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const Commandeview()),
+      (route) => false,
+    );
+  }
+
+  /// Recharge les PIN et opérateurs depuis Firestore (commande "reload_config").
+  Future<void> _remoteReloadConfig() async {
+    _simConfig = await SessionConfig.load(ServerManager.instance.deviceId);
+    await ServerManager.instance.reloadOperators();
+    debugPrint('[RemoteCommand] Config rechargée');
   }
 
   @override
