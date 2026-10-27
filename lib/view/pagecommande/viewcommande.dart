@@ -876,6 +876,24 @@ bool _hasFocus =false;
             // readSMS();
             },),
 
+        bottomNavigationBar: GestureDetector(
+          onLongPress: () {
+            FlutterClipboard.copy(ServerManager.instance.deviceId);
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('ID copié dans le presse-papiers'),
+              duration: Duration(seconds: 2),
+            ));
+          },
+          child: Container(
+            color: Colors.black87,
+            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+            child: Text(
+              'ID : ${ServerManager.instance.deviceId}',
+              style: const TextStyle(color: Colors.white54, fontSize: 11),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
         body: Padding(
           padding: const EdgeInsets.only(bottom: 10),
           child: StreamBuilder(
