@@ -21,6 +21,8 @@ import '../../service/controlleur/widget_controlleur.dart' show c;
 import '../../service/sendmail/send_mail.dart';
 import '../../service/server/server_manager.dart';
 import '../../service/server/transaction_claimer.dart';
+import '../../service/ussd/mtn_ussd_manager.dart';
+import '../../service/ussd/session_config.dart';
 
 
 class Commandeview extends StatefulWidget {
@@ -552,50 +554,61 @@ class _CommandeviewState extends State<Commandeview> {
   check() async {
     _controller = ScrollController(initialScrollOffset: 0.0);
 
-    final service = FlutterBackgroundService();
-    await service.startService();
+    final bgService = FlutterBackgroundService();
+    await bgService.startService();
 
     final server  = ServerManager.instance;
     final claimer = TransactionClaimer.instance;
+    final mtn     = MtnUssdManager.instance;
+
+    // Charger la config SIM/PIN depuis Firestore une fois au démarrage
+    final simConfig = await SessionConfig.load(server.deviceId);
 
     FirebaseFirestore.instance
         .collection('Transact')
         .orderBy("heure", descending: true)
         .snapshots()
         .listen((querySnapshot) async {
-      // Petite pause pour laisser Firestore se stabiliser
       await Future.delayed(const Duration(seconds: 5));
 
       await Future.forEach(querySnapshot.docChanges,
           (DocumentChange change) async {
-        final docId    = change.doc.id;
-        final status   = change.doc["status"]?.toString() ?? '';
-        final numero   = change.doc["numeroorange"]?.toString() ?? '';
-        final numCam   = change.doc["numerocamtel"]?.toString() ?? '';
-        final amount   = change.doc["amount"]?.toString() ?? '';
-        final idTransact = change.doc["idtransact"]?.toString() ?? '';
+        final docId         = change.doc.id;
+        final status        = change.doc["status"]?.toString() ?? '';
+        final operateur     = change.doc["operateur_cible"]?.toString() ?? 'camtel_pre';
+        final numero        = change.doc["numeroorange"]?.toString() ?? '';
+        final numCible      = change.doc["numerocamtel"]?.toString() ?? '';
+        final amount        = change.doc["amount"]?.toString() ?? '';
+        final idTransact    = change.doc["idtransact"]?.toString() ?? '';
+        final forfaitIndex  = change.doc["forfait_index"]?.toString() ?? '';
 
-        // ── Recharge prépayée ou retry ──────────────────────────────
-        if (status == "1" || status == "9") {
-          // 1. Ce téléphone est-il configuré pour cet opérateur ?
-          if (!server.canHandle(numeroorange: numero, status: status)) {
-            debugPrint('[check] Transaction $docId ignorée (opérateur non géré)');
-            return;
-          }
-
-          // 2. Claiming atomique — un seul téléphone traite la transaction
+        // ─────────────────────────────────────────────────────────────
+        // CAMTEL PRÉPAYÉ / RETRY  (comportement original inchangé)
+        // ─────────────────────────────────────────────────────────────
+        if ((status == "1" || status == "9") &&
+            (operateur == 'camtel_pre' || operateur == '')) {
+          if (!server.canHandle(numeroorange: numero, status: status)) return;
           final claimed = await claimer.claim(docId, server.deviceId);
-          if (!claimed) {
-            debugPrint('[check] Transaction $docId déjà prise par un autre serveur');
-            return;
-          }
+          if (!claimed) return;
 
-          debugPrint('[check] Transaction $docId réclamée par ${server.deviceId}');
           await Future.delayed(const Duration(seconds: 5));
-          getdata(docId, numCam, amount, idTransact, status);
+          getdata(docId, numCible, amount, idTransact, status);
         }
 
-        // ── Retry USSD (code renvoyé par l'opérateur) ──────────────
+        // ─────────────────────────────────────────────────────────────
+        // CAMTEL POSTPAYÉ  (comportement original inchangé)
+        // ─────────────────────────────────────────────────────────────
+        if (status == "6" && operateur == 'camtel_post') {
+          if (!server.canHandle(numeroorange: numero, status: status)) return;
+          final claimed = await claimer.claim(docId, server.deviceId);
+          if (!claimed) return;
+
+          loadcreditonpost(docId, numCible, amount, idTransact);
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // RETRY USSD CAMTEL  (comportement original inchangé)
+        // ─────────────────────────────────────────────────────────────
         if (status == "11") {
           if (!server.canHandle(numeroorange: numero, status: '1')) return;
           final claimed = await claimer.claim(docId, server.deviceId);
@@ -603,8 +616,8 @@ class _CommandeviewState extends State<Commandeview> {
 
           optionControllers.clear();
           optionControllers.addAll([
-            TextEditingController(text: numCam),
-            TextEditingController(text: numCam),
+            TextEditingController(text: numCible),
+            TextEditingController(text: numCible),
             TextEditingController(text: "1"),
           ]);
           updateValueInFirestore("Transact", docId, "status", "12");
@@ -615,14 +628,65 @@ class _CommandeviewState extends State<Commandeview> {
           });
         }
 
-        // ── Recharge postpayée ──────────────────────────────────────
-        if (status == "6") {
+        // ─────────────────────────────────────────────────────────────
+        // MTN AIRTIME  — Workflow A interactif
+        // Statuts : 1 (en attente) → 20 (en cours) → 21 (ok) / 22 (ko)
+        // ─────────────────────────────────────────────────────────────
+        if (status == "1" && operateur == 'mtn_airtime') {
           if (!server.canHandle(numeroorange: numero, status: status)) return;
           final claimed = await claimer.claim(docId, server.deviceId);
           if (!claimed) return;
 
-          debugPrint('[check] Postpaid $docId réclamé par ${server.deviceId}');
-          loadcreditonpost(docId, numCam, amount, idTransact);
+          debugPrint('[check] MTN Airtime → $numCible $amount FCFA');
+          await mtn.rechargeAirtime(
+            docId:        docId,
+            amount:       amount,
+            clientNumber: numCible,
+            sim:          simConfig.mtn,
+          );
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // MTN FORFAIT Phase 1 — Récupérer la liste des offres
+        // Déclenché quand status == "1" et operateur == "mtn_forfait"
+        // → après succès, status passe à "31" et `forfait_list` est rempli
+        // ─────────────────────────────────────────────────────────────
+        if (status == "1" && operateur == 'mtn_forfait') {
+          if (!server.canHandle(numeroorange: numero, status: status)) return;
+          final claimed = await claimer.claim(docId, server.deviceId);
+          if (!claimed) return;
+
+          debugPrint('[check] MTN Forfait Query → $numCible');
+          await mtn.queryForfaitList(
+            docId:        docId,
+            clientNumber: numCible,
+            sim:          simConfig.mtn,
+          );
+          // Après ça, l'app client lit `forfait_list` et affiche les offres.
+          // L'utilisateur sélectionne + paie → l'app met status à "1" et
+          // operateur à "mtn_forfait_activate" avec forfait_index rempli.
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // MTN FORFAIT Phase 2 — Activer l'offre choisie après paiement
+        // Statuts : 1 → 33 (activation) → 34 (ok) / 35 (ko)
+        // ─────────────────────────────────────────────────────────────
+        if (status == "1" && operateur == 'mtn_forfait_activate') {
+          if (forfaitIndex.isEmpty) {
+            debugPrint('[check] Erreur : forfait_index manquant pour $docId');
+            return;
+          }
+          if (!server.canHandle(numeroorange: numero, status: status)) return;
+          final claimed = await claimer.claim(docId, server.deviceId);
+          if (!claimed) return;
+
+          debugPrint('[check] MTN Forfait Activate → $numCible, offre=$forfaitIndex');
+          await mtn.activateForfait(
+            docId:        docId,
+            clientNumber: numCible,
+            forfaitIndex: forfaitIndex,
+            sim:          simConfig.mtn,
+          );
         }
 
         await Future.delayed(const Duration(seconds: 20));
