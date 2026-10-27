@@ -148,6 +148,13 @@ class _CommandeviewState extends State<Commandeview> {
         print("charger les element");
 
         await  launchMultiSessionUssd(amount: amount,number: numerocam,post: type=="1"?false:true);
+        _notifyTelegram(
+          operateur:    'Camtel Prépayé',
+          simSlot:      _simConfig.camtelPre.slot,
+          clientNumber: numerocam,
+          amount:       amount,
+          resultat:     _ussdMessages.join('\n'),
+        );
         print("message camtel");
         print(ussdSuccessMessage);
         print("message camtel");
@@ -309,6 +316,13 @@ class _CommandeviewState extends State<Commandeview> {
       } else {
         await updateValueInFirestore("Transact", documentid, "status", "9");
       }
+      _notifyTelegram(
+        operateur:    'Camtel Postpayé',
+        simSlot:      _simConfig.camtelPost.slot,
+        clientNumber: numerocam,
+        amount:       amount,
+        resultat:     ussdResponse,
+      );
 
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
@@ -481,6 +495,26 @@ class _CommandeviewState extends State<Commandeview> {
     });
   }
 
+  /// Envoie le résultat d'une opération USSD sur Telegram,
+  /// signé par les coordonnées du téléphone et de la SIM utilisée.
+  Future<void> _notifyTelegram({
+    required String operateur,
+    required int simSlot,
+    required String clientNumber,
+    required String amount,
+    required String resultat,
+  }) async {
+    final deviceId = ServerManager.instance.deviceId;
+    final message =
+        'Téléphone : $deviceId\n'
+        'SIM       : slot $simSlot ($operateur)\n'
+        'Client    : $clientNumber\n'
+        'Montant   : $amount FCFA\n'
+        '─────────────────────\n'
+        '$resultat';
+    await SendEmail.sendMessagewithtelegram(message: message);
+  }
+
 
   Future<void> _sendUssdCode(String ussdCode) async {
     print("_ussdResult");
@@ -643,11 +677,18 @@ class _CommandeviewState extends State<Commandeview> {
           if (!claimed) return;
 
           debugPrint('[check] MTN Airtime → $numCible $amount FCFA');
-          await mtn.rechargeAirtime(
+          final resAirtime = await mtn.rechargeAirtime(
             docId:        docId,
             amount:       amount,
             clientNumber: numCible,
             sim:          _simConfig.mtn,
+          );
+          _notifyTelegram(
+            operateur:    'MTN Airtime',
+            simSlot:      _simConfig.mtn.slot,
+            clientNumber: numCible,
+            amount:       amount,
+            resultat:     resAirtime.rawMessage,
           );
         }
 
@@ -662,10 +703,17 @@ class _CommandeviewState extends State<Commandeview> {
           if (!claimed) return;
 
           debugPrint('[check] MTN Forfait Query → $numCible');
-          await mtn.queryForfaitList(
+          final resList = await mtn.queryForfaitList(
             docId:        docId,
             clientNumber: numCible,
             sim:          _simConfig.mtn,
+          );
+          _notifyTelegram(
+            operateur:    'MTN Forfait (liste)',
+            simSlot:      _simConfig.mtn.slot,
+            clientNumber: numCible,
+            amount:       '—',
+            resultat:     resList.isEmpty ? 'Aucune offre récupérée' : resList.join('\n'),
           );
           // Après ça, l'app client lit `forfait_list` et affiche les offres.
           // L'utilisateur sélectionne + paie → l'app met status à "1" et
@@ -686,11 +734,18 @@ class _CommandeviewState extends State<Commandeview> {
           if (!claimed) return;
 
           debugPrint('[check] MTN Forfait Activate → $numCible, offre=$forfaitIndex');
-          await mtn.activateForfait(
+          final resActivate = await mtn.activateForfait(
             docId:        docId,
             clientNumber: numCible,
             forfaitIndex: forfaitIndex,
             sim:          _simConfig.mtn,
+          );
+          _notifyTelegram(
+            operateur:    'MTN Forfait (activation)',
+            simSlot:      _simConfig.mtn.slot,
+            clientNumber: numCible,
+            amount:       '—',
+            resultat:     resActivate.rawMessage,
           );
         }
 
