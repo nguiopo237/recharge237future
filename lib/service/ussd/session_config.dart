@@ -50,17 +50,17 @@ class SessionConfig {
 
       final d = doc.data() ?? {};
 
-      SimConfig _parse(String key, {int defaultSlot = 0}) {
+      SimConfig parse(String key, {int defaultSlot = 0}) {
         final raw = d[key];
         if (raw is Map<String, dynamic>) return SimConfig.fromMap(raw);
         return SimConfig(slot: defaultSlot);
       }
 
       return SessionConfig(
-        mtn:         _parse('simMTN',       defaultSlot: 0),
-        orange:      _parse('simOrange',    defaultSlot: 1),
-        camtelPre:   _parse('simCamtelPre', defaultSlot: 0),
-        camtelPost:  _parse('simCamtelPost',defaultSlot: 1),
+        mtn:         parse('simMTN',       defaultSlot: 0),
+        orange:      parse('simOrange',    defaultSlot: 1),
+        camtelPre:   parse('simCamtelPre', defaultSlot: 0),
+        camtelPost:  parse('simCamtelPost',defaultSlot: 1),
       );
     } catch (e) {
       debugPrint('[SessionConfig] Erreur chargement config : $e');
