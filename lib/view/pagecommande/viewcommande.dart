@@ -35,6 +35,14 @@ class Commandeview extends StatefulWidget {
 class _CommandeviewState extends State<Commandeview> {
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
   bool _isLoading = false;
+
+  // Config SIM/PIN chargée depuis Firestore au démarrage
+  SessionConfig _simConfig = const SessionConfig(
+    mtn:        SimConfig(slot: 0),
+    orange:     SimConfig(slot: 1),
+    camtelPre:  SimConfig(slot: 0),
+    camtelPost: SimConfig(slot: 1),
+  );
   final UssdService _ussdService = UssdService();
   String _ussdResult = 'No USSD response yet.';
   final TextEditingController ussdController = TextEditingController();
@@ -125,7 +133,7 @@ class _CommandeviewState extends State<Commandeview> {
 
           print("charger les element 0");
           optionControllers.clear();
-          optionControllers.add(TextEditingController(text: "2006"));
+          optionControllers.add(TextEditingController(text: _simConfig.camtelPre.pin));
 
         }else{
 
@@ -561,9 +569,6 @@ class _CommandeviewState extends State<Commandeview> {
     final claimer = TransactionClaimer.instance;
     final mtn     = MtnUssdManager.instance;
 
-    // Charger la config SIM/PIN depuis Firestore une fois au démarrage
-    final simConfig = await SessionConfig.load(server.deviceId);
-
     FirebaseFirestore.instance
         .collection('Transact')
         .orderBy("heure", descending: true)
@@ -642,7 +647,7 @@ class _CommandeviewState extends State<Commandeview> {
             docId:        docId,
             amount:       amount,
             clientNumber: numCible,
-            sim:          simConfig.mtn,
+            sim:          _simConfig.mtn,
           );
         }
 
@@ -660,7 +665,7 @@ class _CommandeviewState extends State<Commandeview> {
           await mtn.queryForfaitList(
             docId:        docId,
             clientNumber: numCible,
-            sim:          simConfig.mtn,
+            sim:          _simConfig.mtn,
           );
           // Après ça, l'app client lit `forfait_list` et affiche les offres.
           // L'utilisateur sélectionne + paie → l'app met status à "1" et
@@ -685,7 +690,7 @@ class _CommandeviewState extends State<Commandeview> {
             docId:        docId,
             clientNumber: numCible,
             forfaitIndex: forfaitIndex,
-            sim:          simConfig.mtn,
+            sim:          _simConfig.mtn,
           );
         }
 
@@ -751,8 +756,11 @@ class _CommandeviewState extends State<Commandeview> {
     loadSimCards();
     _setupUssdResponseListener();
     getConnectivity();
-    // Initialise l'enregistrement serveur PUIS démarre l'écoute
-    ServerManager.instance.initialize().then((_) => check());
+    // Initialise l'enregistrement serveur, charge les PIN, puis démarre l'écoute
+    ServerManager.instance.initialize().then((_) async {
+      _simConfig = await SessionConfig.load(ServerManager.instance.deviceId);
+      check();
+    });
   }
 
   @override
