@@ -53,12 +53,14 @@ class DefaultFirebaseOptions {
     measurementId: 'G-QXTT5P3M7W',
   );
 
+  // [PRODUCTION 27/10/2026] Projet `recharge237-r237` (même base que les apps
+  // mobile et Web) — cf. lib/main.dart.
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyADnzij5B4ImSvnkTSff-cUnIt_y1JTvYg',
-    appId: '1:512370632694:android:d2641ef949c3c35d70c9d7',
-    messagingSenderId: '512370632694',
-    projectId: 'bdtestserveur',
-    storageBucket: 'bdtestserveur.firebasestorage.app',
+    apiKey: 'AIzaSyAMvJnNHxr3bKCn_Xz_vQResqW9PHk4tiE',
+    appId: '1:435642925266:android:4deccba5bfee3f415eed0b',
+    messagingSenderId: '435642925266',
+    projectId: 'recharge237-r237',
+    storageBucket: 'recharge237-r237.firebasestorage.app',
   );
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyBCjS24PVUs8igwX6ZSIRR3PPI5w9XJKhY',

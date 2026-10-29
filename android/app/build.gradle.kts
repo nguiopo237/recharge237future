@@ -1,8 +1,8 @@
 plugins {
     id("com.android.application")
-    // START: FlutterFire Configuration
-    id("com.google.gms.google-services")
-    // END: FlutterFire Configuration
+    // [PRODUCTION 27/10/2026] Plugin google-services retiré : il initialisait
+    // Firebase avec google-services.json (base de test `bdtestserveur`) et
+    // ignorait les options de production passées dans lib/main.dart.
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }

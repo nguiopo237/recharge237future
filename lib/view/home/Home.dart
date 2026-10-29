@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:projettest/service/view/forfait/activer_forfait.dart';
-import 'package:projettest/service/view/reload/reload_airtimes.dart';
-import 'package:projettest/service/view/reloadpost/reload_post.dart';
-import 'package:projettest/service/view/transact/transact_page.dart';
+import 'package:recharge237_serveur/service/view/forfait/activer_forfait.dart';
+import 'package:recharge237_serveur/service/view/reload/reload_airtimes.dart';
+import 'package:recharge237_serveur/service/view/reloadpost/reload_post.dart';
+import 'package:recharge237_serveur/service/view/transact/transact_page.dart';
 import 'package:sizer/sizer.dart';
 import 'package:sms_autofill/sms_autofill.dart';
 import 'package:unique_identifier/unique_identifier.dart';

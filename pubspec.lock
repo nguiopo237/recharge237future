@@ -896,10 +896,9 @@ packages:
   ussd_launcher:
     dependency: "direct main"
     description:
-      name: ussd_launcher
-      sha256: "419e25ae908a906d503d67824eef8a721fe1b087f2c2c600b6badd1690cb68f7"
-      url: "https://pub.dev"
-    source: hosted
+      path: "packages/ussd_launcher"
+      relative: true
+    source: path
     version: "1.5.0"
   uuid:
     dependency: "direct main"

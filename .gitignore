@@ -82,3 +82,12 @@ android/app/build/
 **/*.aab
 ios/Flutter/App.framework/
 ios/Flutter/Flutter.framework/
+
+# Cles de signature : jamais dans git
+*.jks
+*.keystore
+key.properties
+
+# Journaux et scripts locaux
+logs/
+_claude_*

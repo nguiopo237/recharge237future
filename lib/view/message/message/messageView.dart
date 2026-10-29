@@ -1,8 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:projettest/main.dart';
-import 'package:projettest/view/message/PersonList.dart';
+import 'package:recharge237_serveur/main.dart';
+import 'package:recharge237_serveur/view/message/PersonList.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../../service/callapi/mail/api.dart';

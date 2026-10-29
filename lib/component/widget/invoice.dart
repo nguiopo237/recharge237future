@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:projettest/component/widget/widget_text.dart';
+import 'package:recharge237_serveur/component/widget/widget_text.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:timeago/timeago.dart' as timeago;
 

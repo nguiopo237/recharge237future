@@ -5,7 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:otp/otp.dart';
-import 'package:projettest/component/style/middletext.dart';
+import 'package:recharge237_serveur/component/style/middletext.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../../main.dart';

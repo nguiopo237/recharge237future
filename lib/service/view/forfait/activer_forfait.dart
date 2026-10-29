@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
 import 'package:intl/intl.dart';
-import 'package:projettest/component/style/middletext.dart';
+import 'package:recharge237_serveur/component/style/middletext.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../../main.dart';

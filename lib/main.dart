@@ -1,30 +1,59 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:get/get.dart';
-import 'package:projettest/service/permission.dart';
-import 'package:projettest/service/controlleur/initcontrolleur.dart';
-import 'package:projettest/service/controlleur/transact_controlleur.dart';
-import 'package:projettest/service/controlleur/widget_controlleur.dart';
-import 'package:projettest/service/executeussd/inteface.dart';
-import 'package:projettest/service/notification/notification_service.dart';
-import 'package:projettest/service/view/readsms.dart';
-import 'package:projettest/test.dart';
-import 'package:projettest/testview.dart';
-import 'package:projettest/view/pagecommande/viewcommande.dart';
+import 'package:recharge237_serveur/service/permission.dart';
+import 'package:recharge237_serveur/service/controlleur/initcontrolleur.dart';
+import 'package:recharge237_serveur/service/controlleur/transact_controlleur.dart';
+import 'package:recharge237_serveur/service/controlleur/widget_controlleur.dart';
+import 'package:recharge237_serveur/service/executeussd/inteface.dart';
+import 'package:recharge237_serveur/service/notification/notification_service.dart';
+import 'package:recharge237_serveur/service/view/readsms.dart';
+import 'package:recharge237_serveur/test.dart';
+import 'package:recharge237_serveur/testview.dart';
+import 'package:recharge237_serveur/view/pagecommande/viewcommande.dart';
 import 'package:sizer/sizer.dart';
 import 'package:unique_identifier/unique_identifier.dart';
 // import 'package:another_telephony/telephony.dart';
 import 'view/home/Home.dart';
 
+// [PRODUCTION 27/10/2026] Le serveur travaille sur la MÊME base que l'app
+// mobile et l'app Web : le projet Firebase `recharge237-r237`. Avant, il
+// pointait vers `recharge237-8d1db` (ici) et, en réalité, vers la base de test
+// `bdtestserveur` (google-services.json, qui prenait le dessus) : il ne voyait
+// donc jamais les commandes des clients.
+// Le plugin Gradle google-services a été retiré (android/app/build.gradle.kts)
+// pour que ces options soient réellement utilisées.
 FirebaseOptions android = FirebaseOptions(
-  apiKey: "AIzaSyB0ZGRlxlr-uJS2Yn4bGzCfHqtDXKaJDao",
-  appId: "1:221039842981:android:c66e4209200ee74c7e1f4c",
-  messagingSenderId: "",
-  projectId: "recharge237-8d1db",
+  apiKey: "AIzaSyAMvJnNHxr3bKCn_Xz_vQResqW9PHk4tiE",
+  appId: "1:435642925266:android:4deccba5bfee3f415eed0b",
+  messagingSenderId: "435642925266",
+  projectId: "recharge237-r237",
+  storageBucket: "recharge237-r237.firebasestorage.app",
 );
+
+/// UID Firebase Auth du serveur (affiché à l'écran et envoyé sur Telegram au
+/// démarrage) : c'est ce compte que l'admin doit déclarer admin dans
+/// `users/{uid}` (champ `isadmin: true`), sinon firestore.rules refuse au
+/// serveur la lecture des commandes et l'écriture des statuts.
+String serverAuthUid = '';
+
+/// Connexion du serveur : firestore.rules exige `request.auth != null` partout.
+/// Session anonyme persistante (même UID à chaque redémarrage tant que les
+/// données de l'app ne sont pas effacées).
+Future<void> ensureServerSignedIn() async {
+  try {
+    final auth = FirebaseAuth.instance;
+    final user = auth.currentUser ?? (await auth.signInAnonymously()).user;
+    serverAuthUid = user?.uid ?? '';
+    debugPrint('[Auth] Serveur connecté, uid=$serverAuthUid');
+  } catch (e) {
+    debugPrint('[Auth] Connexion impossible : $e');
+  }
+}
 
 CollectionReference collectionRef =
 FirebaseFirestore.instance.collection('Transact');
@@ -116,7 +145,12 @@ Future<void> _initBackgroundService() async {
       onStart: onServiceStart,
       autoStart: true,
       isForegroundMode: true,
-      notificationChannelId: 'recharge237_channel',
+      // Ne pas fournir de notificationChannelId personnalisé : le plugin ne
+      // crée le canal de notification Android que lorsque cette valeur est
+      // null (il utilise alors son propre canal "FOREGROUND_DEFAULT" qu'il
+      // crée lui-même). Avec un ID personnalisé, il saute la création du
+      // canal, ce qui fait planter startForeground en boucle
+      // (CannotPostForegroundServiceNotificationException : canal inexistant).
       initialNotificationTitle: 'Recharge 237',
       initialNotificationContent: 'Service actif…',
       foregroundServiceNotificationId: 237,
@@ -127,7 +161,17 @@ Future<void> _initBackgroundService() async {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: android);
+  // Le plugin Gradle google-services n'est plus appliqué : c'est cet appel qui
+  // crée l'app Firebase par défaut avec les options de production ci-dessus.
+  // On garde la tolérance "duplicate-app" (relance à chaud, ancienne install).
+  // (Firebase.apps est toujours vide à ce stade côté Dart, donc ce n'est
+  // pas un indicateur fiable pour éviter l'appel.)
+  try {
+    await Firebase.initializeApp(options: android);
+  } on FirebaseException catch (e) {
+    if (e.code != 'duplicate-app') rethrow;
+  }
+  await ensureServerSignedIn();
   await PermissionHelper.requestAll();
   await _initBackgroundService();
   AppControllers.initialize();
@@ -216,7 +260,7 @@ class _MyAppState extends State<MyApp> {
       builder: (context, orientation, deviceType) {
         return GetMaterialApp(
           debugShowCheckedModeBanner: false,
-          title: 'Recharge 237',
+          title: 'Recharge237 AppServeur',
           theme: ThemeData.light(),
           home: Commandeview(),
          // home: UssdScreen(),
@@ -226,4 +270,4 @@ class _MyAppState extends State<MyApp> {
       },
     );
   }
-}
+}

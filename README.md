@@ -1,16 +1,15 @@
-# projettest
+# ServeurApp Recharge237
 
-A new Flutter project.
+App Android installée sur les téléphones serveurs. Elle prend les commandes
+en attente dans Firestore (`Transact`), les exécute par USSD sur les SIM
+(Orange, MTN, Camtel), lit les SMS opérateurs pour les soldes et publie l'état
+du téléphone dans `servers/{deviceId}`. Notifications Telegram après chaque
+opération.
 
-## Getting Started
+Projet Firebase de production : `recharge237-r237` (même base que l'app mobile
+et le site Web).
 
-This project is a starting point for a Flutter application.
+Exploitation des téléphones : voir `docs/EXPLOITATION_TELEPHONES.md`.
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Note : l'identifiant Android reste `com.example.projettest` pour ne pas casser
+les téléphones déjà installés ni la config Firebase.

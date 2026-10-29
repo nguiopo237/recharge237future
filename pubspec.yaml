@@ -1,5 +1,5 @@
-name: projettest
-description: "A new Flutter project."
+name: recharge237_serveur
+description: "ServeurApp Recharge237 - execute les commandes USSD sur les telephones serveurs."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -34,7 +34,12 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  ussd_launcher: ^1.2.7
+  # [28/10/2026] Copie locale du plugin : sa lecture des dialogues USSD ne
+  # renvoyait que le titre (« Infos de l'opérateur ») au lieu du texte de
+  # l'opérateur, ce qui rendait toute session MTN aveugle. Voir
+  # packages/ussd_launcher/android/.../UssdAccessibilityService.kt
+  ussd_launcher:
+    path: packages/ussd_launcher
   ussd_flutter:
   get:
   mailer: ^6.1.0

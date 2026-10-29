@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- ──────────────────────────────────────────────────────────── -->
     <!-- RÉSEAU / INTERNET                                            -->
@@ -27,9 +28,21 @@
     <!-- ──────────────────────────────────────────────────────────── -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- [28/10/2026] Type specialUse, cf. la déclaration du service plus bas. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- [RESEAU 28/10/2026] Cycle « mode avion » de récupération réseau
+         (lib/service/server/network_recovery.dart → MainActivity.airplaneCycle).
+         Permission réservée : elle ne s'obtient pas par une fenêtre Android mais
+         par une commande adb unique sur chaque téléphone serveur :
+           adb shell pm grant com.example.projettest android.permission.WRITE_SECURE_SETTINGS
+         Sans elle, le cycle est refusé par le système et l'app le signale à
+         l'admin au lieu de laisser le téléphone sans réseau. -->
+    <uses-permission
+        android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
 
     <!-- ──────────────────────────────────────────────────────────── -->
     <!-- NOTIFICATIONS (Android 13+)                                  -->
@@ -37,7 +50,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
-        android:label="Recharge 237"
+        android:label="ServeurApp Recharge237"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">
@@ -61,10 +74,24 @@
         </activity>
 
         <!-- ── Flutter Background Service ────────────────────────── -->
+        <!--
+          [FIX 28/10/2026] Android 15 limite à 6 h par jour cumulées les
+          services de premier plan de type « dataSync ». Une fois ce quota
+          épuisé, `startForeground` lève ForegroundServiceStartNotAllowedException
+          et l'application CRASHE au démarrage (constaté le 28/10 à 04:03 sur
+          le téléphone serveur). Un serveur de livraison doit tourner en
+          continu : le type « specialUse » n'a pas cette limite et correspond
+          au cas prévu par Android pour un service métier permanent.
+        -->
         <service
             android:name="id.flutter.flutter_background_service.BackgroundService"
-            android:foregroundServiceType="dataSync"
-            android:exported="false" />
+            android:foregroundServiceType="specialUse"
+            android:exported="false"
+            tools:replace="android:exported,android:foregroundServiceType">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Serveur de livraison de recharges USSD actif en permanence" />
+        </service>
 
         <!-- ── Redémarrage automatique après reboot ───────────────── -->
         <receiver
@@ -84,6 +111,26 @@
                 <action android:name="android.provider.Telephony.SMS_RECEIVED"/>
             </intent-filter>
         </receiver>
+
+        <!-- ── Service d'accessibilité : lecture des menus USSD ─────── -->
+        <!--
+          Indispensable : MainActivity appelle UssdAccessibilityService
+          (canal r237/ussd : dial / reply / cancel / serviceReady). Sans cette
+          déclaration, le service n'est jamais instancié par Android, aucune
+          réponse USSD n'est captée et toute session échoue avant même de
+          composer le code.
+        -->
+        <service
+            android:name="com.kavina.ussd_launcher.UssdAccessibilityService"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/r237_ussd_accessibility" />
+        </service>
 
         <!-- Flutter embedding meta-data -->
         <meta-data

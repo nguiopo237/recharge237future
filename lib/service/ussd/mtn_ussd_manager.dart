@@ -2,9 +2,12 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
-import 'package:ussd_launcher/ussd_launcher.dart';
 
+import '../server/server_manager.dart';
+import '../server/transaction_claimer.dart';
 import 'session_config.dart';
+import 'ussd_screens.dart';
+import 'ussd_session.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Résultats possibles d'une session USSD
@@ -13,18 +16,27 @@ enum UssdResult { success, failed, timeout, noNetwork }
 
 class UssdSessionResult {
   final UssdResult result;
-  final String rawMessage;       // Dernier message USSD brut
-  final List<String> allMessages; // Tous les messages de la session (pour forfait list)
+  final String rawMessage;        // Dernier message USSD brut
+  final List<String> allMessages; // Tous les écrans de la session
+  final String log;               // Journal lisible (PIN masqué)
+
+  // [MESURE 28/10/2026] Durée réelle de la session, étape par étape, écrite
+  // dans la commande : plus besoin d'adb pour savoir où partent les secondes.
+  final List<UssdStepTiming> timings;
+  final int totalMs;
 
   const UssdSessionResult({
     required this.result,
     required this.rawMessage,
     this.allMessages = const [],
+    this.log = '',
+    this.timings = const <UssdStepTiming>[],
+    this.totalMs = 0,
   });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Mots-clés de succès MTN (à compléter selon les retours réels de l'opérateur)
+// Mots-clés de succès / d'échec MTN
 // ─────────────────────────────────────────────────────────────────────────────
 const _mtnSuccessKeywords = [
   'successfully',
@@ -35,16 +47,29 @@ const _mtnSuccessKeywords = [
   'felicitations',
   'confirmed',
   'confirme',
+  'confirmé',
   'traité',
   'traite',
+  'effectué',
+  'effectue',
+  'avez vendu',
+  'votre crédit',
   'top-up',
   'airtime',
+  // [28/10/2026] Réponse réelle de MTN après une vente de crédit acceptée :
+  // la transaction part en traitement et la confirmation arrive par SMS.
+  // Sans ces phrases, une vente RÉUSSIE était classée « à vérifier ».
+  'transaction est en cours',
+  'vous recevrez votre confirmation',
+  'confirmation par sms',
+  'code de confirmation',
 ];
 
 const _mtnFailKeywords = [
   'failed',
   'échoué',
   'echec',
+  'échec',
   'insufficient',
   'solde insuffisant',
   'invalid',
@@ -52,32 +77,31 @@ const _mtnFailKeywords = [
   'incorrect',
   'error',
   'erreur',
+  'non disponible',
+  'impossible',
 ];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Durée maximale d'une étape USSD (réglementaire MTN ≈ 3 min, on prend 90 s)
-// ─────────────────────────────────────────────────────────────────────────────
-const _kSessionTimeout = Duration(seconds: 90);
 
 /// Pilote les sessions USSD interactives pour MTN Cameroun.
 ///
-/// Chaque workflow envoie un code USSD initial puis navigue
-/// étape par étape, exactement comme le ferait un humain.
+/// **Chaque écran est lu avant d'être validé**, comme le ferait un humain :
+/// le manager ne devine plus l'étape en cours, il regarde ce que MTN demande
+/// (menu, montant, numéro, PIN) et répond en conséquence. Les délais viennent
+/// du moteur [UssdSessionRunner], qui attend l'écran réel au lieu d'un délai
+/// fixe.
 ///
 /// **Workflow A — Vente de crédit Airtime**
 /// ```
-/// *126#  →  4 (Vente crédit)  →  [montant]  →  [numéroClient]  →  [PIN]
+/// *126#  →  « Vendre du crédit »  →  montant  →  numéro client  →  PIN
 /// ```
 ///
-/// **Workflow B Phase 1 — Récupérer la liste des forfaits**
+/// **Workflow B Phase 1 — Liste des forfaits**
 /// ```
-/// *126#  →  8 (ou autre entrée forfait)  →  [numéroClient]
-///   si réponse contient "suite" → envoyer "00" pour tout charger
+/// *126*7*[numéroClient]#  →  liste numérotée  (option « suite » / « 00 »)
 /// ```
 ///
-/// **Workflow B Phase 2 — Activer un forfait choisi**
+/// **Workflow B Phase 2 — Activation d'un forfait**
 /// ```
-/// *126#  →  8  →  [numéroClient]  →  [indexForfait]  →  [PIN]
+/// *126*7*[numéroClient]#  →  [indexForfait]  →  (confirmation)  →  PIN
 /// ```
 class MtnUssdManager {
   MtnUssdManager._();
@@ -98,34 +122,62 @@ class MtnUssdManager {
     required SimConfig sim,
   }) async {
     if (sim.pin.isEmpty) {
-      debugPrint('[MtnUssdManager] PIN MTN non configuré dans Firestore (servers/{id}/simMTN/pin)');
-      await _updateStatus(docId, '22');
+      debugPrint('[MtnUssdManager] PIN MTN non configuré dans Firestore (servers/{id}.simMTN.pin)');
+      await _write(docId, {
+        'status': '22',
+        'failure_reason': 'PIN MTN non configuré sur ce téléphone (servers/{id}.simMTN.pin)',
+      });
       return const UssdSessionResult(result: UssdResult.failed, rawMessage: 'PIN non configuré');
     }
 
     await _updateStatus(docId, '20');
     debugPrint('[MtnUssdManager] Airtime → $clientNumber, $amount FCFA, slot=${sim.slot}');
 
-    // Étapes : *126# → 4 → montant → numéroClient → PIN
-    final session = await _runSession(
+    final UssdRunResult run = await UssdSessionRunner.instance.run(
       code: '*126#',
-      simSlot: sim.slot,
-      options: ['4', amount, clientNumber, sim.pin],
+      slot: sim.slot,
+      rules: [
+        _ruleOptionFor('menu-vente-credit', ['vendre', 'vente de credit', 'vente de crédit']),
+        _ruleMontant(amount),
+        _ruleNumero(clientNumber),
+        _rulePin(sim.pin),
+      ],
+      isSuccess: _isSuccessScreen,
+      // Cinq pages de menu + choix de l'offre + confirmation + PIN + verdict.
+      maxScreens: 14,
+      // [RESEAU 28/10/2026] Une commande MTN ne part que sur une carte MTN :
+      // la garde vérifie le réseau de l'emplacement ET son opérateur.
+      expectedOperator: 'mtn',
     );
 
-    final success = _containsKeyword(session.rawMessage, _mtnSuccessKeywords);
-    await _updateStatus(docId, success ? '21' : '22');
+    // [RESEAU 28/10/2026] Garde réseau : rien n'a été composé. On ne marque
+    // PAS un échec — la commande est gardée et repartira au retour du réseau.
+    if (run.networkBlocked) {
+      await _garder(docId, run, '1');
+      return _toResult(run);
+    }
 
-    debugPrint('[MtnUssdManager] Airtime résultat: ${session.result} — ${session.rawMessage}');
-    return session;
+    final result = _toResult(run);
+    final success = result.result == UssdResult.success;
+
+    await _write(docId, {
+      'status': success ? '21' : '22',
+      if (!success)
+        'failure_reason': result.rawMessage.isEmpty
+            ? 'Aucune réponse MTN (${result.result.name}, SIM ${sim.slot + 1}) — ${run.reason}'
+            : '${result.result.name} : ${result.rawMessage}',
+      'ussd_outcome': run.outcomeCode,
+      'ussd_log': run.log,
+      ..._timingFields(run),
+    });
+
+    debugPrint('[MtnUssdManager] Airtime résultat: ${result.result} — ${run.reason}');
+    return result;
   }
 
   // ── Workflow B Phase 1 : Récupérer la liste des forfaits ─────────────────
 
   /// Charge la liste des forfaits disponibles pour [clientNumber].
-  ///
-  /// Gère la pagination automatiquement (envoie "00" si le menu contient
-  /// "suite" ou similaire).
   ///
   /// Met à jour Firestore :
   ///   • "30" = requête en cours
@@ -140,33 +192,88 @@ class MtnUssdManager {
     debugPrint('[MtnUssdManager] ForfaitQuery → $clientNumber, slot=${sim.slot}');
 
     // Raccourci direct MTN Boost / Good Deal : *126*7*{numéroClient}#
-    final session = await _runSession(
+    // « suite » / « 00 » charge la page suivante quand MTN pagine.
+    final UssdRunResult run = await UssdSessionRunner.instance.run(
       code: '*126*7*$clientNumber#',
-      simSlot: sim.slot,
-      options: [],
+      slot: sim.slot,
+      rules: [
+        UssdRule(
+          label: 'page-suivante',
+          // [PAGES 28/10/2026] MTN pagine la liste : « 00. Next », « 00) Suite »,
+          // « 0. Plus »… On lit la touche SUR l'écran au lieu de la supposer.
+          // « 00. Next » n'était pas reconnu : la session s'arrêtait sur la
+          // première page en laissant la fenêtre ouverte pendant des heures.
+          answer: (screen, done) => findMorePageKey(screen),
+          // [PAGES 28/10/2026] Jusqu'à CINQ pages, avec arrêt immédiat dès
+          // que la touche de suite disparaît :
+          //  - pas de « 00 »/« next »/« suivant » sur l'écran → une seule page
+          //    d'offres ; la règle ne correspond pas, le parcours se termine
+          //    et la fenêtre est fermée par « Annuler » (cf. _closeDialog).
+          //  - touche présente → on la saisit, page après page, tant que MTN
+          //    en annonce une. Relevé réel : un numéro tient sur 1 page
+          //    (674583531, deux offres), un autre en a 2. Quatre
+          //    enchaînements = pages 2 à 5, et les offres de TOUTES les pages
+          //    sont cumulées (offerLines, sans doublon).
+          maxUses: 4,
+        ),
+      ],
+      isCompleteWithoutCommit: _looksLikeOfferList,
+      maxScreens: 12,
+      // [RESEAU 28/10/2026] Requête gratuite : inutile de la lancer si la SIM
+      // MTN n'a pas de réseau (ou si l'emplacement n'est pas une carte MTN).
+      expectedOperator: 'mtn',
     );
 
-    // Si la réponse contient "suite" → relancer avec "00" pour tout charger
-    final rawFull = _hasPagination(session.rawMessage)
-        ? await _loadFullList(clientNumber: clientNumber, sim: sim)
-        : session.rawMessage;
+    // [RESEAU 28/10/2026] Requête non lancée faute de réseau : commande gardée
+    // (elle repart à 0 au retour du réseau), pas marquée « offres
+    // indisponibles ».
+    if (run.networkBlocked) {
+      await _garder(docId, run, '0');
+      return const <String>[];
+    }
 
-    if (session.result == UssdResult.timeout || rawFull.isEmpty) {
-      await _updateStatus(docId, '32');
+    final String rawFull =
+        run.screens.isEmpty ? run.finalScreen : run.screens.join('\n');
+
+    if (rawFull.trim().isEmpty || run.outcome == UssdOutcome.notExecuted) {
+      // [RESEAU 28/10/2026] Quand aucun écran n'est arrivé, la cause est du
+      // côté du réseau ou de la carte : `run.reason` le dit (hors réseau, mode
+      // avion, mauvaise SIM...). Avant, la commande affichait seulement
+      // « aucun écran capté », ce qui n'aidait pas l'admin.
+      final String detail = run.screens.isEmpty
+          ? run.reason
+          : run.screens.join(' | ');
+      await _write(docId, {
+        'status': '32',
+        'failure_reason': 'Aucune offre MTN (${run.outcome.name}, SIM ${sim.slot + 1}) : $detail',
+        'ussd_outcome': run.outcomeCode,
+        'ussd_log': run.log,
+        ..._timingFields(run),
+      });
       return [];
     }
 
-    // Parser les lignes numérotées (ex: "1. Pack 200 Mo 200F\n2. Pack 1Go 500F\n...")
-    final lines = rawFull
-        .split('\n')
-        .map((l) => l.trim())
-        .where((l) => l.isNotEmpty && RegExp(r'^\d+[.)]\s').hasMatch(l))
-        .toList();
+    // [PAGES 28/10/2026] Si la deuxieme page annonce encore une suite, on le
+    // note dans la commande : l'admin saura qu'il existe d'autres offres que
+    // MTN n'a pas montrees en deux pages, au lieu de le deviner.
+    final bool autresPages = findMorePageKey(run.finalScreen) != null;
 
-    // Sauvegarder dans Firestore + passer en "liste prête"
-    await FirebaseFirestore.instance.collection('Transact').doc(docId).update({
+    final List<String> lines = offerLines(run.screens);
+    // [PRIX 28/10/2026] Offres structurées : index + libellé complet (le prix
+    // peut être sur la ligne suivante) + page. Elles servent de référence de
+    // prix pour la passerelle, et de repère fiable à l'activation puisque MTN
+    // renumérote parfois chaque page à partir de 1.
+    final List<UssdOffer> records = offerRecords(run.screens);
+
+    await _write(docId, {
       'forfait_list': lines,
+      'forfait_offers': records.map((UssdOffer o) => o.toMap()).toList(),
+      'pages_offres': run.screens.length,
+      'autres_pages_annoncees': autresPages,
       'status': '31',
+      'ussd_outcome': run.outcomeCode,
+      'ussd_log': run.log,
+      ..._timingFields(run),
     });
 
     debugPrint('[MtnUssdManager] Forfaits récupérés : ${lines.length} offres');
@@ -182,155 +289,352 @@ class MtnUssdManager {
   ///   • "33" = activation en cours
   ///   • "34" = succès
   ///   • "35" = échec / timeout
+  ///
+  /// [sourceOrder] : commande de requête qui a fourni les offres. Son prix MTN
+  /// fait foi — un montant payé différent bloque l'activation.
   Future<UssdSessionResult> activateForfait({
     required String docId,
     required String clientNumber,
     required String forfaitIndex,
     required SimConfig sim,
+    String sourceOrder = '',
   }) async {
+
     if (sim.pin.isEmpty) {
       await _updateStatus(docId, '35');
       return const UssdSessionResult(result: UssdResult.failed, rawMessage: 'PIN non configuré');
     }
 
+    // ── Garde anti-fraude sur le prix ────────────────────────────────────────
+    // [PRIX 28/10/2026] Le prix de référence est celui que CE serveur a lu
+    // dans le menu MTN (`forfait_offers` de la commande de requête). Un client
+    // modifié peut déclarer le montant qu'il veut : sans ce contrôle il payait
+    // 100 F pour une offre à 1 000 F et l'offre était activée quand même.
+    final UssdOffer? offer = await _offerOf(sourceOrder, forfaitIndex);
+    if (offer != null) {
+      final int paye = int.tryParse(await _paidAmountOf(docId)) ?? -1;
+      final int? prix = offer.price;
+      if (prix == null) {
+        await _write(docId, {
+          'status': '35',
+          'failure_reason': 'Prix MTN illisible pour l’offre $forfaitIndex : '
+              'activation refusée, aucun code composé.',
+        });
+        return UssdSessionResult(
+          result: UssdResult.failed,
+          rawMessage: 'Prix MTN illisible (offre $forfaitIndex)',
+        );
+      }
+      if (paye != prix) {
+        await _write(docId, {
+          'status': '35',
+          'failure_reason': 'Montant payé ($paye F) différent du prix MTN de '
+              'l’offre ($prix F) : activation refusée, aucun code composé.',
+        });
+        return UssdSessionResult(
+          result: UssdResult.failed,
+          rawMessage: 'Montant payé ($paye F) ≠ prix MTN ($prix F)',
+        );
+      }
+    }
+
     await _updateStatus(docId, '33');
     debugPrint('[MtnUssdManager] ActivateForfait → $clientNumber, offre=$forfaitIndex, slot=${sim.slot}');
 
-    // Raccourci direct MTN Boost / Good Deal : *126*7*{numéroClient}#
-    // puis sélection de l'offre et confirmation PIN
-    final session = await _runSession(
+    final UssdRunResult run = await UssdSessionRunner.instance.run(
       code: '*126*7*$clientNumber#',
-      simSlot: sim.slot,
-      options: [forfaitIndex, sim.pin],
+      slot: sim.slot,
+      rules: [
+        // L'offre choisie peut se trouver sur une page suivante : on ne saisit
+        // son numéro que si elle est réellement affichée sur CET écran. Avant,
+        // le premier écran de liste suffisait — on validait donc un numéro
+        // d'offre qui n'existait pas encore à l'écran.
+        UssdRule(
+          label: 'choix-offre',
+          answer: (screen, done) {
+            // [PRIX 28/10/2026] On cherche d'abord l'offre par son LIBELLÉ :
+            // MTN peut renuméroter chaque page à partir de 1, donc taper
+            // « 3 » sur la première page où l'offre apparaît peut désigner
+            // une autre offre. Le numéro reste un repli pour les commandes
+            // créées avant l'arrivée des offres structurées.
+            if (offer != null) {
+              final String? parLibelle = findOptionForLabel(screen, offer.label);
+              if (parLibelle != null) return parLibelle;
+            }
+            return menuLineFor(screen, forfaitIndex) != null ? forfaitIndex : null;
+          },
+        ),
+        UssdRule(
+          label: 'page-suivante',
+          answer: (screen, done) => findMorePageKey(screen),
+          maxUses: 5,
+        ),
+        UssdRule(
+          label: 'confirmer',
+          answer: (screen, done) =>
+              _asksTo(screen, const ['confirmer', 'confirmez', 'valider']) ? '1' : null,
+        ),
+        _rulePin(sim.pin),
+      ],
+      isSuccess: _isSuccessScreen,
+      // Cinq pages de menu + choix de l'offre + confirmation + PIN + verdict.
+      maxScreens: 14,
+      // [RESEAU 28/10/2026] Une commande MTN ne part que sur une carte MTN :
+      // la garde vérifie le réseau de l'emplacement ET son opérateur.
+      expectedOperator: 'mtn',
     );
 
-    final success = _containsKeyword(session.rawMessage, _mtnSuccessKeywords);
-    await _updateStatus(docId, success ? '34' : '35');
+    // [RESEAU 28/10/2026] Même règle : rien n'a été composé, on garde.
+    if (run.networkBlocked) {
+      await _garder(docId, run, '1');
+      return _toResult(run);
+    }
 
-    debugPrint('[MtnUssdManager] Forfait résultat: ${session.result} — ${session.rawMessage}');
-    return session;
-  }
+    final result = _toResult(run);
+    final success = result.result == UssdResult.success;
 
-  // ── Helpers privés ────────────────────────────────────────────────────────
-
-  /// Lance une session USSD multi-étapes via le plugin `ussd_launcher`.
-  /// Collecte TOUS les messages reçus pendant la session.
-  Future<UssdSessionResult> _runSession({
-    required String code,
-    required int simSlot,
-    required List<String> options,
-  }) async {
-    final allMessages = <String>[];
-    String lastMessage = '';
-    final sessionDone = Completer<void>();
-
-    // Écoute chaque message renvoyé par l'opérateur
-    UssdLauncher.setUssdMessageListener((message) {
-      allMessages.add(message);
-      lastMessage = message;
-      debugPrint('[MtnSession] Message reçu : $message');
-
-      // Fin de session détectée
-      if (_isSessionEnd(message) && !sessionDone.isCompleted) {
-        sessionDone.complete();
-      }
+    await _write(docId, {
+      'status': success ? '34' : '35',
+      if (!success)
+        'failure_reason': result.rawMessage.isEmpty
+            ? 'Aucune réponse MTN (${result.result.name}, SIM ${sim.slot + 1}) — ${run.reason}'
+            : '${result.result.name} : ${result.rawMessage}',
+      'ussd_outcome': run.outcomeCode,
+      'ussd_log': run.log,
+      ..._timingFields(run),
     });
 
-    bool timedOut = false;
+    debugPrint('[MtnUssdManager] Forfait résultat: ${result.result} — ${run.reason}');
+    return result;
+  }
 
-    try {
-      await Future.any([
-        // Lance la session USSD
-        UssdLauncher.multisessionUssd(
-          code: code,
-          slotIndex: simSlot,
-          options: options,
-        ),
-        // Timeout global
-        Future.delayed(_kSessionTimeout).then((_) {
-          timedOut = true;
-          if (!sessionDone.isCompleted) sessionDone.complete();
-        }),
-        // La session se termine via le listener
-        sessionDone.future,
-      ]);
-    } catch (e) {
-      debugPrint('[MtnSession] Erreur session : $e');
-    }
+  // ── Règles de lecture d'écran ─────────────────────────────────────────────
+  //
+  // Chaque règle reçoit le texte réellement affiché et décide — ou non — de
+  // répondre. Une règle qui ne reconnaît pas l'écran ne fait rien : c'est ce
+  // qui empêche un montant de partir dans un menu, ou le PIN dans le champ du
+  // numéro.
 
-    if (timedOut) {
-      return UssdSessionResult(
-        result:     UssdResult.timeout,
-        rawMessage: lastMessage,
-        allMessages: allMessages,
+  /// Répond le numéro de l'option dont le libellé contient un des [keywords]
+  /// (ex. « 4) Vendre du crédit » → « 4 »).
+  UssdRule _ruleOptionFor(String label, List<String> keywords) => UssdRule(
+        label: label,
+        answer: (screen, done) => _optionNumber(screen, keywords),
       );
+
+  UssdRule _ruleMontant(String amount) => UssdRule(
+        label: 'montant',
+        answer: (screen, done) =>
+            _asksTo(screen, const ['montant', 'amount', 'somme']) ? amount : null,
+      );
+
+  UssdRule _ruleNumero(String clientNumber) => UssdRule(
+        label: 'numero',
+        answer: (screen, done) => _asksTo(
+          screen,
+          const ['numéro', 'numero', 'bénéficiaire', 'beneficiaire', 'destinataire', 'téléphone'],
+        )
+            ? clientNumber
+            : null,
+      );
+
+  UssdRule _rulePin(String pin) => UssdRule(
+        label: 'pin',
+        answer: (screen, done) => _asksTo(
+          screen,
+          const ['code secret', 'mot de passe', 'pin', 'password', 'code mtn'],
+        )
+            ? pin
+            : null,
+        secret: true,
+        commits: true,
+      );
+
+  /// Numéro de l'option dont la ligne contient un des mots-clés.
+  /// `null` si l'écran n'est pas un menu ou ne propose pas ce choix.
+  String? _optionNumber(String screen, List<String> keywords) {
+    for (final String raw in screen.split('\n')) {
+      final String line = raw.trim();
+      final RegExpMatch? m = RegExp(r'^(\d{1,2})\s*[).\-:]\s*(.+)$').firstMatch(line);
+      if (m == null) continue;
+      final String libelle = _normalize(m.group(2) ?? '');
+      if (keywords.any((k) => libelle.contains(k))) return m.group(1);
     }
+    return null;
+  }
 
-    final result = _containsKeyword(lastMessage, _mtnSuccessKeywords)
-        ? UssdResult.success
-        : _containsKeyword(lastMessage, _mtnFailKeywords)
-            ? UssdResult.failed
-            : UssdResult.failed; // inconnu → échec par précaution
+  bool _asksTo(String screen, List<String> words) {
+    final String s = _normalize(screen);
+    // Un menu numéroté n'est pas une question de saisie : on évite de répondre
+    // un montant/un numéro à un écran de choix.
+    if (_looksLikeOfferList(screen) && !s.contains('montant')) return false;
+    return words.any(s.contains);
+  }
 
+  String _normalize(String s) => s
+      .toLowerCase()
+      .replaceAll('é', 'e')
+      .replaceAll('è', 'e')
+      .replaceAll('ê', 'e')
+      .replaceAll('à', 'a')
+      .replaceAll('û', 'u');
+
+  /// Écran de liste d'offres : au moins deux lignes numérotées.
+  bool _looksLikeOfferList(String screen) {
+    int n = 0;
+    for (final String raw in screen.split('\n')) {
+      if (RegExp(r'^\s*\d{1,2}[.)\-]\s*\S').hasMatch(raw)) n++;
+      if (n >= 2) return true;
+    }
+    return false;
+  }
+
+  bool _isSuccessScreen(String screen) {
+    final String s = _normalize(screen);
+    if (_mtnFailKeywords.any((k) => s.contains(_normalize(k)))) return false;
+    return _mtnSuccessKeywords.any((k) => s.contains(_normalize(k)));
+  }
+
+  UssdSessionResult _toResult(UssdRunResult r) {
+    final UssdResult res;
+    switch (r.outcome) {
+      case UssdOutcome.success:
+        res = UssdResult.success;
+        break;
+      case UssdOutcome.failed:
+        res = UssdResult.failed;
+        break;
+      case UssdOutcome.uncertain:
+        res = UssdResult.timeout;
+        break;
+      case UssdOutcome.notExecuted:
+        res = r.reason.toLowerCase().contains('aucune réponse')
+            ? UssdResult.timeout
+            : UssdResult.failed;
+        break;
+    }
     return UssdSessionResult(
-      result:     result,
-      rawMessage: lastMessage,
-      allMessages: allMessages,
+      result: res,
+      rawMessage: r.finalScreen,
+      allMessages: r.screens,
+      log: r.log,
+      timings: r.timings,
+      totalMs: r.totalMs,
     );
   }
 
-  /// Recharge la liste complète avec pagination ("00").
-  Future<String> _loadFullList({
-    required String clientNumber,
-    required SimConfig sim,
-  }) async {
-    final session = await _runSession(
-      code: '*126*7*$clientNumber#',
-      simSlot: sim.slot,
-      options: ['00'],
-    );
-    return session.allMessages.join('\n');
+  /// Champs de mesure ajoutés à la commande :
+  ///  - `session_ms` : durée totale de la session USSD ;
+  ///  - `ussd_timings` : une entrée par étape (attente de l'opérateur vs
+  ///    réponse de l'app). Une session sans étape n'écrit rien.
+  Map<String, dynamic> _timingFields(UssdRunResult run) {
+    if (run.timings.isEmpty) return const <String, dynamic>{};
+    return <String, dynamic>{
+      'session_ms': run.totalMs,
+      'ussd_timings': run.timings.map((UssdStepTiming t) => t.toMap()).toList(),
+    };
+  }
+
+  /// [RESEAU 28/10/2026] Garde une commande que le réseau a empêchée.
+  ///
+  /// La réclamation est rendue (compteur de tentatives décrémenté) et le
+  /// statut remis dans son état d'attente : la file de reprise la retrouvera
+  /// au retour du réseau, dans l'ordre d'arrivée. Aucun code n'a été composé,
+  /// donc aucun risque de double crédit.
+  Future<void> _garder(String docId, UssdRunResult run, String statutAttente) async {
+    await TransactionClaimer.instance
+        .release(docId, ServerManager.instance.deviceId);
+    await _write(docId, {
+      'status': statutAttente,
+      'failure_reason': '${run.reason} — commande gardée : elle repartira '
+          'automatiquement au retour du réseau.',
+      'ussd_outcome': run.outcomeCode,
+      'held_at': FieldValue.serverTimestamp(),
+    });
+    debugPrint('[MtnUssdManager] $docId gardée (réseau indisponible)');
   }
 
   Future<void> _updateStatus(String docId, String status) async {
+    await _write(docId, {'status': status});
+  }
+
+  /// Offre [index] telle qu'elle avait été lue dans la requête [sourceOrder].
+  ///
+  /// `null` quand la commande n'a pas de source (ancienne commande) ou que
+  /// l'offre n'y figure plus : l'activation applique alors le comportement
+  /// d'avant, sans contrôle de prix supplémentaire côté serveur (la passerelle
+  /// fait déjà ce contrôle de son côté).
+  Future<UssdOffer?> _offerOf(String sourceOrder, String index) async {
+    if (sourceOrder.trim().isEmpty || index.trim().isEmpty) return null;
+    try {
+      final QuerySnapshot<Map<String, dynamic>> snap = await FirebaseFirestore
+          .instance
+          .collection('Transact')
+          .where('order', isEqualTo: sourceOrder.trim())
+          .limit(1)
+          .get()
+          .timeout(_readTimeout);
+      if (snap.docs.isEmpty) return null;
+      final Map<String, dynamic> src = snap.docs.first.data();
+      // Seule la requête réellement traitée par ce serveur fait foi (statut
+      // "31" : un client ne peut pas l'écrire, cf. firestore.rules).
+      if (src['status']?.toString() != '31') return null;
+      final Object? rawList = src['forfait_offers'];
+      if (rawList is! List) return null;
+      for (final Object? raw in rawList) {
+        if (raw is! Map) continue;
+        final Map<String, dynamic> r = Map<String, dynamic>.from(raw);
+        if (r['index']?.toString().trim() != index.trim()) continue;
+        return UssdOffer(
+          index: index.trim(),
+          key: (r['key'] ?? index).toString(),
+          label: (r['label'] ?? '').toString(),
+          price: int.tryParse((r['price'] ?? '').toString()),
+          page: int.tryParse((r['page'] ?? '0').toString()) ?? 0,
+        );
+      }
+    } catch (e) {
+      debugPrint('[MtnUssdManager] lecture des offres source impossible : $e');
+    }
+    return null;
+  }
+
+  /// Montant déclaré sur la commande d'activation, réduit à ses chiffres.
+  Future<String> _paidAmountOf(String docId) async {
+    try {
+      final DocumentSnapshot<Map<String, dynamic>> doc = await FirebaseFirestore
+          .instance
+          .collection('Transact')
+          .doc(docId)
+          .get()
+          .timeout(_readTimeout);
+      final Object? amount = doc.data()?['amount'];
+      return (amount ?? '').toString().replaceAll(RegExp(r'[^0-9]'), '');
+    } catch (e) {
+      debugPrint('[MtnUssdManager] lecture du montant impossible : $e');
+      return '';
+    }
+  }
+
+  static const Duration _readTimeout = Duration(seconds: 12);
+
+  /// Écriture Firestore bornée dans le temps.
+  ///
+  /// [28/10/2026] Sans délai maximal, une écriture bloquée (client Firestore
+  /// figé après une coupure réseau) suspendait toute la session : la commande
+  /// restait en statut 20 et aucun journal n'était enregistré.
+  static const Duration _writeTimeout = Duration(seconds: 12);
+
+  Future<void> _write(String docId, Map<String, dynamic> fields) async {
     try {
       await FirebaseFirestore.instance
           .collection('Transact')
           .doc(docId)
-          .update({'status': status});
-    } catch (_) {}
+          .update(fields)
+          .timeout(_writeTimeout);
+    } catch (e) {
+      debugPrint('[MtnUssdManager] écriture Firestore impossible : $e');
+    }
   }
 
-  bool _containsKeyword(String msg, List<String> keywords) {
-    final lower = msg.toLowerCase();
-    return keywords.any((k) => lower.contains(k));
-  }
-
-  /// La session est terminée si le message contient un indicateur de fin.
-  bool _isSessionEnd(String msg) {
-    final lower = msg.toLowerCase();
-    return lower.contains('successfully') ||
-        lower.contains('succès') ||
-        lower.contains('succes') ||
-        lower.contains('failed') ||
-        lower.contains('echec') ||
-        lower.contains('échoué') ||
-        lower.contains('confirmed') ||
-        lower.contains('invalide') ||
-        lower.contains('incorrect') ||
-        lower.contains('error') ||
-        lower.contains('erreur') ||
-        // Codes de fin MTN
-        msg.contains('401') ||
-        msg.contains('501') ||
-        msg.contains('502');
-  }
-
-  bool _hasPagination(String msg) {
-    final lower = msg.toLowerCase();
-    return lower.contains('suite') ||
-        lower.contains('more') ||
-        lower.contains('plus') ||
-        lower.contains('00 pour');
-  }
 }
