@@ -23,7 +23,7 @@ class APIORANGE {
         await FirebaseFirestore.instance
             .collection('Transact')
             .doc(querySnapshot.docs.first.id)
-            .update({'status': "11", 'retry': "${code}"});
+            .update({'status': "11", 'retry': "$code"});
 
         print('Statut mis à jour avec succès');
       } else {
@@ -43,12 +43,12 @@ class APIORANGE {
     String apiUserId = "3ac31112-55a6-4df2-b51d-83a6693c8535";
     String apiKey = "b852a1076df54dadbf93e14fa1a0436d";
     String subscriptionKey = "48f314fe512e4f99ab450cda504c5b26";
-    final targetEnv = 'mtncameroon';
+    const targetEnv = 'mtncameroon';
 
     final authStr = base64Encode(utf8.encode('$apiUserId:$apiKey'));
 
     // Solution 1: Corps vide (recommandé pour l'endpoint token)
-    final requestBody = '';
+    const requestBody = '';
     // OU Solution 2: Si vous devez envoyer des données
     // final requestBody = jsonEncode({'key': 'value'});
 
@@ -71,7 +71,7 @@ class APIORANGE {
       print("response.statusCode: ${response.statusCode}");
 
       if (response.statusCode == 200) {
-        var uuid = Uuid();
+        var uuid = const Uuid();
         String v1 = uuid.v1();
 
         final data = jsonDecode(response.body);
@@ -114,11 +114,11 @@ class APIORANGE {
     XReferenceId,
   }) async {
     collectionRef.add({
-      "amount": "${amount.toString()}",
+      "amount": amount.toString(),
       "idphone": idphone.toString(),
       "idtransact": idtransact.toString(),
-      "numerocamtel": "${num1}",
-      "numeroorange": "${num2orange}",
+      "numerocamtel": "$num1",
+      "numeroorange": "$num2orange",
       "status": num2orange == "679089505" ? "1" : "0",
       //"status":  "${num2orange=="679089505"?"1":"0"}",
       "heure": "${DateTime.now().toUtc()}",
@@ -130,10 +130,10 @@ class APIORANGE {
 
     print("question");
     var headers = {
-      'Ocp-Apim-Subscription-Key': "${subscriptionKey}",
-      'Authorization': "Bearer ${accesstoken}",
-      'X-Reference-Id': '${XReferenceId}',
-      'X-Target-Environment': '${targetEnv}',
+      'Ocp-Apim-Subscription-Key': "$subscriptionKey",
+      'Authorization': "Bearer $accesstoken",
+      'X-Reference-Id': '$XReferenceId',
+      'X-Target-Environment': '$targetEnv',
       'Content-Type': 'text/plain',
       // 'Accept': 'application/json',
       // "Content-Length": "1"
@@ -143,10 +143,10 @@ class APIORANGE {
         Uri.parse(
             'https://proxy.momoapi.mtn.com/collection/v1_0/requesttopay'));
     request.body = json.encode({
-      "amount": "${amount.toString()}",
+      "amount": amount.toString(),
       "currency": "XAF",
       "externalId": "679089505",
-      "payer": {"partyIdType": "MSISDN", "partyId": "${num2orange}"},
+      "payer": {"partyIdType": "MSISDN", "partyId": "$num2orange"},
       "payerMessage": "MoMo Market Payment",
       "payeeNote": "MoMo Market Payment"
     });
@@ -165,7 +165,6 @@ class APIORANGE {
           targetEnv: targetEnv,
           subscriptionKey: subscriptionKey,
           accesstoken: accesstoken);
-      ;
       if (data != null) {
         print("updatre");
       }
@@ -174,20 +173,21 @@ class APIORANGE {
       print(response.reasonPhrase);
       print("response.reasonPhrase");
     }
+    return null;
   }
 
   static Future<String?>? getstatutMOMO(
       {targetEnv, subscriptionKey, accesstoken, XReferenceId}) async {
     print("verifie");
     var headers = {
-      'Ocp-Apim-Subscription-Key': "${subscriptionKey}",
-      'Authorization': "Bearer ${accesstoken}",
-      'X-Target-Environment': '${targetEnv}',
+      'Ocp-Apim-Subscription-Key': "$subscriptionKey",
+      'Authorization': "Bearer $accesstoken",
+      'X-Target-Environment': '$targetEnv',
     };
     var request = http.Request(
         'GET',
         Uri.parse(
-            'https://proxy.momoapi.mtn.com/collection/v1_0/requesttopay/${XReferenceId}'));
+            'https://proxy.momoapi.mtn.com/collection/v1_0/requesttopay/$XReferenceId'));
 
     request.headers.addAll(headers);
 
@@ -231,6 +231,7 @@ class APIORANGE {
     } else {
       print(response.reasonPhrase);
     }
+    return null;
   }
 
   static gettokens(
@@ -284,7 +285,7 @@ class APIORANGE {
       BuildContext context) async {
     var headers = {
       'X-AUTH-TOKEN': 'WU5PVEVIRUFEMjpAWU5vVGVIRUBEMlBST0RBUEk=',
-      'Authorization': 'Bearer ${accesstoken}'
+      'Authorization': 'Bearer $accesstoken'
     };
     var request = http.Request(
         'POST', Uri.parse('https://api-s1.orange.cm/omcoreapis/1.0.2/mp/init'));
@@ -347,7 +348,7 @@ class APIORANGE {
     var headers = {
       'X-AUTH-TOKEN': 'WU5PVEVIRUFEMjpAWU5vVGVIRUBEMlBST0RBUEk=',
       'Content-Type': 'application/json',
-      'Authorization': 'Bearer ${accesstoken}'
+      'Authorization': 'Bearer $accesstoken'
     };
     var request = http.Request(
         'POST', Uri.parse('https://api-s1.orange.cm/omcoreapis/1.0.2/mp/pay'));
@@ -438,12 +439,12 @@ class APIORANGE {
     print(order);
     var headers = {
       'X-AUTH-TOKEN': 'WU5PVEVIRUFEMjpAWU5vVGVIRUBEMlBST0RBUEk=',
-      'Authorization': 'Bearer ${accesstoken}'
+      'Authorization': 'Bearer $accesstoken'
     };
     var request = http.Request(
         'GET',
         Uri.parse(
-            'https://api-s1.orange.cm/omcoreapis/1.0.2/mp/paymentstatus/${payToken}'));
+            'https://api-s1.orange.cm/omcoreapis/1.0.2/mp/paymentstatus/$payToken'));
     request.body = '''''';
     request.headers.addAll(headers);
 
@@ -457,7 +458,7 @@ class APIORANGE {
         print("en attente");
         print(statut["data"]["status"]);
         Future.delayed(
-          Duration(seconds: 5),
+          const Duration(seconds: 5),
           () {
             getstatut(accesstoken, payToken, order);
           },
@@ -472,7 +473,7 @@ class APIORANGE {
             "Payement effectuer avec succes",
             colorText: Colors.white,
             snackPosition: SnackPosition.TOP,
-            duration: Duration(seconds: 30));
+            duration: const Duration(seconds: 30));
         // update(order.toString());
         // ScaffoldMessenger.of(context)
         //     .showSnackBar(const SnackBar(

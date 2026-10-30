@@ -54,12 +54,11 @@ class SmsParse {
     this.reason = '',
   });
 
-  const SmsParse.unknown(String why, {String operator = ''})
+  const SmsParse.unknown(String why, {this.operator = ''})
       : recognised = false,
         balance = null,
         amount = null,
         direction = SmsDirection.none,
-        operator = operator,
         reference = '',
         reason = why;
 

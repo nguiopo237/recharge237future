@@ -8,7 +8,6 @@ import 'package:recharge237_serveur/component/style/middletext.dart';
 import 'package:sizer/sizer.dart';
 
 import '../../../main.dart';
-import '../../callapi/orange/generatepay.dart';
 import '../../controlleur/Reload_controlleur.dart';
 import '../../controlleur/home_controlleur.dart';
 import '../../controlleur/transact_controlleur.dart';
@@ -23,18 +22,18 @@ class ReloadAirtimesPost extends GetView<ReloadControlleur> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          const Text(
             "Êtes-vous sûr de vouloir ",
             style: TextStyle(fontSize: 18),
           ),
-          SizedBox(height: 30),
+          const SizedBox(height: 30),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
-                  padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
                 ),
                 onPressed: () async {
                   Get.back();
@@ -74,7 +73,7 @@ class ReloadAirtimesPost extends GetView<ReloadControlleur> {
 
                       // Affichage d'une confirmation à l'utilisateur
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
+                        const SnackBar(
                           backgroundColor: Colors.green,
                           content: Text("Transaction réussie"),
                         ),
@@ -99,17 +98,17 @@ class ReloadAirtimesPost extends GetView<ReloadControlleur> {
                     );
                   }
                 },
-                child: Text('Accepter', style: TextStyle(color: Colors.white)),
+                child: const Text('Accepter', style: TextStyle(color: Colors.white)),
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red,
-                  padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
                 ),
                 onPressed: () {
                   Get.back();
                 },
-                child: Text('Refuser', style: TextStyle(color: Colors.white)),
+                child: const Text('Refuser', style: TextStyle(color: Colors.white)),
               ),
             ],
           ),
@@ -120,7 +119,7 @@ class ReloadAirtimesPost extends GetView<ReloadControlleur> {
 
   Widget _buildHistoriqueRapide() {
     final FirebaseFirestore firestore = FirebaseFirestore.instance;
-    Widget _buildTransactionsList() {
+    Widget buildTransactionsList() {
       return Padding(
         padding: const EdgeInsets.only(bottom: 10),
         child: StreamBuilder<QuerySnapshot>(
@@ -154,7 +153,7 @@ class ReloadAirtimesPost extends GetView<ReloadControlleur> {
                   // controller: _controller,
                   shrinkWrap: true,
                   reverse: false,
-                  physics: NeverScrollableScrollPhysics(),
+                  physics: const NeverScrollableScrollPhysics(),
                   itemCount: transactions.length,
                   itemBuilder: (context, index) {
                     final data =
@@ -163,19 +162,19 @@ class ReloadAirtimesPost extends GetView<ReloadControlleur> {
                     return transaction.statut == "9" ||
                             transaction.statut == "10"
                         ? t.buildTransactionItem(transaction)
-                        : SizedBox();
+                        : const SizedBox();
                   },
                 ),
                 InkWell(
                   onTap: () {
                     c.getmodal(
-                        sectionview: Container(
+                        sectionview: SizedBox(
                       height: Get.height / 1.5,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
+                          const Padding(
+                            padding: EdgeInsets.all(8.0),
                             child: Text(
                               'Mes Recharges',
                               style: TextStyle(
@@ -196,7 +195,7 @@ class ReloadAirtimesPost extends GetView<ReloadControlleur> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      Text(
+                      const Text(
                         'Voir plus',
                         style: TextStyle(
                             fontSize: 18,
@@ -222,7 +221,7 @@ class ReloadAirtimesPost extends GetView<ReloadControlleur> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           'Recharges récentes',
           style: TextStyle(
             fontSize: 18,
@@ -231,7 +230,7 @@ class ReloadAirtimesPost extends GetView<ReloadControlleur> {
           ),
         ),
         SizedBox(height: 1.h),
-        _buildTransactionsList(),
+        buildTransactionsList(),
       ],
     );
   }
@@ -312,7 +311,7 @@ class ReloadAirtimesPost extends GetView<ReloadControlleur> {
                             //await FlutterContacts.openExternalView("1");
                             // globalKeys.currentState!.openEndDrawer();
                           },
-                          child: Icon(Icons.phone, color: Colors.blueAccent)),
+                          child: const Icon(Icons.phone, color: Colors.blueAccent)),
                       border: InputBorder.none,
                       hintText: "entrez Numero camtel"),
                 ),
@@ -346,7 +345,7 @@ class ReloadAirtimesPost extends GetView<ReloadControlleur> {
                       padding: EdgeInsets.symmetric(
                           horizontal: 4.w, vertical: 1.5.h),
                     ),
-                    child: Text("${amount} FCFA"),
+                    child: Text("$amount FCFA"),
                   );
                 }).toList(),
               ),
@@ -392,7 +391,7 @@ class ReloadAirtimesPost extends GetView<ReloadControlleur> {
                     return null;
                   },
                   keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: "Montant personnalisé",
                     prefixIcon: Icon(Icons.money, color: Colors.blueAccent),
                     border: InputBorder.none,
@@ -413,7 +412,7 @@ class ReloadAirtimesPost extends GetView<ReloadControlleur> {
                   onChanged: controller.detectOperator,
                   decoration: InputDecoration(
                       labelText: "Numéro payeur",
-                      prefixIcon: Icon(Icons.payment, color: Colors.blueAccent),
+                      prefixIcon: const Icon(Icons.payment, color: Colors.blueAccent),
                       border: InputBorder.none,
                       counterText: "",
                       suffixIcon: Visibility(
@@ -432,6 +431,7 @@ class ReloadAirtimesPost extends GetView<ReloadControlleur> {
                     } else {
                       return "${"enter"} veuillez saisir les 9 chiffre";
                     }
+                    return null;
                   },
                 ),
               ),

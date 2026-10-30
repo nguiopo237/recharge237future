@@ -91,3 +91,9 @@ key.properties
 # Journaux et scripts locaux
 logs/
 _claude_*
+
+# Secrets de surveillance PC : jamais dans git
+# (service account Firestore + jetons Telegram, cf. tools/firestore_lastseen.mjs
+#  et tools/veilleur_serveurs.mjs)
+tools/service-account.json
+tools/veilleur.env

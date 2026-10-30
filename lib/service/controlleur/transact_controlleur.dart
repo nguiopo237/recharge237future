@@ -64,9 +64,9 @@ class TransactControlleur extends GetxController {
   Widget buildTransactionItem(Transactions transaction) {
     String operatorLogoall = "";
 
-    String? prefix = transaction?.category.substring(0, 3);
+    String? prefix = transaction.category.substring(0, 3);
 
-    if (r.numbersRegex.hasMatch(prefix!)) {
+    if (r.numbersRegex.hasMatch(prefix)) {
       operatorLogoall = "images/MTN_logo.png";
     } else if (r.numberoRegex.hasMatch(prefix)) {
       operatorLogoall = "images/omlogo.png";
@@ -194,7 +194,7 @@ class TransactControlleur extends GetxController {
                 ? transactions.length
                 : transactions
                     .where(
-                      (element) => element["status"] == "${filter}",
+                      (element) => element["status"] == "$filter",
                     )
                     .length,
             itemBuilder: (context, index) {
@@ -202,7 +202,7 @@ class TransactControlleur extends GetxController {
                   ? transactions[index].data() as Map<String, dynamic>
                   : transactions
                       .where(
-                        (element) => element["status"] == "${filter}",
+                        (element) => element["status"] == "$filter",
                       )
                       .toList()[index]
                       .data() as Map<String, dynamic>;

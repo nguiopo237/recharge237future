@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get/get_core/src/get_main.dart';
 
 import '../../main.dart';
 import 'message/messageView.dart';
 
 class MemberListScreen extends StatefulWidget {
+  const MemberListScreen({super.key});
+
   @override
   _MemberListScreenState createState() => _MemberListScreenState();
 }
@@ -31,7 +32,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
+        title: const Text(
           'Liste des Membres',
           style: TextStyle(
             color: Colors.white,
@@ -42,7 +43,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
         elevation: 0,
         actions: [
           IconButton(
-            icon: Icon(Icons.search, color: Colors.white),
+            icon: const Icon(Icons.search, color: Colors.white),
             onPressed: () {
               // Action de recherche
             },
@@ -55,8 +56,8 @@ class _MemberListScreenState extends State<MemberListScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Colors.deepPurple.withOpacity(0.1),
-              Colors.purple.withOpacity(0.05),
+              Colors.deepPurple.withValues(alpha: 0.1),
+              Colors.purple.withValues(alpha: 0.05),
             ],
           ),
         ),
@@ -64,10 +65,10 @@ class _MemberListScreenState extends State<MemberListScreen> {
           children: [
             // En-tête avec statistiques
             Container(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.deepPurple.withOpacity(0.1),
-                borderRadius: BorderRadius.only(
+                color: Colors.deepPurple.withValues(alpha: 0.1),
+                borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(20),
                   bottomRight: Radius.circular(20),
                 ),
@@ -99,7 +100,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
                 ],
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
 
             Container(
               child: StreamBuilder(
@@ -110,11 +111,11 @@ class _MemberListScreenState extends State<MemberListScreen> {
                     .snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Center(child: CircularProgressIndicator());
+                    return const Center(child: CircularProgressIndicator());
                   } else if (snapshot.hasError) {
                     return Text('Erreur : ${snapshot.error}');
                   } else if (!snapshot.hasData) {
-                    return Text('Pas de données disponibles');
+                    return const Text('Pas de données disponibles');
                   } else {
                     // scrollToIndex1();
                     final itemdata = snapshot.data?.docs;
@@ -155,7 +156,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
           // Action pour ajouter un membre
         },
         backgroundColor: Colors.purple,
-        child: Icon(Icons.person_add, color: Colors.white),
+        child: const Icon(Icons.person_add, color: Colors.white),
       ),
     );
   }
@@ -164,9 +165,9 @@ class _MemberListScreenState extends State<MemberListScreen> {
     return Column(
       children: [
         Container(
-          padding: EdgeInsets.all(8),
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.2),
+            color: color.withValues(alpha: 0.2),
             shape: BoxShape.circle,
           ),
           child: Text(
@@ -178,10 +179,10 @@ class _MemberListScreenState extends State<MemberListScreen> {
             ),
           ),
         ),
-        SizedBox(height: 4),
+        const SizedBox(height: 4),
         Text(
           title,
-          style: TextStyle(
+          style: const TextStyle(
             color: Colors.deepPurple,
             fontSize: 12,
           ),
@@ -196,7 +197,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
     final bool isOnline = member.status == 'En ligne';
 
     return Card(
-      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -206,7 +207,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
           width: 50,
           height: 50,
           decoration: BoxDecoration(
-            color: primaryColor.withOpacity(0.2),
+            color: primaryColor.withValues(alpha: 0.2),
             shape: BoxShape.circle,
             border: Border.all(
               color: primaryColor,
@@ -251,11 +252,11 @@ class _MemberListScreenState extends State<MemberListScreen> {
           ],
         ),
         trailing: Container(
-          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: isOnline
-                ? Colors.green.withOpacity(0.2)
-                : Colors.grey.withOpacity(0.2),
+                ? Colors.green.withValues(alpha: 0.2)
+                : Colors.grey.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
@@ -269,7 +270,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
                   shape: BoxShape.circle,
                 ),
               ),
-              SizedBox(width: 4),
+              const SizedBox(width: 4),
               Text(
                 isOnline ? 'En ligne' : 'Hors ligne',
                 style: TextStyle(
@@ -321,20 +322,20 @@ class _MemberListScreenState extends State<MemberListScreen> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: Colors.deepPurple.withOpacity(0.2),
+                color: Colors.deepPurple.withValues(alpha: 0.2),
                 shape: BoxShape.circle,
               ),
               child: Center(
                 child: Text(
                   member.name.substring(0, 1),
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: Colors.deepPurple,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
             ),
-            SizedBox(width: 12),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
                 member.name,
@@ -357,7 +358,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            SizedBox(height: 4),
+            const SizedBox(height: 4),
             Text(
               'Dernière connexion: ${member.lastSeen}',
               style: TextStyle(
@@ -369,7 +370,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text(
+            child: const Text(
               'Fermer',
               style: TextStyle(color: Colors.deepPurple),
             ),
@@ -382,7 +383,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.purple,
             ),
-            child: Text(
+            child: const Text(
               'Message',
               style: TextStyle(color: Colors.white),
             ),

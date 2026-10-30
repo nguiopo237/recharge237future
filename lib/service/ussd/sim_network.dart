@@ -125,8 +125,9 @@ class SimNetworkState {
   });
 
   factory SimNetworkState.fromMap(int slot, Map<String, dynamic>? m) {
-    if (m == null)
+    if (m == null) {
       return SimNetworkState.unknown(slot, 'état réseau illisible');
+    }
     String str(String key) => (m[key] ?? '').toString().trim();
     int integer(String key, [int fallback = -1]) =>
         (m[key] as num?)?.toInt() ?? fallback;
@@ -239,7 +240,7 @@ class SimNetworkState {
   /// Ligne de journal (aucun secret).
   String get summary =>
       '$simLabel · ${networkLabel.isEmpty ? simState : networkLabel}'
-      '${emergencyOnly ? ' (urgence)' : ''} · réseau "${operatorName}" · '
+      '${emergencyOnly ? ' (urgence)' : ''} · réseau "$operatorName" · '
       'carte "$carrier" $mccMnc · signal $signalLevel/4 · SIM $simState'
       '${detail.isNotEmpty ? ' · $detail' : ''}';
 }

@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get/get_core/src/get_main.dart';
 import 'package:intl/intl.dart';
 import 'package:recharge237_serveur/component/style/middletext.dart';
 import 'package:sizer/sizer.dart';
@@ -69,7 +68,7 @@ class _ForfaitScreenState extends State<ForfaitScreen> {
     double itemHeight = 80.0; // Hauteur approximative de chaque élément
     _controller.animateTo(
       itemHeight * 60, // Multipliez par l'index souhaité (1 dans ce cas)
-      duration: Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 500),
       curve: Curves.easeInOut,
     );
   }
@@ -83,7 +82,7 @@ class _ForfaitScreenState extends State<ForfaitScreen> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
+        SizedBox(
           width: 100.w,
           child: Wrap(
             children: [
@@ -96,11 +95,11 @@ class _ForfaitScreenState extends State<ForfaitScreen> {
                       .snapshots(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
-                      return Center(child: CircularProgressIndicator());
+                      return const Center(child: CircularProgressIndicator());
                     } else if (snapshot.hasError) {
                       return Text('Erreur : ${snapshot.error}');
                     } else if (!snapshot.hasData) {
-                      return Text('Pas de données disponibles');
+                      return const Text('Pas de données disponibles');
                     } else {
                       // scrollToIndex1();
 
@@ -110,7 +109,7 @@ class _ForfaitScreenState extends State<ForfaitScreen> {
                         shrinkWrap: true,
                         itemCount: snapshot.data!.docs.length,
                         itemBuilder: (context, index) {
-                          final data = snapshot.data!.docs![index];
+                          final data = snapshot.data!.docs[index];
                           return Padding(
                             padding: const EdgeInsets.all(8.0),
                             child: FilterChip(
@@ -331,11 +330,11 @@ class _ForfaitScreenState extends State<ForfaitScreen> {
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
+            return const Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
             return Text('Erreur : ${snapshot.error}');
           } else if (!snapshot.hasData) {
-            return Text('Pas de données disponibles');
+            return const Text('Pas de données disponibles');
           } else {
             // scrollToIndex1();
 
@@ -400,14 +399,14 @@ class _ForfaitScreenState extends State<ForfaitScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       elevation: 1,
       child: ListTile(
-        contentPadding: EdgeInsets.all(8.0),
+        contentPadding: const EdgeInsets.all(8.0),
         leading: Container(
           width: 40,
           height: 40,
           decoration: BoxDecoration(
             color: transaction.amount > 0
-                ? Colors.green.withOpacity(0.2)
-                : Colors.red.withOpacity(0.2),
+                ? Colors.green.withValues(alpha: 0.2)
+                : Colors.red.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Icon(
@@ -444,7 +443,7 @@ class _ForfaitScreenState extends State<ForfaitScreen> {
             ),
             Expanded(
               child: Text(
-                "${transaction.statut == "0" ? "en attente de validations " : transaction.statut == "1" ? "en attente de traitement" : transaction.statut == "2" ? "en cour de traitement" : transaction.statut == "3" ? "Recharge de credit Effectuée" : transaction.statut == "4" ? 'en Attente de validation du forfait' : "Forfait Valider "}",
+                transaction.statut == "0" ? "en attente de validations " : transaction.statut == "1" ? "en attente de traitement" : transaction.statut == "2" ? "en cour de traitement" : transaction.statut == "3" ? "Recharge de credit Effectuée" : transaction.statut == "4" ? 'en Attente de validation du forfait' : "Forfait Valider ",
                 style: TextStyle(
                     color: transaction.statut == "0"
                         ? Colors.orangeAccent
@@ -540,7 +539,7 @@ class _ForfaitScreenState extends State<ForfaitScreen> {
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: selectedCategory,
+                  initialValue: selectedCategory,
                   items: [
                     'Shopping',
                     'Revenu',

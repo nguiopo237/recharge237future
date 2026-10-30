@@ -144,11 +144,25 @@ void main() {
   });
 
   // [OFFRES PERSO 29/10/2026] Good Deal Orange.
-  test('Good Deal Orange : requête à 0, activation à 1/11', () {
-    expect(routesForHandles(<String>['orange_forfait']).toString(),
-        '[0 · orange_forfait, 1/11 · orange_forfait_activate]');
-    expect(routesForHandles(<String>['orange_forfait_activate']).toString(),
-        '[0 · orange_forfait, 1/11 · orange_forfait_activate]');
+  //
+  // [ORANGE 30/10/2026] Tant que le flow USSD Orange n'est pas branché
+  // (`OrangeUssdManager.deliveryImplemented == false`), un téléphone ne doit
+  // PAS écouter les commandes Orange : elles resteraient en échec alors que le
+  // client a payé. Elles doivent rester au statut « payée, à livrer » (1), que
+  // l'admin traite à la main. Le routage est donc VIDE pour un téléphone
+  // dédié Orange (et non `null`, qui voudrait dire « toutes les commandes »).
+  test('Orange non implémenté : aucune route écoutée (commande laissée à l’admin)', () {
+    expect(routesForHandles(<String>['orange_forfait']), isEmpty);
+    expect(routesForHandles(<String>['orange_forfait_activate']), isEmpty);
+    expect(routesForHandles(<String>['orange_airtime']), isEmpty);
+    // Un téléphone mixte garde ses autres opérateurs, sans Orange.
+    expect(
+      routesForHandles(<String>['orange_airtime', 'camtel_pre']).toString(),
+      '[1/9/11]',
+    );
+  });
+
+  test('Good Deal Orange : statuts de relance inchangés', () {
     expect(
         relaunchStatusFor(
             <String, dynamic>{'operateur_cible': 'orange_forfait'}),

@@ -1,5 +1,8 @@
 /// [PRODUCTION 27/10/2026] Filtres de sécurité du serveur USSD, isolés ici
 /// pour être testés (test/order_filters_test.dart).
+library;
+
+import '../ussd/orange_ussd_manager.dart';
 
 /// Statuts `Transact` qui déclenchent une action du serveur :
 ///  - "0"  : requête Good Deal MTN (gratuite, `operateur_cible: mtn_forfait`) ;
@@ -107,15 +110,18 @@ List<OrderRoute>? routesForHandles(List<String> handles) {
   if (h.contains('none')) return const <OrderRoute>[];
   // L'écran Serveurs écrit aussi les sous-types MTN : ils relèvent de
   // `mtn_forfait` (même SIM, même menu).
-  if (h.remove('mtn_forfait_activate') | h.remove('mtn_bundle'))
+  if (h.remove('mtn_forfait_activate') | h.remove('mtn_bundle')) {
     h.add('mtn_forfait');
+  }
   if (h.remove('orange_forfait_activate')) h.add('orange_forfait');
   if (h.any((String e) => !kOperationTypes.contains(e))) return null;
   final List<OrderRoute> routes = <OrderRoute>[];
-  if (h.contains('camtel_pre'))
+  if (h.contains('camtel_pre')) {
     routes.add(const OrderRoute(<String>['1', '9', '11']));
-  if (h.contains('camtel_post'))
+  }
+  if (h.contains('camtel_post')) {
     routes.add(const OrderRoute(<String>['6', '9']));
+  }
   if (h.contains('mtn_airtime')) {
     routes.add(const OrderRoute(<String>['1', '11'], 'mtn_airtime'));
   }
@@ -125,13 +131,28 @@ List<OrderRoute>? routesForHandles(List<String> handles) {
     // [CATALOGUE 29/10/2026] Forfaits MTN du catalogue : même SIM, même menu.
     routes.add(const OrderRoute(<String>['1', '11'], 'mtn_bundle'));
   }
-  if (h.contains('orange_airtime')) {
+  // [ORANGE 30/10/2026] Le flow USSD Orange n'est pas encore branché. Un
+  // téléphone qui ne saurait pas livrer ne doit surtout PAS réserver la
+  // commande : elle finirait en échec alors que le client a payé. On ignore
+  // donc les types Orange tant que `OrangeUssdManager.deliveryImplemented` est
+  // faux ; les commandes restent au statut « payée, à livrer » (1) et
+  // l'administrateur les traite à la main. Le jour où le flow est fourni, la
+  // constante passe à vrai et tout s'active sans autre modification.
+  const bool orangePret = OrangeUssdManager.deliveryImplemented;
+  if (orangePret && h.contains('orange_airtime')) {
     routes.add(const OrderRoute(<String>['1', '11'], 'orange_airtime'));
   }
-  if (h.contains('orange_forfait')) {
+  if (orangePret && h.contains('orange_forfait')) {
     routes.add(const OrderRoute(<String>['0'], 'orange_forfait'));
     routes
         .add(const OrderRoute(<String>['1', '11'], 'orange_forfait_activate'));
+  }
+  // Téléphone dédié Orange (tous ses handles ignorés) : `routes` est vide. On
+  // renvoie une liste VIDE = « n'écoute rien ». Renvoyer `null` signifierait
+  // « toutes les commandes », donc voler les commandes CAMTEL/MTN des autres
+  // téléphones — inacceptable.
+  if (routes.isEmpty && (h.contains('orange_airtime') || h.contains('orange_forfait'))) {
+    return const <OrderRoute>[];
   }
   return routes.isEmpty ? null : routes;
 }
@@ -217,8 +238,9 @@ const Set<String> kNotRelaunchableStatuses = {
 bool canRelaunch(Map<String, dynamic> data) {
   final String status = (data['status'] ?? '').toString().trim();
   if (kNotRelaunchableStatuses.contains(status)) return false;
-  if ((data['relance_demandee'] as Object?) == true)
+  if ((data['relance_demandee'] as Object?) == true) {
     return false; // déjà demandée
+  }
   return relaunchStatusFor(data) != null;
 }
 

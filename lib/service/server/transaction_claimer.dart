@@ -101,13 +101,13 @@ class TransactionClaimer {
   /// bloquée jusqu'à une relance manuelle — ce qui épuisait le quota gratuit
   /// du plan Spark sous forte charge (10 000 clients).
   Future<bool> claim(String docId, String serverId) async {
-    const List<Duration> _claimBackoffDelays = [
+    const List<Duration> claimBackoffDelays = [
       Duration(seconds: 2),
       Duration(seconds: 4),
       Duration(seconds: 8),
     ];
     Object? lastError;
-    for (int attempt = 0; attempt < _claimBackoffDelays.length; attempt++) {
+    for (int attempt = 0; attempt < claimBackoffDelays.length; attempt++) {
       bool result = false;
       lastError = null;
       try {
@@ -166,7 +166,7 @@ class TransactionClaimer {
       } catch (e) {
         lastError = e;
         debugPrint(
-            '[Claimer] Erreur claim $docId (tentative ${attempt + 1}/${_claimBackoffDelays.length}) : $e');
+            '[Claimer] Erreur claim $docId (tentative ${attempt + 1}/${claimBackoffDelays.length}) : $e');
       }
 
       if (result) return true;
@@ -174,8 +174,8 @@ class TransactionClaimer {
       // pas d'erreur, donc rien à réessayer. Avant, on relisait 3 fois la
       // commande pour rien et on journalisait « Erreur … définitive : null ».
       if (lastError == null) return false;
-      if (attempt < _claimBackoffDelays.length - 1) {
-        await Future.delayed(_claimBackoffDelays[attempt]);
+      if (attempt < claimBackoffDelays.length - 1) {
+        await Future.delayed(claimBackoffDelays[attempt]);
       }
     }
     debugPrint('[Claimer] Erreur claim $docId définitive : $lastError');

@@ -1,7 +1,5 @@
 import 'dart:async';
-import 'dart:ui';
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:get/get.dart';
 
@@ -17,7 +15,7 @@ class widgetControlleur extends GetxController {
   }
 
   String formaterDateFrancais(DateTime date) {
-    final List<String> jours = const [
+    const List<String> jours = [
       'lundi',
       'mardi',
       'mercredi',
@@ -27,7 +25,7 @@ class widgetControlleur extends GetxController {
       'dimanche'
     ];
 
-    final List<String> mois = const [
+    const List<String> mois = [
       'janvier',
       'février',
       'mars',

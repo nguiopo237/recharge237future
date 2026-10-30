@@ -256,8 +256,9 @@ class ServerManager {
         await _signalerChangementSim(avant, hw.sims);
       }
     } catch (e) {
-      if (FirestoreBackoff.estTransitoire(e))
+      if (FirestoreBackoff.estTransitoire(e)) {
         FirestoreBackoff.instance.echec(e);
+      }
       debugPrint('[ServerManager] Publication du matériel impossible : $e');
     }
   }
@@ -568,15 +569,18 @@ class ServerManager {
     final prefix = numeroorange.length >= 3 ? numeroorange.substring(0, 3) : '';
 
     // Filtrage par type de recharge
-    if (_operators.contains('prepaid') && (status == '1' || status == '9'))
+    if (_operators.contains('prepaid') && (status == '1' || status == '9')) {
       return true;
+    }
     if (_operators.contains('postpaid') && (status == '6')) return true;
 
     // Filtrage par opérateur payeur
-    if (_operators.contains('orange') && _orangePrefixes.contains(prefix))
+    if (_operators.contains('orange') && _orangePrefixes.contains(prefix)) {
       return true;
-    if (_operators.contains('mtn') && _mtnPrefixes.contains(prefix))
+    }
+    if (_operators.contains('mtn') && _mtnPrefixes.contains(prefix)) {
       return true;
+    }
 
     return false;
   }

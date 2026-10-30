@@ -16,11 +16,7 @@ class API {
     String? username = 'camillenguiopo@gmail.com';
     String password = 'wyha qkhy guca hqif';
     body =
-        "salue nous avons tranferer le credit de ${amount}  au numero suivant ${numeroc} voici le numero transact ${idtransact} ,le contenue du sms est le suivant : ${null == null ? "pas de sms" : "sms.body"}";
-
-    if (fromEmail == null || toEmail == null) {
-      throw ArgumentError('Les adresses email ne peuvent pas être null');
-    }
+        "salue nous avons tranferer le credit de $amount  au numero suivant $numeroc voici le numero transact $idtransact ,le contenue du sms est le suivant : ${null == null ? "pas de sms" : "sms.body"}";
 
     if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(fromEmail) ||
         !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(toEmail)) {

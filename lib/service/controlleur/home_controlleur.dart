@@ -15,7 +15,7 @@ class Homecontolleur extends GetxController {
         isDismissible: isDismissible,
         enableDrag: enableDrag,
         Material(
-          shape: RoundedRectangleBorder(
+          shape: const RoundedRectangleBorder(
               borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(20), topRight: Radius.circular(20))),
           child: BackdropFilter(

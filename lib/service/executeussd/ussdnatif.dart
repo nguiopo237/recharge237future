@@ -28,27 +28,15 @@ class NativeUssdService {
     if (_isInitialized) return;
 
     try {
-      print("🔄 [USSD] Initialisation du service natif...");
 
       // 1. Tester la connexion d'abord
-      print("🔗 [USSD] Test de connexion...");
-      final testResult = await _methodChannel.invokeMethod('testConnection');
-      print("✅ [USSD] Test réussi: $testResult");
+      await _methodChannel.invokeMethod('testConnection');
 
       // 2. Initialiser
-      print("📦 [USSD] Initialisation...");
       await _methodChannel.invokeMethod('initialize');
 
       _isInitialized = true;
-      print("🎉 [USSD] Service initialisé avec succès!");
-    } on PlatformException catch (e) {
-      print("❌ [USSD] PlatformException:");
-      print("   Code: ${e.code}");
-      print("   Message: ${e.message}");
-      print("   Details: ${e.details}");
-      rethrow;
-    } catch (e) {
-      print("❌ [USSD] Erreur inattendue: $e");
+    } on PlatformException {
       rethrow;
     }
   }
@@ -59,7 +47,6 @@ class NativeUssdService {
     required int simSlot,
   }) async {
     try {
-      print("📤 [USSD] Envoi simple: '$code' (SIM: $simSlot)");
 
       final result = await _methodChannel.invokeMethod(
         'sendSingleUssd', // MÊME NOM QUE DANS KOTLIN
@@ -69,13 +56,8 @@ class NativeUssdService {
         },
       );
 
-      print("✅ [USSD] Résultat: $result");
       return result.toString();
     } on PlatformException catch (e) {
-      print("❌ [USSD] PlatformException sendSingleUssd:");
-      print("   Code: ${e.code}");
-      print("   Message: ${e.message}");
-      print("   Details: ${e.details}");
 
       // Erreur spécifique "MissingPluginException"
       if (e.code == 'MissingPluginException' ||
@@ -85,9 +67,6 @@ class NativeUssdService {
       }
 
       throw Exception("Erreur USSD: ${e.message}");
-    } catch (e) {
-      print("❌ [USSD] Exception: $e");
-      rethrow;
     }
   }
 
@@ -98,7 +77,6 @@ class NativeUssdService {
     int timeoutSeconds = 30,
   }) async {
     try {
-      print("🎬 [USSD] Séquence: ${codes.length} étapes");
 
       await _methodChannel.invokeMethod('sendUssdSequence', {
         'codes': codes,
@@ -106,12 +84,7 @@ class NativeUssdService {
         'timeout': timeoutSeconds,
       });
 
-      print("✅ [USSD] Séquence démarrée");
-    } on PlatformException catch (e) {
-      print("❌ [USSD] Erreur séquence: ${e.message}");
-      rethrow;
-    } catch (e) {
-      print("❌ [USSD] Exception: $e");
+    } on PlatformException {
       rethrow;
     }
   }
@@ -119,7 +92,6 @@ class NativeUssdService {
   // Obtenir les informations SIM
   Future<List<Map<String, dynamic>>> getSimInfo() async {
     try {
-      print("📱 [USSD] Récupération des infos SIM...");
 
       final result = await _methodChannel.invokeMethod('getSimInfo');
 
@@ -129,13 +101,12 @@ class NativeUssdService {
           return map;
         }).toList();
 
-        print("✅ [USSD] ${simCards.length} carte(s) SIM trouvée(s)");
         return simCards;
       }
 
       return [];
-    } on PlatformException catch (e) {
-      print("❌ [USSD] Erreur getSimInfo: ${e.message}");
+    } on PlatformException {
+      // Aucune SIM lisible : on rend une liste vide.
       return [];
     }
   }
@@ -145,8 +116,7 @@ class NativeUssdService {
     try {
       final result = await _methodChannel.invokeMethod('isUssdSupported');
       return result as bool;
-    } on PlatformException catch (e) {
-      print("❌ [USSD] Erreur isUssdSupported: ${e.message}");
+    } on PlatformException {
       return false;
     }
   }
@@ -165,10 +135,8 @@ class NativeUssdService {
   Stream<String> get responseStream {
     _responseStream ??=
         _responseChannel.receiveBroadcastStream().map((response) {
-      print("📨 [USSD] Réponse: $response");
       return response.toString();
     }).handleError((error) {
-      print("⚠️ [USSD] Erreur stream: $error");
       return "Erreur: $error";
     });
 
@@ -178,7 +146,6 @@ class NativeUssdService {
   // Stream des erreurs
   Stream<String> get errorStream {
     _errorStream ??= _errorChannel.receiveBroadcastStream().map((error) {
-      print("❌ [USSD] Erreur: $error");
       return error.toString();
     });
 
@@ -189,9 +156,8 @@ class NativeUssdService {
   Future<void> cancelSession() async {
     try {
       await _methodChannel.invokeMethod('cancelSession');
-      print("⏹️ [USSD] Session annulée");
-    } on PlatformException catch (e) {
-      print("❌ [USSD] Erreur annulation: ${e.message}");
+    } on PlatformException {
+      // Rien à annuler côté natif.
     }
   }
 }

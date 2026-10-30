@@ -5,7 +5,6 @@ import 'package:recharge237_serveur/main.dart';
 import 'package:recharge237_serveur/view/message/PersonList.dart';
 import 'package:sizer/sizer.dart';
 
-import '../../../service/callapi/mail/api.dart';
 import '../../../service/callapi/orange/generatepay.dart';
 import '../../../service/controlleur/Reload_controlleur.dart';
 import '../../../service/controlleur/transact_controlleur.dart';
@@ -90,10 +89,10 @@ class _ChatScreenState extends State<ChatScreen> {
     if (_messageController.text.trim().isEmpty) return;
 
     collectionmessage_person.add({
-      "id": "${idphone}${widget.transaction?.order ?? ""}",
+      "id": "$idphone${widget.transaction?.order ?? ""}",
       "content": _messageController.text,
       "timestamp": DateTime.now().toUtc().toString(),
-      "senderId": "${idphone}${widget.transaction?.order ?? ""}",
+      "senderId": "$idphone${widget.transaction?.order ?? ""}",
       "receiveId":
           "${widget.member?.name.toString()}${widget.transaction?.order ?? ""}",
     });
@@ -136,17 +135,17 @@ class _ChatScreenState extends State<ChatScreen> {
                   .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(child: CircularProgressIndicator());
+                  return const Center(child: CircularProgressIndicator());
                 } else if (snapshot.hasError) {
                   return Text('Erreur : ${snapshot.error}');
                 } else if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return Text('Pas de données disponibles');
+                  return const Text('Pas de données disponibles');
                 } else {
                   // Conversion correcte des documents en objets Messagemodel
                   final messages = snapshot.data!.docs.where((element) {
                     checkifexist() {
                       return element["senderId"].toString() ==
-                                  "${idphone}${widget.transaction?.order ?? ""}" &&
+                                  "$idphone${widget.transaction?.order ?? ""}" &&
                               element["receiveId"].toString() ==
                                   "${widget.member?.name ?? "3aa17372b03eddb1"}${widget.transaction?.order ?? ""}" ||
                           element["senderId"].toString() ==
@@ -155,11 +154,11 @@ class _ChatScreenState extends State<ChatScreen> {
 
                     checkifexist2() {
                       return element["senderId"].toString() ==
-                                  "${idphone}${widget.transaction?.order ?? ""}" &&
+                                  "$idphone${widget.transaction?.order ?? ""}" &&
                               element["receiveId"].toString() ==
                                   "${widget.member?.name ?? "3aa17372b03eddb1"}${widget.transaction?.order ?? ""}" ||
                           element["receiveId"].toString() !=
-                                  "${idphone}${widget.transaction?.order ?? ""}" &&
+                                  "$idphone${widget.transaction?.order ?? ""}" &&
                               element["senderId"].toString() ==
                                   "${widget.member?.name ?? "3aa17372b03eddb1"}${widget.transaction?.order ?? ""}";
                     }
@@ -217,9 +216,9 @@ class _ChatScreenState extends State<ChatScreen> {
                               return MessageBubble(
                                 message: message,
                                 isMe: message.senderId ==
-                                    "${idphone}${widget.transaction?.order ?? ""}",
+                                    "$idphone${widget.transaction?.order ?? ""}",
                               );
-                            }).toList(),
+                            }),
                           ],
                         );
                       },
@@ -293,7 +292,7 @@ class _ChatScreenState extends State<ChatScreen> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.3),
+            color: Colors.grey.withValues(alpha: 0.3),
             blurRadius: 4,
             offset: const Offset(0, -2),
           ),
@@ -386,7 +385,7 @@ class MessageBubble extends StatelessWidget {
           ),
           if (isMe) const SizedBox(width: 8),
           if (isMe)
-            CircleAvatar(
+            const CircleAvatar(
               radius: 16,
               backgroundColor: Colors.blue,
               child: Icon(Icons.person, size: 16, color: Colors.white),

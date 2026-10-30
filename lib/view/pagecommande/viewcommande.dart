@@ -70,9 +70,9 @@ class _CommandeviewState extends State<Commandeview>
           .collection(collectionPath)
           .doc(documentId)
           .delete();
-      print('Document supprimé avec succès');
+      debugPrint('Document supprimé avec succès');
     } catch (e) {
-      print('Erreur lors de la suppression du document : $e');
+      debugPrint('Erreur lors de la suppression du document : $e');
     }
   }
 
@@ -89,15 +89,15 @@ class _CommandeviewState extends State<Commandeview>
       await docRef
           .update({fieldName: newValue}).timeout(const Duration(seconds: 12));
 
-      print('Valeur mise à jour avec succès');
+      debugPrint('Valeur mise à jour avec succès');
     } catch (e) {
-      print('Erreur lors de la mise à jour de la valeur : $e');
+      debugPrint('Erreur lors de la mise à jour de la valeur : $e');
     }
   }
 
   restartapp(documentid, numerocam, amount) {
     if (Get.context == null) {
-      print("context vide");
+      debugPrint("context vide");
       // Phoenix.rebirth(Get.context!);
       Get.reset();
     } else {
@@ -109,9 +109,9 @@ class _CommandeviewState extends State<Commandeview>
   // Controlleur c = Get.find();
 
   getdata(documentid, numerocam, amount, idtransact, type) async {
-    print("started transact");
-    print(type);
-    print("started transact");
+    debugPrint("started transact");
+    debugPrint(type);
+    debugPrint("started transact");
     // [28/10/2026] 15 s d'attente avant même de lancer l'USSD : réduit à 2 s,
     // le temps que la base enregistre le passage à "2".
     await Future.delayed(const Duration(seconds: 2));
@@ -142,10 +142,10 @@ class _CommandeviewState extends State<Commandeview>
     updateValueInFirestore("Transact", documentid, "status", "2");
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         backgroundColor: Colors.blue,
-        duration: Duration(seconds: 18),
+        duration: const Duration(seconds: 18),
         content: Text(
           idtransact,
-          style: TextStyle(color: Colors.white),
+          style: const TextStyle(color: Colors.white),
         )));
     String ussdSuccessMessage = "";
     bool result = await InternetConnectionChecker().hasConnection;
@@ -153,12 +153,12 @@ class _CommandeviewState extends State<Commandeview>
         1; // ID de la souscription SIM, généralement 1 pour la première carte SIM
     // String code = "*155#";
     String code =
-        "*555*1*${numerocam}*${amount}*2006#"; // Remplacez ceci par le code USSD que vous souhaitez exécuter
+        "*555*1*$numerocam*$amount*2006#"; // Remplacez ceci par le code USSD que vous souhaitez exécuter
     //String code = "*155#"; // Remplacez ceci par le code USSD que vous souhaitez exécuter
     if (result == true) {
-      print('connexion internet disponible');
-      print(numerocam);
-      print(amount);
+      debugPrint('connexion internet disponible');
+      debugPrint(numerocam);
+      debugPrint(amount);
 
       DateTime now = DateTime.now();
 
@@ -173,11 +173,11 @@ class _CommandeviewState extends State<Commandeview>
       // Combiner la date et l'heure
       String dateTimeString = '$date $time';
 
-      print(dateTimeString);
+      debugPrint(dateTimeString);
       // await Future.delayed(Duration(seconds: 6));
       try {
         if (selectedSlotIndex == 0) {
-          print("charger les element 0");
+          debugPrint("charger les element 0");
           optionControllers.clear();
           optionControllers
               .add(TextEditingController(text: _simConfig.camtelPre.pin));
@@ -187,10 +187,10 @@ class _CommandeviewState extends State<Commandeview>
             ussdController.text = "*825*1*2*1*2#";
           }
         }
-        print("charger optionControllers");
-        print(optionControllers.length);
-        print(optionControllers.first.text);
-        print("charger les element");
+        debugPrint("charger optionControllers");
+        debugPrint('${optionControllers.length}');
+        debugPrint(optionControllers.first.text);
+        debugPrint("charger les element");
 
         await launchMultiSessionUssd(
             amount: amount,
@@ -216,9 +216,9 @@ class _CommandeviewState extends State<Commandeview>
               : _ussdMessages.join('\n'),
           succes: isCamtelTransferAccepted(ussdSuccessMessage),
         );
-        print("message camtel");
-        print(ussdSuccessMessage);
-        print("message camtel");
+        debugPrint("message camtel");
+        debugPrint(ussdSuccessMessage);
+        debugPrint("message camtel");
         if (isCamtelTransferAccepted(ussdSuccessMessage)) {
           updateValueInFirestore(
               "Transact", documentid, "status", type == "1" ? "3" : "10");
@@ -230,11 +230,11 @@ class _CommandeviewState extends State<Commandeview>
           ScaffoldMessenger.of(context)
               .hideCurrentSnackBar(reason: SnackBarClosedReason.swipe);
         } else {
-          print("message camtel");
-          print(numerocam);
-          print(amount);
-          print(idtransact);
-          print("message camtel");
+          debugPrint("message camtel");
+          debugPrint(numerocam);
+          debugPrint(amount);
+          debugPrint(idtransact);
+          debugPrint("message camtel");
           //API.sendMyMail(numeroc: numerocam,amount: amount,idtransact:idtransact );
           final String reponse = ussdSuccessMessage.trim();
           await FirebaseFirestore.instance
@@ -252,19 +252,19 @@ class _CommandeviewState extends State<Commandeview>
           // restartapp(documentid,numerocam,amount);
         }
 
-        print("Succès ! Message : $ussdSuccessMessage");
-        print("Succès ! Message : $documentid");
+        debugPrint("Succès ! Message : $ussdSuccessMessage");
+        debugPrint("Succès ! Message : $documentid");
       } on PlatformException catch (e) {
         updateValueInFirestore("Transact", documentid, "status", "4");
         ScaffoldMessenger.of(context)
             .hideCurrentSnackBar(reason: SnackBarClosedReason.swipe);
 
         // restartapp(documentid,numerocam,amount);
-        print("Erreur ! Code : ${e.code} - Message : ${e.message}");
+        debugPrint("Erreur ! Code : ${e.code} - Message : ${e.message}");
       }
     } else {
       // restartapp(documentid,numerocam,amount);
-      print('No internet :( Reason:');
+      debugPrint('No internet :( Reason:');
     }
   }
 
@@ -284,9 +284,9 @@ class _CommandeviewState extends State<Commandeview>
     c.subscription = Connectivity().onConnectivityChanged.listen(
       (List<ConnectivityResult> results) async {
         // Prendre le premier résultat de la liste
-        print("results.length");
-        print(results.length);
-        print("results.length");
+        debugPrint("results.length");
+        debugPrint('${results.length}');
+        debugPrint("results.length");
         if (results.isNotEmpty) {
           // final result = results.first;
 
@@ -296,17 +296,17 @@ class _CommandeviewState extends State<Commandeview>
             // c.snackbar(message: "noconnection".tr,type: SnackbarType.warning);
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
               backgroundColor: Colors.grey,
-              duration: Duration(seconds: 60),
+              duration: const Duration(seconds: 60),
               content: Text("noconnection".tr),
             ));
           } else {
             // verifiedoc.loadData();
             ScaffoldMessenger.of(context)
                 .hideCurrentSnackBar(reason: SnackBarClosedReason.swipe);
-            print("connection on");
+            debugPrint("connection on");
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
               backgroundColor: Colors.green,
-              duration: Duration(seconds: 5),
+              duration: const Duration(seconds: 5),
               content: Text("Connexion retablie".tr),
             ));
           }
@@ -317,8 +317,8 @@ class _CommandeviewState extends State<Commandeview>
 
   Future<void> loadcreditonpost(String documentid, String numerocam,
       String amount, String idtransact) async {
-    print("Started transaction");
-    print("Numéro CAM: $numerocam");
+    debugPrint("Started transaction");
+    debugPrint("Numéro CAM: $numerocam");
 
     // [RESEAU 28/10/2026] Meme garde que pour la prepayee, sur l'emplacement
     // de la SIM postpayee : aucun code n'est compose sans reseau.
@@ -344,15 +344,15 @@ class _CommandeviewState extends State<Commandeview>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: Colors.blue,
-          duration: Duration(seconds: 18),
-          content: Text(idtransact, style: TextStyle(color: Colors.white)),
+          duration: const Duration(seconds: 18),
+          content: Text(idtransact, style: const TextStyle(color: Colors.white)),
         ),
       );
 
       // Vérifier la connexion internet
       bool hasConnection = await InternetConnectionChecker().hasConnection;
       if (!hasConnection) {
-        print('Pas de connexion internet');
+        debugPrint('Pas de connexion internet');
         await updateValueInFirestore("Transact", documentid, "status", "9");
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         // restartapp(documentid, numerocam, amount);
@@ -362,37 +362,37 @@ class _CommandeviewState extends State<Commandeview>
       // Configuration USSD
       const int subscriptionId = 2; // SIM 2
       // final String code = "*555*2*${numerocam}*${amount}*2006#";
-      final String code = "*828*1*2*1*2#";
+      const String code = "*828*1*2*1*2#";
 
-      print('Paramètres USSD:');
-      print('Numéro: $numerocam');
-      print('Montant: $amount');
-      print('Code: $code');
-      print('SIM: $subscriptionId');
+      debugPrint('Paramètres USSD:');
+      debugPrint('Numéro: $numerocam');
+      debugPrint('Montant: $amount');
+      debugPrint('Code: $code');
+      debugPrint('SIM: $subscriptionId');
 
       // Exécution USSD
 
       String? ussdResponse =
           "await UssdAdvanced.multisessionUssd(code: code, subscriptionId: 1)";
-      print("Réponse CAMTEL: $ussdResponse");
-      print("Réponse CAMTELs: $ussdResponse");
-      String? _response;
+      debugPrint("Réponse CAMTEL: $ussdResponse");
+      debugPrint("Réponse CAMTELs: $ussdResponse");
+      String? response;
 
-      String? _res2 = " await UssdAdvanced.sendMessage('1')";
+      String? res2 = " await UssdAdvanced.sendMessage('1')";
       setState(() {
-        _response = _res2;
+        response = res2;
       });
-      print("Réponse final : $_response");
+      debugPrint("Réponse final : $response");
       // await UssdAdvanced.cancelSession();
 
       // Traitement de la réponse
-      if (ussdResponse!.contains(
+      if (ussdResponse.contains(
           "System is processing your requestion by SMS, please wait")) {
         await updateValueInFirestore("Transact", documentid, "status", "8");
         await SendEmail.sendMyMail(
             phoneNumber: numerocam,
             recipientEmail:
-                ' top-up ${numerocam}${amount}${documentid}${idtransact}');
+                ' top-up $numerocam$amount$documentid$idtransact');
       } else {
         await updateValueInFirestore("Transact", documentid, "status", "9");
       }
@@ -406,17 +406,17 @@ class _CommandeviewState extends State<Commandeview>
 
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
     } on PlatformException catch (e) {
-      print("Erreur USSD: ${e.code} - ${e.message}");
+      debugPrint("Erreur USSD: ${e.code} - ${e.message}");
       await updateValueInFirestore("Transact", documentid, "status", "9");
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       // restartapp(documentid, numerocam, amount);
     } on TimeoutException catch (e) {
-      print("Timeout USSD: ${e.message}");
+      debugPrint("Timeout USSD: ${e.message}");
       await updateValueInFirestore("Transact", documentid, "status", "9");
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       // restartapp(documentid, numerocam, amount);
     } catch (e) {
-      print("Erreur inattendue: $e");
+      debugPrint("Erreur inattendue: $e");
       await updateValueInFirestore("Transact", documentid, "status", "9");
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       // restartapp(documentid, numerocam, amount);
@@ -440,26 +440,28 @@ class _CommandeviewState extends State<Commandeview>
         // Vérifier si le statut est égal à 1
         // while(int.parse(document['status']) == 1){
         //       getdata(document.id);
-        //   print("il y a des object");
+        //   debugPrint("il y a des object");
         // }
 
         if (int.parse(document['status']) == 1) {
-          print(document.id);
+          debugPrint(document.id);
           // Appeler la fonction getdata avec l'ID du document
           //  getdata(document.id,document['numerocamtel'],document['amount']);
         }
       }
-      print('Reconnaissance terminée');
+      debugPrint('Reconnaissance terminée');
     } catch (e) {
-      print('Erreur lors de la reconnaissance : $e');
+      debugPrint('Erreur lors de la reconnaissance : $e');
     }
   }
 
   void onStart(ServiceInstance service) {
-    Timer.periodic(Duration(seconds: 30), (timer) {
-      // Exécution périodique de tâches en arrière-plan
-      print("Running background service");
-    });
+    // [FLUIDITE 30/10/2026] Ce timer ne faisait qu'imprimer toutes les 30 s
+    // et n'était JAMAIS annulé : chaque (re)démarrage du service en laissait
+    // un de plus, à vie, pour rien. Il n'y avait aucune tâche à exécuter ici —
+    // le vrai travail (ServerManager, écoute des commandes) est déclenché par
+    // initState, qui vit dans le même isolate.
+    debugPrint('[Background] service demarre');
   }
 
   Future<void> initializeService() async {
@@ -477,8 +479,18 @@ class _CommandeviewState extends State<Commandeview>
     );
   }
 
-  List<String> _ussdMessages = [];
+  final List<String> _ussdMessages = [];
   StreamSubscription<UssdResponse>? ussdSubscription;
+
+  /// [FLUIDITE 30/10/2026] Abonnement de la session USSD en cours.
+  ///
+  /// `launchMultiSessionUssd` en créait un NOUVEAU à chaque commande et
+  /// n'annulait jamais le précédent : chaque recharge laissait derrière elle
+  /// un écouteur en vie, tous appelant `setState`. Après quelques commandes,
+  /// une seule réponse de l'opérateur déclenchait une cascade de rebuilds de
+  /// l'écran entier — c'est la cause directe des gels constatés. Un seul
+  /// abonnement, réutilisé, fermé à la destruction du widget.
+  StreamSubscription<UssdResponse>? _ussdSessionSub;
   String sessionStatus = '';
   String eventLog = "En attente d'événements...";
   bool isUssdSessionActive = false;
@@ -486,7 +498,7 @@ class _CommandeviewState extends State<Commandeview>
       EventChannel('com.example.projettest');
 
   void _handleUssdResponse(UssdResponse response) {
-    print("session d ecoute et reponse");
+    debugPrint("session d ecoute et reponse");
     setState(() {
       _ussdMessages
           .add('${response.message}\n État de la sitation: ${response.state}');
@@ -496,12 +508,12 @@ class _CommandeviewState extends State<Commandeview>
           response.state == UssdSessionState.error) {
         isUssdSessionActive = false;
         sessionStatus = "Session USSD terminée (${response.state})";
-        print("session terminé et verification ");
-        setState(() {
-          _isLoading = false;
-        });
+        debugPrint("session terminé et verification ");
+        // [FLUIDITE 30/10/2026] Un seul setState : le setState imbriqué
+        // reconstruisait l'écran DEUX fois pour la même event.
+        _isLoading = false;
       }
-      print("session de reponse et reponse  ${response.message} ");
+      debugPrint("session de reponse et reponse  ${response.message} ");
     });
   }
 
@@ -510,9 +522,8 @@ class _CommandeviewState extends State<Commandeview>
       _ussdMessages.add('Erreur USSD: $error');
       isUssdSessionActive = false;
       sessionStatus = "Erreur lors de la session USSD";
-      setState(() {
-        _isLoading = false;
-      });
+      // [FLUIDITE 30/10/2026] Idem : un seul setState, pas deux.
+      _isLoading = false;
     });
   }
 
@@ -528,7 +539,7 @@ class _CommandeviewState extends State<Commandeview>
   }
 
   void _onUssdMessageReceived(String message) {
-    print("Message USSD reçu: $message");
+    debugPrint("Message USSD reçu: $message");
     setState(() {
       _ussdMessages.add(message);
       if (message.contains("401") ||
@@ -541,13 +552,13 @@ class _CommandeviewState extends State<Commandeview>
 
   checkstate() {
     UssdLauncher.setUssdMessageListener(_onUssdMessageReceived);
-    print("_onUssdMessageReceived");
-    print(_onUssdMessageReceived);
-    print("_onUssdMessageReceived");
+    debugPrint("_onUssdMessageReceived");
+    debugPrint('$_onUssdMessageReceived');
+    debugPrint("_onUssdMessageReceived");
   }
 
   void listenToAccessibilityEvents() {
-    print("exelent");
+    debugPrint("exelent");
     _accessibilityChannel.receiveBroadcastStream().listen(
       (dynamic event) {
         setState(() {
@@ -610,7 +621,7 @@ class _CommandeviewState extends State<Commandeview>
   }
 
   Future<void> _sendUssdCode(String ussdCode) async {
-    print("_ussdResult");
+    debugPrint("_ussdResult");
     try {
       final response = await _ussdService.sendUssd(
         ussdCode,
@@ -618,9 +629,9 @@ class _CommandeviewState extends State<Commandeview>
       setState(() {
         _ussdResult = 'Message: ${response.message}\nState: ${response.state}';
       });
-      print("_ussdResult");
-      print(_ussdResult);
-      print("_ussdResult");
+      debugPrint("_ussdResult");
+      debugPrint(_ussdResult);
+      debugPrint("_ussdResult");
     } catch (e) {
       setState(() {
         _ussdResult = 'Error sending USSD: $e';
@@ -688,9 +699,9 @@ class _CommandeviewState extends State<Commandeview>
 
   Future<void> launchMultiSessionUssd(
       {amount, number, bool post = false}) async {
-    print("ecoute du ussd kmille");
-    print(post);
-    print("ecoute du ussd kmille");
+    debugPrint("ecoute du ussd kmille");
+    debugPrint('$post');
+    debugPrint("ecoute du ussd kmille");
     setState(() {
       _isLoading = true;
       _ussdMessages.clear();
@@ -707,14 +718,20 @@ class _CommandeviewState extends State<Commandeview>
       // optionControllers.clear();
       List<String> options =
           optionControllers.map((controller) => controller.text).toList();
-      // print("ici");
+      // debugPrint("ici");
 
-      _ussdService.ussdResponseStream.listen((response) {
+      // [FLUIDITE 30/10/2026] Un seul abonnement par session, l'ancien fermé
+      // avant d'en ouvrir un autre : sinon chaque commande en laissait un de
+      // plus, tous actifs, tous à appeler setState (voir [_ussdSessionSub]).
+      await _ussdSessionSub?.cancel();
+      _ussdSessionSub = _ussdService.ussdResponseStream.listen((response) {
+        if (!mounted) return;
         setState(() {
           _ussdResult =
               'Message: ${response.message}\nState: ${response.state}';
         });
       }, onError: (error) {
+        if (!mounted) return;
         setState(() {
           _ussdResult = 'Error: ${error.message}';
         });
@@ -755,7 +772,7 @@ class _CommandeviewState extends State<Commandeview>
     }
   }
 
-  MethodChannel _channel = MethodChannel('ussd_launcher');
+  final MethodChannel _channel = const MethodChannel('ussd_launcher');
 
   /// Vrai tant que l'écoute des commandes est active.
   ///
@@ -841,8 +858,9 @@ class _CommandeviewState extends State<Commandeview>
         _requeteCommandes(routes).snapshots().listen((querySnapshot) async {
       _ecouteActive = true;
       // Une copie venue du cache local ne prouve pas que la base répond.
-      if (!querySnapshot.metadata.isFromCache)
+      if (!querySnapshot.metadata.isFromCache) {
         FirestoreBackoff.instance.succes();
+      }
       if (_alerteEcouteEnvoyee && !querySnapshot.metadata.isFromCache) {
         _alerteEcouteEnvoyee = false;
         SendEmail.sendMessagewithtelegram(
@@ -975,22 +993,32 @@ class _CommandeviewState extends State<Commandeview>
   /// Une session dure de 20 à 90 s selon l'opérateur ; au-delà de 4 minutes on
   /// considère qu'elle est bloquée et on laisse la main (la commande reste
   /// alors visible pour l'admin, jamais relancée d'elle-même).
+  /// [QUOTA 30/10/2026] Avant : une lecture forcée (`Source.server`) toutes
+  /// les 3 s pendant 4 min, soit jusqu'à **80 lectures pour UNE commande**,
+  /// et aucune information entre deux sondes. Maintenant : une écoute du
+  /// document, facturée une seule fois par changement de statut (2 à 4
+  /// lectures par commande) et qui voit le statut final dès qu'il est écrit.
+  ///
+  /// Les instantanés servis par le cache local sont ignorés : c'est bien
+  /// l'état du serveur qui décide. Passé le délai de 4 min sans nouveau
+  /// statut, on fait comme avant — on laisse la main sans bloquer la file.
   Future<void> _attendreFin(String docId) async {
-    final DateTime limite = DateTime.now().add(const Duration(minutes: 4));
-    while (DateTime.now().isBefore(limite)) {
-      await Future<void>.delayed(const Duration(seconds: 3));
-      try {
-        final DocumentSnapshot<Map<String, dynamic>> snap =
-            await FirebaseFirestore.instance
-                .collection('Transact')
-                .doc(docId)
-                .get(const GetOptions(source: Source.server))
-                .timeout(const Duration(seconds: 8));
+    try {
+      await FirebaseFirestore.instance
+          .collection('Transact')
+          .doc(docId)
+          .snapshots()
+          .timeout(const Duration(minutes: 4))
+          .firstWhere((DocumentSnapshot<Map<String, dynamic>> snap) {
+        if (snap.metadata.isFromCache) return false;
         final String st = (snap.data()?['status'] ?? '').toString();
-        if (!_statutsEnCours.contains(st)) return;
-      } catch (_) {}
+        return !_statutsEnCours.contains(st);
+      });
+    } on TimeoutException {
+      debugPrint('[drain] $docId toujours en cours après 4 min — on continue');
+    } catch (e) {
+      debugPrint('[drain] $docId suivi interrompu : $e — on continue');
     }
-    debugPrint('[drain] $docId toujours en cours après 4 min — on continue');
   }
 
   /// Vrai quand la dernière commande traitée a réellement lancé une session.
@@ -1399,16 +1427,16 @@ class _CommandeviewState extends State<Commandeview>
     double itemHeight = 80.0; // Hauteur approximative de chaque élément
     _controller.animateTo(
       itemHeight * 60, // Multipliez par l'index souhaité (1 dans ce cas)
-      duration: Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 500),
       curve: Curves.easeInOut,
     );
   }
 
   backgroundMessageHandler() async {
-    print('SMS EN ARRIÈRE-PLAN ');
+    debugPrint('SMS EN ARRIÈRE-PLAN ');
 
     check();
-    print('FIN = FIN');
+    debugPrint('FIN = FIN');
   }
 
   List<Map<String, dynamic>> simCardsList = [];
@@ -1436,17 +1464,17 @@ class _CommandeviewState extends State<Commandeview>
         final simCards = await UssdLauncher.getSimCards();
         setState(() {
           simCardsList = simCards;
-          print(simCards.first);
+          debugPrint('${simCards.first}');
           if (simCardsList.isNotEmpty) {
             selectedSlotIndex = simCardsList[0]['slotIndex'];
             addOptionField();
           }
         });
       } catch (e) {
-        print("Erreur lors du chargement des cartes SIM: $e");
+        debugPrint("Erreur lors du chargement des cartes SIM: $e");
       }
     } else {
-      print("Permission téléphone non accordée");
+      debugPrint("Permission téléphone non accordée");
     }
   }
 
@@ -1501,6 +1529,13 @@ class _CommandeviewState extends State<Commandeview>
     WidgetsBinding.instance.removeObserver(this);
     _ecouteCommandes?.cancel();
     _smsRelais?.cancel();
+    // [FLUIDITE 30/10/2026] Abonnements USSD et minuteur d'écran vide : ils
+    // survivaient à la destruction du widget. `remoteRestart` recrée un
+    // Commandeview, donc chaque redémarrage d'interface laissait un ancien
+    // écouteur appeler setState sur un widget démonté.
+    ussdSubscription?.cancel();
+    _ussdSessionSub?.cancel();
+    _surEcranVide?.cancel();
     RemoteCommandHandler.instance.stopListening();
     // [RESEAU 28/10/2026] Plus de surveillance quand le serveur n'écoute plus :
     // inutile d'alerter l'admin sur un téléphone volontairement hors service.
@@ -1538,6 +1573,10 @@ class _CommandeviewState extends State<Commandeview>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // [FLUIDITE 30/10/2026] Ce rappel arrive parfois APRÈS la destruction du
+    // widget (redémarrage d'interface par commande distante) : setState sur
+    // un State démonté lève une exception et fait planter la frame suivante.
+    if (!mounted) return;
     setState(() {
       _hasFocus = state == AppLifecycleState.hidden;
     });
@@ -1718,18 +1757,31 @@ class _CommandeviewState extends State<Commandeview>
     );
   }
 
+  /// [QUOTA 30/10/2026] Flux des 30 dernières commandes, créé UNE seule fois.
+  ///
+  /// Avant, la requête était reconstruite à chaque appel de [_buildBody],
+  /// donc à chaque `setState` — il y en a une vingtaine dans cet écran
+  /// (bandeaux, compteur, filtres, traitement des commandes). Un nouvel objet
+  /// stream faisait annuler l'abonnement précédent par le `StreamBuilder` et
+  /// en relisait un autre : **30 documents relus à chaque rebuild**, pour un
+  /// écran qui ne change pourtant pas. Une seule commande traitée déclenchant
+  /// plusieurs `setState`, c'était la première source de lectures du serveur.
+  ///
+  /// Le flux est désormais conservé en mémoire : les rebuilds ne coûtent plus
+  /// rien, seuls les vrais changements en base émettent.
+  Stream<QuerySnapshot>? _commandesStream;
+
   Widget _buildBody() {
+    final Stream<QuerySnapshot> ecoute = _commandesStream ??= firestore
+        .collection('Transact')
+        .orderBy("heure", descending: true)
+        // [QUOTA 29/10/2026] 30 au lieu de 100 : chaque redémarrage de
+        // l'app (fréquent sous MIUI, cf. _claude_keepalive.sh) relisait les
+        // 100 documents.
+        .limit(30)
+        .snapshots();
     return StreamBuilder<QuerySnapshot>(
-      // [PRODUCTION] Limité aux 100 dernières : la base contient tout
-      // l'historique des clients.
-      stream: firestore
-          .collection('Transact')
-          .orderBy("heure", descending: true)
-          // [QUOTA 29/10/2026] 30 au lieu de 100 : chaque redémarrage de
-          // l'app (fréquent sous MIUI, cf. _claude_keepalive.sh) relisait les
-          // 100 documents.
-          .limit(30)
-          .snapshots(),
+      stream: ecoute,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting &&
             !snapshot.hasData) {
@@ -1788,19 +1840,20 @@ class _CommandeviewState extends State<Commandeview>
           }
         }).toList();
 
-        return RefreshIndicator(
-          onRefresh: () async =>
-              Future<void>.delayed(const Duration(milliseconds: 400)),
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-            children: [
-              _buildSummary(enAttente, livrees, echecs),
-              const SizedBox(height: 14),
-              _buildFilters(enAttente, livrees, echecs),
-              const SizedBox(height: 12),
-              if (visibles.isEmpty)
-                Padding(
+        // [FLUIDITE 30/10/2026] `ListView.builder` au lieu d'une liste pleine :
+        // seuls les éléments demandés par le défilement sont construits et
+        // placés (une petite dizaine sur les 30 suivies). Avant, les 30 cartes
+        // étaient reconstruites à CHAQUE setState — et l'écran en déclenche
+        // plusieurs par seconde pendant une session (chaque écran USSD reçu
+        // appelle setState). Les compteurs et les filtres restent en tête.
+        final List<Widget Function(BuildContext)> lignes =
+            <Widget Function(BuildContext)>[
+          (_) => _buildSummary(enAttente, livrees, echecs),
+          (_) => const SizedBox(height: 14),
+          (_) => _buildFilters(enAttente, livrees, echecs),
+          (_) => const SizedBox(height: 12),
+          if (visibles.isEmpty)
+            (_) => Padding(
                   padding: const EdgeInsets.only(top: 40),
                   child: _buildMessage(
                     icon: Icons.filter_alt_off_rounded,
@@ -1808,9 +1861,9 @@ class _CommandeviewState extends State<Commandeview>
                     detail: 'Choisis « Toutes » pour revoir les 100 dernières.',
                   ),
                 )
-              else
-                ...visibles.map(
-                  (m) => Padding(
+          else
+            ...visibles.map(
+              (Map<String, dynamic> m) => (BuildContext _) => Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: TransactionCard(
                       data: m,
@@ -1823,8 +1876,17 @@ class _CommandeviewState extends State<Commandeview>
                           '${m['_doc']}', Map<String, dynamic>.from(m)),
                     ),
                   ),
-                ),
-            ],
+            ),
+        ];
+
+        return RefreshIndicator(
+          onRefresh: () async =>
+              Future<void>.delayed(const Duration(milliseconds: 400)),
+          child: ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+            itemCount: lignes.length,
+            itemBuilder: (BuildContext ctx, int index) => lignes[index](ctx),
           ),
         );
       },

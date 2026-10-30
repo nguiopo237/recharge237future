@@ -22,8 +22,8 @@ class NativeUssdService {
   Future<void> initialize() async {
     try {
       await _channel.invokeMethod('initialize');
-    } on PlatformException catch (e) {
-      print("Erreur d'initialisation: ${e.message}");
+    } on PlatformException {
+      // Canal natif absent : le service reste inactif.
     }
   }
 
@@ -34,7 +34,6 @@ class NativeUssdService {
     int timeoutSeconds = 30,
   }) async {
     try {
-      print("Début de la session USSD native");
 
       final Map<String, dynamic> params = {
         'codes': codes,
@@ -44,7 +43,6 @@ class NativeUssdService {
 
       await _channel.invokeMethod('sendUssdSequence', params);
     } on PlatformException catch (e) {
-      print("Erreur PlatformException: ${e.message}");
       throw Exception("Erreur USSD native: ${e.message}");
     }
   }
@@ -84,8 +82,8 @@ class NativeUssdService {
   Future<void> cancelSession() async {
     try {
       await _channel.invokeMethod('cancelSession');
-    } on PlatformException catch (e) {
-      print("Erreur d'annulation: ${e.message}");
+    } on PlatformException {
+      // Rien à annuler côté natif.
     }
   }
 
@@ -94,8 +92,7 @@ class NativeUssdService {
     try {
       final result = await _channel.invokeMethod('isUssdSupported');
       return result as bool;
-    } on PlatformException catch (e) {
-      print("Erreur vérification support: ${e.message}");
+    } on PlatformException {
       return false;
     }
   }
@@ -105,8 +102,7 @@ class NativeUssdService {
     try {
       final result = await _channel.invokeMethod('getSimInfo');
       return List<Map<String, dynamic>>.from(result as List);
-    } on PlatformException catch (e) {
-      print("Erreur obtention infos SIM: ${e.message}");
+    } on PlatformException {
       return [];
     }
   }

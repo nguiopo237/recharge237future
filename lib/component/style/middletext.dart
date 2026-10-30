@@ -1,4 +1,3 @@
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
@@ -18,7 +17,7 @@ class Middletext extends StatefulWidget {
   final bool? softWrap;
   final TextDecoration underline;
 
-  Middletext({
+  Middletext({super.key, 
     required this.text,
     this.underline = TextDecoration.none,
     this.height,

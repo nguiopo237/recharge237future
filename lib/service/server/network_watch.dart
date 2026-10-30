@@ -361,8 +361,9 @@ class NetworkWatch {
           '${results.map((Map<String, dynamic> r) => 'slot ${(r['slot'] as int) + 1} ${r['ok'] == true ? 'OK' : 'KO'}').join(' · ')}');
     } catch (e) {
       // Un relevé manqué n'est pas une panne : le suivant corrigera.
-      if (FirestoreBackoff.estTransitoire(e))
+      if (FirestoreBackoff.estTransitoire(e)) {
         FirestoreBackoff.instance.echec(e);
+      }
       debugPrint('[NetworkWatch] relevé impossible : $e');
     }
   }

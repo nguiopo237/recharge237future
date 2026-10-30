@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:unique_identifier/unique_identifier.dart';
 
 ReloadControlleur r = Get.find();
 
@@ -55,7 +54,7 @@ class ReloadControlleur extends GetxController {
       number = "000";
     } else {}
 
-    if (number != "000" || number!.isNotEmpty && number.length == 9) {
+    if (number != "000" || number.isNotEmpty && number.length == 9) {
       error3.value = true;
 
       String prefix = number.substring(0, 3);

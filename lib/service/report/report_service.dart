@@ -212,8 +212,9 @@ class ReportService {
       // envoyé », et le bilan (qui relit toutes les transactions de la
       // veille) était relancé CHAQUE MINUTE tant que la base refusait. On
       // répond maintenant « ne rien faire » et on ralentit.
-      if (FirestoreBackoff.estTransitoire(e))
+      if (FirestoreBackoff.estTransitoire(e)) {
         FirestoreBackoff.instance.echec(e);
+      }
       return true;
     }
   }

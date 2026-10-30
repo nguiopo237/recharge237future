@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:recharge237_serveur/component/widget/widget_text.dart';
@@ -16,7 +15,7 @@ import '../../model/listnumbermode.dart';
 class invoiceR237 extends StatefulWidget {
   final Listnumberspaymodel? post;
 
-  invoiceR237({
+  const invoiceR237({
     super.key,
     this.post,
   });
@@ -27,7 +26,7 @@ class invoiceR237 extends StatefulWidget {
 
 class _invoiceR237State extends State<invoiceR237> {
   bool _isLoading = false;
-  List<String> _ussdMessages = [];
+  final List<String> _ussdMessages = [];
   final UssdService _ussdService = UssdService();
   TextEditingController ussdController = TextEditingController();
   String sessionStatus = '';
@@ -46,7 +45,7 @@ class _invoiceR237State extends State<invoiceR237> {
   }
 
   void _handleUssdResponse(UssdResponse response) {
-    print("session d ecoute et reponse");
+    debugPrint("session d ecoute et reponse");
     setState(() {
       _ussdMessages
           .add('${response.message}\n État de la sitation: ${response.state}');
@@ -60,7 +59,7 @@ class _invoiceR237State extends State<invoiceR237> {
           _isLoading = false;
         });
       }
-      print("session de reponse et reponse  ${response.message} ");
+      debugPrint("session de reponse et reponse  ${response.message} ");
     });
   }
 
@@ -77,9 +76,9 @@ class _invoiceR237State extends State<invoiceR237> {
 
   Future<void> launchMultiSessionUssd(
       {amount, number, bool post = false}) async {
-    print("ecoute du ussd kmille activation ");
-    print(post);
-    print("ecoute du ussd kmille");
+    debugPrint("ecoute du ussd kmille activation ");
+    debugPrint('$post');
+    debugPrint("ecoute du ussd kmille");
     setState(() {
       _isLoading = true;
       _ussdMessages.clear();
@@ -90,7 +89,7 @@ class _invoiceR237State extends State<invoiceR237> {
       // optionControllers.clear();
       List<String> options =
           optionControllers.map((controller) => controller.text).toList();
-      print("ici");
+      debugPrint("ici");
 
       _ussdService.ussdResponseStream.listen((response) {
         setState(() {
@@ -102,9 +101,9 @@ class _invoiceR237State extends State<invoiceR237> {
           _ussdResult = 'Error: ${error.message}';
         });
       });
-      print(_ussdResult);
-      print("debut de l action");
-      Future<void> _sendUssdCode(String ussdCode) async {
+      debugPrint(_ussdResult);
+      debugPrint("debut de l action");
+      Future<void> sendUssdCode(String ussdCode) async {
         try {
           final response = await _ussdService.sendUssd(ussdCode);
           setState(() {
@@ -120,14 +119,14 @@ class _invoiceR237State extends State<invoiceR237> {
 
       optionControllers.clear();
       optionControllers.addAll([
-        TextEditingController(text: "${number}"),
-        TextEditingController(text: "${number}"),
+        TextEditingController(text: "$number"),
+        TextEditingController(text: "$number"),
         TextEditingController(text: "1")
       ]);
 
       //  _sendUssdCode(_ussdController.text);
       // _launchMultiSessionUssd();
-      _sendUssdCode(ussdController.text);
+      sendUssdCode(ussdController.text);
       await UssdLauncher.multisessionUssd(
         // code: ussdController.text,
         code: "*825*1*2*1*2#",
@@ -136,7 +135,7 @@ class _invoiceR237State extends State<invoiceR237> {
         options: options,
       );
     } catch (e) {
-      print("other");
+      debugPrint("other");
       _updateUssdMessages('\nErreur : ${e.toString()}');
     } finally {
       setState(() {
@@ -152,17 +151,17 @@ class _invoiceR237State extends State<invoiceR237> {
         final simCards = await UssdLauncher.getSimCards();
         setState(() {
           simCardsList = simCards;
-          print(simCards.first);
+          debugPrint('${simCards.first}');
           if (simCardsList.isNotEmpty) {
             selectedSlotIndex = simCardsList[0]['slotIndex'];
             // addOptionField();
           }
         });
       } catch (e) {
-        print("Erreur lors du chargement des cartes SIM: $e");
+        debugPrint("Erreur lors du chargement des cartes SIM: $e");
       }
     } else {
-      print("Permission téléphone non accordée");
+      debugPrint("Permission téléphone non accordée");
     }
   }
 
@@ -190,17 +189,17 @@ class _invoiceR237State extends State<invoiceR237> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("tiket"),
+        title: const Text("tiket"),
       ),
       body: Padding(
-        padding: EdgeInsets.all(12.0),
+        padding: const EdgeInsets.all(12.0),
         child: Container(
-          padding: EdgeInsets.all(10),
+          padding: const EdgeInsets.all(10),
           height: 120.h,
           width: 120.w,
           decoration: BoxDecoration(
             border: Border.all(color: Colors.black, width: 1.w / 20),
-            image: DecorationImage(
+            image: const DecorationImage(
               image: AssetImage(
                 "images/photoback.jpg",
               ),
@@ -244,7 +243,7 @@ class _invoiceR237State extends State<invoiceR237> {
                         style: TextStyle(fontSize: 8.sp)),
                   ],
                 ),
-                Divider(),
+                const Divider(),
                 SizedBox(
                   height: 2.h,
                 ),
@@ -333,7 +332,7 @@ class _invoiceR237State extends State<invoiceR237> {
                         style: TextStyle(fontSize: 12.sp)),
                   ],
                 ),
-                Divider(),
+                const Divider(),
                 SizedBox(
                   height: 4.h,
                 ),
@@ -408,7 +407,7 @@ class _invoiceR237State extends State<invoiceR237> {
                             style: TextStyle(fontSize: 12.sp)),
                       ],
                     ),
-                    Divider(),
+                    const Divider(),
                     Padding(
                       padding: const EdgeInsets.only(bottom: 20.0),
                       child: MiddleText(

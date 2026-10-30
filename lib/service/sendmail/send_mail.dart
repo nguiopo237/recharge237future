@@ -97,11 +97,11 @@ class SendEmail {
       print("voici sa balance: $balance");
       print("voici sa balance: $balances");
       SendEmail.updateValueInFirestore(
-          "solde", "jNIO5y2lj8s9PiTSV4cU", "dsm", "${balances}");
+          "solde", "jNIO5y2lj8s9PiTSV4cU", "dsm", balances);
     } else {
       print("ce messages est pour la post");
       SendEmail.updateValueInFirestore(
-          "solde", "MrLq19BDw8Jng5hzXnSx", "soldepost", "${balance}");
+          "solde", "MrLq19BDw8Jng5hzXnSx", "soldepost", balance);
     }
     print("mail envoyer seul");
 
@@ -203,7 +203,7 @@ class SendEmail {
                     Votre recharge a été effectuée avec succès. Voici les détails de votre transaction.
                 </p>
                 
-                <div class="amount">${amount} FCFA</div>
+                <div class="amount">$amount FCFA</div>
                 
                 <div class="details">
                     <div class="detail-row">
@@ -220,7 +220,7 @@ class SendEmail {
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">ID Transaction : </span>
-                        <span class="detail-value">${transactionId}</span>
+                        <span class="detail-value">$transactionId</span>
                     </div>
                 </div>
                 
@@ -230,7 +230,7 @@ class SendEmail {
                     Solde de Credit restant à l'issue de cette transaction
                 </p>
                 
-                <div class="amount">${balance} FCFA</div>
+                <div class="amount">$balance FCFA</div>
                 
                 
                 <p style="text-align: center; margin-top: 30px;">
@@ -345,7 +345,7 @@ class SendEmail {
                     Votre recharge a été effectuée avec succès. Voici les détails de votre transaction.
                 </p>
                 
-                <div class="amount">${amount} FCFA</div>
+                <div class="amount">$amount FCFA</div>
                 
                 <div class="details">
                     <div class="detail-row">
@@ -362,7 +362,7 @@ class SendEmail {
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">ID Transaction : </span>
-                        <span class="detail-value">${transactionId}</span>
+                        <span class="detail-value">$transactionId</span>
                     </div>
                 </div>
                 
@@ -372,7 +372,7 @@ class SendEmail {
                     Solde de Credit restant à l'issue de cette transaction
                 </p>
                 
-                <div class="amount">${balance} FCFA</div>
+                <div class="amount">$balance FCFA</div>
                 
                 
                 <p style="text-align: center; margin-top: 30px;">
@@ -551,22 +551,22 @@ class SendEmail {
         
         <div class="content">
             <div class="error-message">    
-                Échec de l'envoi de ${amountf} FCFA. Le solde du compte est insuffisant. 
+                Échec de l'envoi de $amountf FCFA. Le solde du compte est insuffisant. 
                 Le solde du compte doit être suffisant pour payer les frais de transaction et le montant demandé.
             </div>
             
             <div class="details">
                 <div class="detail-row">
                     <span class="detail-label"> Montant demandé </span>
-                    <span class="detail-value"> : ${amountf} FCFA</span>
+                    <span class="detail-value"> : $amountf FCFA</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">  Date  </span>
-                    <span class="detail-value">  :  ${formattedDate}  </span>
+                    <span class="detail-value">  :  $formattedDate  </span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Heure</span>
-                    <span class="detail-value">  : ${formattedTime} </span>
+                    <span class="detail-value">  : $formattedTime </span>
                 </div>
             </div>
             
@@ -574,7 +574,7 @@ class SendEmail {
                 Solde actuel de votre compte
             </p>
             
-            <div class="balance-amount">${balance} FCFA</div>
+            <div class="balance-amount">$balance FCFA</div>
             
             <div class="actions">
                 <button class="btn btn-primary" onclick="rechargerCompte()">Recharger mon compte</button>
@@ -777,34 +777,34 @@ class SendEmail {
                 Votre transfert de crédit a été traité avec succès et rechargé sur la sim post.
             </p>
             
-            <div class="amount">${amounts} FCFA</div>
+            <div class="amount">$amounts FCFA</div>
             
             <div class="details">
                 <div class="detail-row">
                     <span class="detail-label">Destinataire : </span>
-                    <span class="detail-value">${numeroTelephone}</span>
+                    <span class="detail-value">$numeroTelephone</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Point de service : </span>
-                    <span class="detail-value"> ${codePOS} </span>
+                    <span class="detail-value"> $codePOS </span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Date :  </span>
-                    <span class="detail-value">${date}</span>
+                    <span class="detail-value">$date</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Heure : </span>
-                    <span class="detail-value">${time}</span>
+                    <span class="detail-value">$time</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">ID Transaction : </span>
-                    <span class="detail-value">${transactionID}</span> 
+                    <span class="detail-value">$transactionID</span> 
                 </div>
             </div>
             
             <div class="balance-section">
                 <div class="balance-label">Votre nouveau solde</div>
-                <div class="balance-amount">${balance} FCFA</div>
+                <div class="balance-amount">$balance FCFA</div>
             </div>
             
             <div class="actions">
@@ -836,9 +836,9 @@ class SendEmail {
     final message = Message()
       ..from = Address(username, 'Recharge 237')
       ..recipients.add("recharge2370@gmail.com")
-      ..subject = 'Confirmation de recharge - ${amount} FCFA - $formattedDate'
+      ..subject = 'Confirmation de recharge - $amount FCFA - $formattedDate'
       ..text =
-          'Confirmation de recharge\n\nVous avez effectué une recharge de ${amount} FCFA le $formattedDate à $formattedTime.\n\n Numéro: $phoneNumber\nID Transaction: TRX-${now.millisecondsSinceEpoch.toString().substring(5)}\n\nMerci pour votre confiance!'
+          'Confirmation de recharge\n\nVous avez effectué une recharge de $amount FCFA le $formattedDate à $formattedTime.\n\n Numéro: $phoneNumber\nID Transaction: TRX-${now.millisecondsSinceEpoch.toString().substring(5)}\n\nMerci pour votre confiance!'
       ..html = recipientEmail.contains("Failed")
           ? htmlContenterror
           : recipientEmail.contains("top-up")
@@ -847,7 +847,7 @@ class SendEmail {
 
     try {
       final sendReport = await send(message, smtpServer);
-      print('Message sent: ' + sendReport.toString());
+      print('Message sent: $sendReport');
       return true;
     } on MailerException catch (e) {
       print('Message not sent.');

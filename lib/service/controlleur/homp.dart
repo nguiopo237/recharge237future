@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:sms_autofill/sms_autofill.dart';
 
 class Homecontolleurs with CodeAutoFill {
@@ -13,7 +12,7 @@ class Homecontolleurs with CodeAutoFill {
   DateTime? get lastTimestamp => _lastTimestamp;
 
   void initializeSmsListener({Function(String)? onCodeCallback}) async {
-    this.onCodeReceived = onCodeCallback;
+    onCodeReceived = onCodeCallback;
 
     try {
       print("🚀 Initialisation de l'écoute SMS...");
@@ -39,7 +38,7 @@ class Homecontolleurs with CodeAutoFill {
       print("=================================");
       print("✅ NOUVEAU SMS DÉTECTÉ !");
       print("📨 Code: $code");
-      print("🕒 ${_lastTimestamp}");
+      print("🕒 $_lastTimestamp");
       print("=================================");
 
       onCodeReceived?.call(code!);

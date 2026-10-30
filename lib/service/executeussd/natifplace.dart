@@ -11,7 +11,6 @@ class UssdLauncher {
     _channel.setMethodCallHandler((MethodCall call) async {
       if (call.method == 'onUssdMessageReceived') {
         final String message = call.arguments;
-        print("Message USSD reçu dans le handler: $message");
 
         // Appeler le callback si défini
         if (_ussdMessageCallback != null) {
@@ -39,10 +38,9 @@ class UssdLauncher {
         'slotIndex': 0,
         'options': ["1", "2"],
       });
-      print("resultat de la reponse 2.0");
       return response;
-    } on PlatformException catch (e) {
-      print("Erreur: ${e.message}");
+    } on PlatformException {
+      // Requête refusée par le système : aucune réponse USSD.
       return null;
     }
   }

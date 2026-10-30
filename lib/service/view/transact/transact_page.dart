@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:get/get.dart';
 import '../../../component/style/middletext.dart';
 import '../../../main.dart';
 import '../../controlleur/transact_controlleur.dart';
@@ -230,8 +229,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           height: 40,
           decoration: BoxDecoration(
             color: transaction.amount > 0
-                ? Colors.green.withOpacity(0.2)
-                : Colors.red.withOpacity(0.2),
+                ? Colors.green.withValues(alpha: 0.2)
+                : Colors.red.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Icon(

@@ -1,20 +1,16 @@
 import 'dart:async';
 
-import 'package:clipboard/clipboard.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:ussd_flutter/ussd_service.dart';
 import 'package:ussd_launcher/ussd_launcher.dart';
 
 import '../../model/listnumbermode.dart';
 
-import 'package:timeago/timeago.dart' as timeago;
 
 import '../../service/controlleur/widget_controlleur.dart';
 import '../../service/sendmail/send_mail.dart';
-import 'invoice.dart';
 
 class Componentcard extends StatefulWidget {
   final Listnumberspaymodel post;
@@ -26,7 +22,7 @@ class Componentcard extends StatefulWidget {
 }
 
 class _ComponentcardState extends State<Componentcard> {
-  List<String> _ussdMessages = [];
+  final List<String> _ussdMessages = [];
   final UssdService _ussdService = UssdService();
   TextEditingController ussdController = TextEditingController();
   String sessionStatus = '';
@@ -46,7 +42,7 @@ class _ComponentcardState extends State<Componentcard> {
   }
 
   void _handleUssdResponse(UssdResponse response) {
-    print("session d ecoute et reponse");
+    debugPrint("session d ecoute et reponse");
     setState(() {
       _ussdMessages
           .add('${response.message}\n État de la sitation: ${response.state}');
@@ -60,7 +56,7 @@ class _ComponentcardState extends State<Componentcard> {
           _isLoading = false;
         });
       }
-      print("session de reponse et reponse  ${response.message} ");
+      debugPrint("session de reponse et reponse  ${response.message} ");
     });
   }
 
@@ -77,9 +73,9 @@ class _ComponentcardState extends State<Componentcard> {
 
   Future<void> launchMultiSessionUssd(
       {amount, number, bool post = false}) async {
-    print("ecoute du ussd kmille activation ");
-    print(post);
-    print("ecoute du ussd kmille");
+    debugPrint("ecoute du ussd kmille activation ");
+    debugPrint('$post');
+    debugPrint("ecoute du ussd kmille");
     setState(() {
       _isLoading = true;
       _ussdMessages.clear();
@@ -90,7 +86,7 @@ class _ComponentcardState extends State<Componentcard> {
       // optionControllers.clear();
       List<String> options =
           optionControllers.map((controller) => controller.text).toList();
-      print("ici");
+      debugPrint("ici");
 
       _ussdService.ussdResponseStream.listen((response) {
         setState(() {
@@ -102,9 +98,9 @@ class _ComponentcardState extends State<Componentcard> {
           _ussdResult = 'Error: ${error.message}';
         });
       });
-      print(_ussdResult);
-      print("debut de l action");
-      Future<void> _sendUssdCode(String ussdCode) async {
+      debugPrint(_ussdResult);
+      debugPrint("debut de l action");
+      Future<void> sendUssdCode(String ussdCode) async {
         try {
           final response = await _ussdService.sendUssd(ussdCode);
           setState(() {
@@ -120,14 +116,14 @@ class _ComponentcardState extends State<Componentcard> {
 
       optionControllers.clear();
       optionControllers.addAll([
-        TextEditingController(text: "${number}"),
-        TextEditingController(text: "${number}"),
+        TextEditingController(text: "$number"),
+        TextEditingController(text: "$number"),
         TextEditingController(text: "1")
       ]);
 
       //  _sendUssdCode(_ussdController.text);
       // _launchMultiSessionUssd();
-      _sendUssdCode(ussdController.text);
+      sendUssdCode(ussdController.text);
       await UssdLauncher.multisessionUssd(
         // code: ussdController.text,
         code: "*825*1*2*1*2#",
@@ -136,7 +132,7 @@ class _ComponentcardState extends State<Componentcard> {
         options: options,
       );
     } catch (e) {
-      print("other");
+      debugPrint("other");
       _updateUssdMessages('\nErreur : ${e.toString()}');
     } finally {
       setState(() {
@@ -152,17 +148,17 @@ class _ComponentcardState extends State<Componentcard> {
         final simCards = await UssdLauncher.getSimCards();
         setState(() {
           simCardsList = simCards;
-          print(simCards.first);
+          debugPrint('${simCards.first}');
           if (simCardsList.isNotEmpty) {
             selectedSlotIndex = simCardsList[0]['slotIndex'];
             // addOptionField();
           }
         });
       } catch (e) {
-        print("Erreur lors du chargement des cartes SIM: $e");
+        debugPrint("Erreur lors du chargement des cartes SIM: $e");
       }
     } else {
-      print("Permission téléphone non accordée");
+      debugPrint("Permission téléphone non accordée");
     }
   }
 
@@ -224,9 +220,9 @@ class _ComponentcardState extends State<Componentcard> {
       child: Padding(
         padding: const EdgeInsets.all(8.0),
         child: Container(
-          padding: EdgeInsets.all(10),
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-              color: Colors.grey.withOpacity(0.2),
+              color: Colors.grey.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(10)),
           child: Column(
             children: [
@@ -274,12 +270,12 @@ class _ComponentcardState extends State<Componentcard> {
     switch (widget.post.statut) {
       case 3:
       case 10:
-        return Icon(
+        return const Icon(
           Icons.check_circle,
           color: Colors.green,
         );
       default:
-        return SizedBox(
+        return const SizedBox(
           height: 15,
           width: 15,
           child: CircularProgressIndicator(color: Colors.grey),

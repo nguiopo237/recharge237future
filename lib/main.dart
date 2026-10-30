@@ -1,8 +1,11 @@
 import 'dart:async';
 
+import 'dart:ui' show FrameTiming;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
@@ -10,13 +13,9 @@ import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:recharge237_serveur/service/permission.dart';
 import 'package:recharge237_serveur/service/controlleur/initcontrolleur.dart';
-import 'package:recharge237_serveur/service/controlleur/transact_controlleur.dart';
-import 'package:recharge237_serveur/service/controlleur/widget_controlleur.dart';
-import 'package:recharge237_serveur/service/notification/notification_service.dart';
 import 'package:recharge237_serveur/view/pagecommande/viewcommande.dart';
 import 'package:recharge237_serveur/service/supabase/supabase_service.dart';
 import 'package:sizer/sizer.dart';
-import 'package:unique_identifier/unique_identifier.dart';
 // import 'package:another_telephony/telephony.dart';
 
 // [PRODUCTION 27/10/2026] Le serveur travaille sur la MÊME base que l'app
@@ -26,7 +25,7 @@ import 'package:unique_identifier/unique_identifier.dart';
 // donc jamais les commandes des clients.
 // Le plugin Gradle google-services a été retiré (android/app/build.gradle.kts)
 // pour que ces options soient réellement utilisées.
-FirebaseOptions android = FirebaseOptions(
+FirebaseOptions android = const FirebaseOptions(
   apiKey: "AIzaSyAMvJnNHxr3bKCn_Xz_vQResqW9PHk4tiE",
   appId: "1:435642925266:android:4deccba5bfee3f415eed0b",
   messagingSenderId: "435642925266",
@@ -80,18 +79,18 @@ checkuser() async {
       .get()
       .then(
     (value) {
-      print(value.docs.first['idphone']);
+      debugPrint(value.docs.first['idphone']);
       values = value.docs.first;
-      print("value");
-      print(values!["idphone"]);
-      print(values!["isadmin"]);
+      debugPrint("value");
+      debugPrint(values!["idphone"]);
+      debugPrint(values!["isadmin"]);
       return values!["isadmin"];
     },
   );
   if (result != null) {
-    print("result");
-    print(result);
-    print("result");
+    debugPrint("result");
+    debugPrint(result);
+    debugPrint("result");
     return result;
   }
   return result;
@@ -106,8 +105,8 @@ Future<bool> checkMemberExists(String memberName) async {
             isEqualTo: memberName.trim()) // trim() pour enlever les espaces
         .limit(1) // Optimisation : on ne prend que le premier résultat
         .get();
-    print("verification dans la bd");
-    print(querySnapshot.docs.isEmpty);
+    debugPrint("verification dans la bd");
+    debugPrint('${querySnapshot.docs.isEmpty}');
     if (querySnapshot.docs.isEmpty) {
       await collectionPerson.add({
         "idphone": memberName,
@@ -118,14 +117,14 @@ Future<bool> checkMemberExists(String memberName) async {
     } else {
       checkuser();
     }
-    print("verification dans la bd");
+    debugPrint("verification dans la bd");
 
     return querySnapshot.docs.isNotEmpty;
   } on FirebaseException catch (e) {
-    print('Erreur Firebase: ${e.code} - ${e.message}');
+    debugPrint('Erreur Firebase: ${e.code} - ${e.message}');
     return false;
   } catch (e) {
-    print('Erreur inattendue: $e');
+    debugPrint('Erreur inattendue: $e');
     return false;
   }
 }
@@ -214,7 +213,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   Future<void> checkSmsPermissions() async {
-    print("Vérification des permissions SMS");
+    debugPrint("Vérification des permissions SMS");
     // [29/10/2026] `telephony` retiré : la demande passe par permission_handler.
     bool permissionsGranted;
     try {
@@ -237,7 +236,7 @@ class _MyAppState extends State<MyApp> {
       // _listenToIncomingSms();
       // _loadExistingSms();
     } else {
-      print("Permissions SMS non accordées");
+      debugPrint("Permissions SMS non accordées");
     }
   }
 
@@ -252,14 +251,14 @@ class _MyAppState extends State<MyApp> {
   //       _smsMessages = messages;
   //     });
   //   } catch (e) {
-  //     print("Erreur lors du chargement des SMS: $e");
+  //     debugPrint("Erreur lors du chargement des SMS: $e");
   //   }
   // }
 
   // void _listenToIncomingSms() {
   //   telephony.listenIncomingSms(
   //     onNewMessage: (SmsMessage message) {
-  //       print("Nouveau SMS reçu: ${message.body}");
+  //       debugPrint("Nouveau SMS reçu: ${message.body}");
   //
   //       // Ajouter à Firestore
   //       sms.add({
@@ -268,9 +267,9 @@ class _MyAppState extends State<MyApp> {
   //         'date': DateTime.now().toString(),
   //         'deviceId': idphone,
   //       }).then((value) {
-  //         print("SMS enregistré dans Firestore");
+  //         debugPrint("SMS enregistré dans Firestore");
   //       }).catchError((error) {
-  //         print("Erreur Firestore: $error");
+  //         debugPrint("Erreur Firestore: $error");
   //       });
   //
   //       setState(() {
@@ -285,9 +284,36 @@ class _MyAppState extends State<MyApp> {
     // await NotificationService.initialize();
   }
 
+  /// [PERF 30/10/2026] Compteur de frames lentes pour le banc d'essai
+  /// sur téléphone — INSTALLÉ UNIQUEMENT en debug et en profile.
+  ///
+  /// Sur cet appareil, `dumpsys gfxinfo` et `SurfaceFlinger --latency`
+  /// ne remontent rien pour une app Flutter (moteur de rendu propre),
+  /// donc le seul relevé fiable vient de Flutter lui-même : chaque frame
+  /// dépassant 32 ms (deux images à 60 Hz) est journalisée avec son
+  /// partage construction / rendu. Un écran sain ne produit AUCUNE ligne.
+  /// En release, le callback n'est même pas installé : aucun coût.
+  static bool _mesureFramesInstallee = false;
+
+  void _demarrerMesureFrames() {
+    if (!(kDebugMode || kProfileMode)) return;
+    if (_mesureFramesInstallee) return;
+    _mesureFramesInstallee = true;
+    WidgetsBinding.instance.addTimingsCallback((timings) {
+      for (final t in timings) {
+        final int total = t.totalSpan.inMilliseconds;
+        if (total <= 32) continue;
+        debugPrint('[JANK] frame ${total} ms (construction '
+            '${t.buildDuration.inMilliseconds} ms, rendu '
+            '${t.rasterDuration.inMilliseconds} ms)');
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
+    _demarrerMesureFrames();
 
     // [DEMARRAGE 29/10/2026] Une seule série de demandes, après le premier
     // affichage : l'écran des commandes est visible pendant que les
@@ -308,7 +334,7 @@ class _MyAppState extends State<MyApp> {
           debugShowCheckedModeBanner: false,
           title: 'Recharge237 AppServeur',
           theme: ThemeData.light(),
-          home: Commandeview(),
+          home: const Commandeview(),
           // home: UssdScreen(),
           // home: RealtimeSmsReaderScreen(),
           //  home: HomePage(),

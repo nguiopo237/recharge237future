@@ -11,10 +11,7 @@ import '../../callapi/orange/generatepay.dart';
 import '../../controlleur/Reload_controlleur.dart';
 import '../../controlleur/home_controlleur.dart';
 import '../../controlleur/transact_controlleur.dart';
-import '../../sendmail/send_mail.dart';
 import '../transact/transact_page.dart';
-import 'package:intl/src/intl/date_format.dart';
-import 'package:intl/src/intl/number_format.dart';
 
 class ReloadAirtimes extends GetView<ReloadControlleur> {
   const ReloadAirtimes({super.key});
@@ -90,7 +87,7 @@ class ReloadAirtimes extends GetView<ReloadControlleur> {
                             //await FlutterContacts.openExternalView("1");
                             // globalKeys.currentState!.openEndDrawer();
                           },
-                          child: Icon(Icons.phone, color: Colors.blueAccent)),
+                          child: const Icon(Icons.phone, color: Colors.blueAccent)),
                       border: InputBorder.none,
                       hintText: "entrez Numero camtel"),
                 ),
@@ -124,7 +121,7 @@ class ReloadAirtimes extends GetView<ReloadControlleur> {
                       padding: EdgeInsets.symmetric(
                           horizontal: 4.w, vertical: 1.5.h),
                     ),
-                    child: Text("${amount} FCFA"),
+                    child: Text("$amount FCFA"),
                   );
                 }).toList(),
               ),
@@ -170,7 +167,7 @@ class ReloadAirtimes extends GetView<ReloadControlleur> {
                     return null;
                   },
                   keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: "Montant personnalisé",
                     prefixIcon: Icon(Icons.money, color: Colors.blueAccent),
                     border: InputBorder.none,
@@ -191,7 +188,7 @@ class ReloadAirtimes extends GetView<ReloadControlleur> {
                   onChanged: controller.detectOperator,
                   decoration: InputDecoration(
                       labelText: "Numéro payeur",
-                      prefixIcon: Icon(Icons.payment, color: Colors.blueAccent),
+                      prefixIcon: const Icon(Icons.payment, color: Colors.blueAccent),
                       border: InputBorder.none,
                       counterText: "",
                       suffixIcon: Visibility(
@@ -211,6 +208,7 @@ class ReloadAirtimes extends GetView<ReloadControlleur> {
                     } else {
                       return "${"enter"} veuillez saisir les 9 chiffre";
                     }
+                    return null;
                   },
                 ),
               ),
@@ -243,18 +241,18 @@ class ReloadAirtimes extends GetView<ReloadControlleur> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          const Text(
             "Êtes-vous sûr de vouloir ",
             style: TextStyle(fontSize: 18),
           ),
-          SizedBox(height: 30),
+          const SizedBox(height: 30),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
-                  padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
                 ),
                 onPressed: () async {
                   initwithmtn() async {
@@ -296,17 +294,17 @@ class ReloadAirtimes extends GetView<ReloadControlleur> {
                     initwitorange();
                   }
                 },
-                child: Text('Accepter', style: TextStyle(color: Colors.white)),
+                child: const Text('Accepter', style: TextStyle(color: Colors.white)),
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red,
-                  padding: EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
                 ),
                 onPressed: () {
                   Get.back();
                 },
-                child: Text('Refuser', style: TextStyle(color: Colors.white)),
+                child: const Text('Refuser', style: TextStyle(color: Colors.white)),
               ),
             ],
           ),
@@ -321,17 +319,17 @@ class RechargeScreen extends GetView<ReloadControlleur> {
 
   final TextEditingController _numeroController = TextEditingController();
   final TextEditingController _paiementController = TextEditingController();
-  double _montantSelectionne = 0.0;
+  final double _montantSelectionne = 0.0;
   bool _isLoading = false;
 
   @override
   Widget build(BuildContext context) {
-    Color baseColor = Color(0xFF2DD4BF);
+    Color baseColor = const Color(0xFF2DD4BF);
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text(
+        title: const Text(
           'Recharge De Credit',
           style: TextStyle(
             fontSize: 20,
@@ -352,12 +350,12 @@ class RechargeScreen extends GetView<ReloadControlleur> {
                 borderRadius: BorderRadius.circular(8.sp),
               ),
               child: Container(
-                padding: EdgeInsets.all(12),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  image: DecorationImage(
+                  image: const DecorationImage(
                       //opacity: 0.5,
                       image: AssetImage("assets/logo/icon.png")),
-                  gradient: LinearGradient(
+                  gradient: const LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
@@ -366,7 +364,7 @@ class RechargeScreen extends GetView<ReloadControlleur> {
                     ],
                   ),
                   borderRadius: BorderRadius.circular(8.sp),
-                  boxShadow: [
+                  boxShadow: const [
                     BoxShadow(
                       color: Colors.grey,
                       spreadRadius: 3,
@@ -389,11 +387,11 @@ class RechargeScreen extends GetView<ReloadControlleur> {
 
                         // Montant
                         _buildMontantSection(),
-                        SizedBox(height: 24),
+                        const SizedBox(height: 24),
 
                         // Numéro de paiement
                         _buildPaiementField(),
-                        SizedBox(height: 32),
+                        const SizedBox(height: 32),
 
                         // Bouton de recharge
                         _buildRechargeButton(),
@@ -404,7 +402,7 @@ class RechargeScreen extends GetView<ReloadControlleur> {
               ),
             ),
 
-            SizedBox(height: 24),
+            const SizedBox(height: 24),
 
             // Section historique rapide
             _buildHistoriqueRapide(),
@@ -423,13 +421,13 @@ class RechargeScreen extends GetView<ReloadControlleur> {
         CircleAvatar(
           radius: 24,
           backgroundColor: Colors.deepPurple[100],
-          child: Icon(Icons.person, color: Colors.deepPurple),
+          child: const Icon(Icons.person, color: Colors.deepPurple),
         ),
-        SizedBox(width: 12),
+        const SizedBox(width: 12),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'Recharge De Credit',
               style: TextStyle(
                 fontSize: 20,
@@ -446,9 +444,9 @@ class RechargeScreen extends GetView<ReloadControlleur> {
             ),
           ],
         ),
-        Spacer(),
+        const Spacer(),
         IconButton(
-          icon: Icon(Icons.history, color: Colors.deepPurple),
+          icon: const Icon(Icons.history, color: Colors.deepPurple),
           onPressed: () {},
         ),
       ],
@@ -459,7 +457,7 @@ class RechargeScreen extends GetView<ReloadControlleur> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           'Numéro Camtel',
           style: TextStyle(
             color: Colors.white,
@@ -467,17 +465,17 @@ class RechargeScreen extends GetView<ReloadControlleur> {
             fontWeight: FontWeight.w500,
           ),
         ),
-        SizedBox(height: 8),
+        const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
+            color: Colors.white.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withOpacity(0.3)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
           ),
           child: TextField(
             controller: controller.number1,
             keyboardType: TextInputType.phone,
-            style: TextStyle(color: Colors.white, fontSize: 16),
+            style: const TextStyle(color: Colors.white, fontSize: 16),
             onChanged: (value) {
               if (value.isNotEmpty && value.length == 9) {
                 controller.error1.value = true;
@@ -503,13 +501,13 @@ class RechargeScreen extends GetView<ReloadControlleur> {
             },
             decoration: InputDecoration(
               hintText: 'XXX XXX XXX',
-              hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+              hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
               border: InputBorder.none,
               contentPadding:
-                  EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               prefixIcon: controller.operatorLogo1.value == ""
                   ? Icon(Icons.phone_android,
-                      color: Colors.white.withOpacity(0.7))
+                      color: Colors.white.withValues(alpha: 0.7))
                   : SizedBox(
                       height: 1.h,
                       width: 1.w,
@@ -524,7 +522,7 @@ class RechargeScreen extends GetView<ReloadControlleur> {
                       )),
               suffixIcon: IconButton(
                 icon:
-                    Icon(Icons.contacts, color: Colors.white.withOpacity(0.7)),
+                    Icon(Icons.contacts, color: Colors.white.withValues(alpha: 0.7)),
                 onPressed: () {},
               ),
             ),
@@ -538,7 +536,7 @@ class RechargeScreen extends GetView<ReloadControlleur> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           'Montant de recharge',
           style: TextStyle(
             color: Colors.white,
@@ -546,14 +544,14 @@ class RechargeScreen extends GetView<ReloadControlleur> {
             fontWeight: FontWeight.w500,
           ),
         ),
-        SizedBox(height: 12),
+        const SizedBox(height: 12),
 
         // Montant personnalisé
         Container(
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
+            color: Colors.white.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withOpacity(0.3)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
           ),
           child: TextField(
             controller: controller.amounts,
@@ -566,30 +564,30 @@ class RechargeScreen extends GetView<ReloadControlleur> {
               }
               print(controller.amounts.text);
             },
-            style: TextStyle(color: Colors.white, fontSize: 16),
+            style: const TextStyle(color: Colors.white, fontSize: 16),
             decoration: InputDecoration(
               hintText: 'Montant personnalisé',
-              hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+              hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
               border: InputBorder.none,
               contentPadding:
-                  EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               prefixIcon: Icon(Icons.attach_money,
-                  color: Colors.white.withOpacity(0.7)),
+                  color: Colors.white.withValues(alpha: 0.7)),
             ),
           ),
         ),
 
-        SizedBox(height: 16),
+        const SizedBox(height: 16),
 
         // Montants prédéfinis
         Text(
           'Montants rapides',
           style: TextStyle(
-            color: Colors.white.withOpacity(0.9),
+            color: Colors.white.withValues(alpha: 0.9),
             fontSize: 14,
           ),
         ),
-        SizedBox(height: 12),
+        const SizedBox(height: 12),
         Wrap(
           spacing: 2.w,
           children: controller.presetAmounts.map((montant) {
@@ -600,14 +598,14 @@ class RechargeScreen extends GetView<ReloadControlleur> {
                   controller.amounts.text = montant.toString();
                 },
                 child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                   decoration: BoxDecoration(
                     color: _montantSelectionne == montant
                         ? Colors.white
-                        : Colors.white.withOpacity(0.1),
+                        : Colors.white.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.3),
+                      color: Colors.white.withValues(alpha: 0.3),
                     ),
                   ),
                   child: Text(
@@ -632,7 +630,7 @@ class RechargeScreen extends GetView<ReloadControlleur> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           'Numéro pour paiement',
           style: TextStyle(
             color: Colors.white,
@@ -640,26 +638,26 @@ class RechargeScreen extends GetView<ReloadControlleur> {
             fontWeight: FontWeight.w500,
           ),
         ),
-        SizedBox(height: 8),
+        const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
+            color: Colors.white.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withOpacity(0.3)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
           ),
           child: TextField(
             controller: controller.number2,
             onChanged: controller.detectOperator,
             keyboardType: TextInputType.phone,
-            style: TextStyle(color: Colors.white, fontSize: 16),
+            style: const TextStyle(color: Colors.white, fontSize: 16),
             decoration: InputDecoration(
               hintText: 'Numéro Mobile Money',
-              hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+              hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
               border: InputBorder.none,
               contentPadding:
-                  EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               prefixIcon: controller.operatorLogo.value == ""
-                  ? Icon(Icons.payment, color: Colors.white.withOpacity(0.7))
+                  ? Icon(Icons.payment, color: Colors.white.withValues(alpha: 0.7))
                   : SizedBox(
                       height: 1.h,
                       width: 19.w,
@@ -688,7 +686,7 @@ class RechargeScreen extends GetView<ReloadControlleur> {
           backgroundColor: Colors.white,
           foregroundColor: Colors.deepPurple,
           elevation: 4,
-          padding: EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -706,7 +704,7 @@ class RechargeScreen extends GetView<ReloadControlleur> {
             //         ),
             //       )
             //     :
-            Text(
+            const Text(
           'EFFECTUER LA RECHARGE',
           style: TextStyle(
             fontSize: 16,
@@ -719,7 +717,7 @@ class RechargeScreen extends GetView<ReloadControlleur> {
 
   Widget _buildHistoriqueRapide() {
     final FirebaseFirestore firestore = FirebaseFirestore.instance;
-    Widget _buildTransactionsList() {
+    Widget buildTransactionsList() {
       return Padding(
         padding: const EdgeInsets.only(bottom: 10),
         child: StreamBuilder<QuerySnapshot>(
@@ -753,7 +751,7 @@ class RechargeScreen extends GetView<ReloadControlleur> {
                   // controller: _controller,
                   shrinkWrap: true,
                   reverse: false,
-                  physics: NeverScrollableScrollPhysics(),
+                  physics: const NeverScrollableScrollPhysics(),
                   itemCount: transactions.length,
                   itemBuilder: (context, index) {
                     final data =
@@ -762,19 +760,19 @@ class RechargeScreen extends GetView<ReloadControlleur> {
                     return transaction.statut != "9" ||
                             transaction.statut != "10"
                         ? t.buildTransactionItem(transaction)
-                        : SizedBox();
+                        : const SizedBox();
                   },
                 ),
                 InkWell(
                   onTap: () {
                     c.getmodal(
-                        sectionview: Container(
+                        sectionview: SizedBox(
                       height: Get.height / 1.5,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
+                          const Padding(
+                            padding: EdgeInsets.all(8.0),
                             child: Text(
                               'Mes Recharges',
                               style: TextStyle(
@@ -795,7 +793,7 @@ class RechargeScreen extends GetView<ReloadControlleur> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      Text(
+                      const Text(
                         'Voir plus',
                         style: TextStyle(
                             fontSize: 18,
@@ -821,7 +819,7 @@ class RechargeScreen extends GetView<ReloadControlleur> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           'Recharges récentes',
           style: TextStyle(
             fontSize: 18,
@@ -830,7 +828,7 @@ class RechargeScreen extends GetView<ReloadControlleur> {
           ),
         ),
         SizedBox(height: 1.h),
-        _buildTransactionsList(),
+        buildTransactionsList(),
       ],
     );
   }
@@ -883,7 +881,7 @@ class RechargeScreen extends GetView<ReloadControlleur> {
     _isLoading = true;
 
     // Simulation du processus de recharge
-    await Future.delayed(Duration(seconds: 2));
+    await Future.delayed(const Duration(seconds: 2));
 
     _isLoading = false;
 
