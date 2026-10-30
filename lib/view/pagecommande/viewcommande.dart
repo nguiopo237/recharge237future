@@ -17,6 +17,7 @@ import '../../component/widget/transaction_card.dart';
 import '../../main.dart' show serverAuthUid;
 import '../../service/controlleur/widget_controlleur.dart' show c;
 import '../../service/sendmail/send_mail.dart';
+import '../../service/notification/forfait_reminder_service.dart';
 import '../../service/report/report_service.dart';
 import '../../service/report/sms_balance_parser.dart' show parseSmsBody;
 import '../../service/server/order_filters.dart';
@@ -1515,6 +1516,11 @@ class _CommandeviewState extends State<Commandeview>
       // [COMPTA 28/10/2026] Bilan quotidien, soldes lus dans les SMS des
       // opérateurs et diffusion Telegram.
       ReportService.instance.start(ServerManager.instance.deviceId);
+      // [RELANCES 31/10/2026] Relance des clients avant expiration de leur
+      // forfait (J-3/J-2/J-1/J-0), par notification push. Le serveur tient
+      // l'horloge : le plan Firebase gratuit n'autorise pas les fonctions
+      // planifiées, et le téléphone tourne déjà jour et nuit.
+      ForfaitReminderService.instance.start(ServerManager.instance.deviceId);
       check();
       // Écoute les commandes distantes de l'admin
       RemoteCommandHandler.instance.startListening(

@@ -75,6 +75,89 @@ class ClientPush {
     }
   }
 
+  /// [RELANCES 31/10/2026] Rappel « votre forfait expire » (J-3, J-2, J-1, J-0).
+  ///
+  /// Ciblage : l'ABONNEMENT push de l'appareil (`pushId`, écrit par le registre
+  /// des appareils) est préféré à l'alias `external_id`. Raison : le site web
+  /// n'appelle jamais `OneSignal.login` — il n'a donc aucune identité externe,
+  /// seulement un abonnement. Un visiteur du site ne serait jamais joignable
+  /// par alias. Repli sur l'uid quand l'abonnement n'est pas encore connu (app
+  /// mobile qui vient d'être installée, permission accordée plus tard).
+  ///
+  /// Rend `true` seulement si OneSignal a accepté la notification : le job de
+  /// relance s'en sert pour libérer sa réservation et réessayer plus tard.
+  static Future<bool> rappelForfait({
+    required String uid,
+    required String pushId,
+    required int jours,
+    String offre = '',
+    String numero = '',
+    String orderId = '',
+  }) async {
+    if (!await _charger()) return false;
+
+    final String titre = switch (jours) {
+      3 => 'Il vous reste 3 jours de forfait',
+      2 => 'Plus que 2 jours de forfait',
+      1 => 'Votre forfait expire demain',
+      _ => 'Votre forfait est arrivé à expiration',
+    };
+    final String corps = switch (jours) {
+      3 => 'Évitez la panne de connexion, rechargez dès maintenant sur Recharge237.',
+      2 => 'Pensez à renouveler pour ne pas perdre votre connexion.',
+      1 => 'Renouvelez en 1 clic sur Recharge237, avant la coupure.',
+      _ => 'Rechargez instantanément sur Recharge237.',
+    };
+
+    // Contexte utile au client : quelle offre, sur quelle ligne.
+    final StringBuffer texte = StringBuffer(corps);
+    if (offre.trim().isNotEmpty) {
+      texte.write(' (offre « ${offre.trim()} »');
+      texte.write(numero.trim().isEmpty ? ')' : ', ligne ${numero.trim()})');
+    } else if (numero.trim().isNotEmpty) {
+      texte.write(' Ligne ${numero.trim()}.');
+    }
+
+    final Map<String, dynamic> payload = <String, dynamic>{
+      'app_id': _appId,
+      'headings': <String, String>{'fr': titre, 'en': titre},
+      'contents': <String, String>{'fr': texte.toString(), 'en': texte.toString()},
+      'data': <String, String>{
+        'type': 'forfait_expiry',
+        'jours': jours.toString(),
+        if (orderId.isNotEmpty) 'order': orderId,
+      },
+    };
+    if (pushId.trim().isNotEmpty) {
+      payload['include_subscription_ids'] = <String>[pushId.trim()];
+    } else {
+      payload['include_aliases'] = <String, dynamic>{
+        'external_id': <String>[uid.trim()],
+      };
+      payload['target_channel'] = 'push';
+    }
+
+    try {
+      final http.Response r = await http
+          .post(
+            Uri.parse('https://onesignal.com/api/v1/notifications'),
+            headers: <String, String>{
+              'Content-Type': 'application/json; charset=utf-8',
+              'Authorization': 'Key $_restKey',
+            },
+            body: jsonEncode(payload),
+          )
+          .timeout(const Duration(seconds: 15));
+      debugPrint('[ClientPush] rappel J-$jours ${pushId.isEmpty ? uid : pushId} '
+          '→ ${r.statusCode}'
+          '${r.statusCode >= 300 ? ' ${r.body}' : ''}');
+      return r.statusCode >= 200 && r.statusCode < 300;
+    } catch (e) {
+      debugPrint('[ClientPush] rappel forfait impossible : $e');
+      return false;
+    }
+  }
+
   static Future<void> _envoyer(
       String uid, String titre, String texte, Map<String, String> data) async {
     final http.Response r = await http
