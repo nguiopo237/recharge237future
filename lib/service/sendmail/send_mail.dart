@@ -858,26 +858,96 @@ class SendEmail {
     }
   }
 
+  /// Chat IDs de secours, utilisés seulement si aucune liste n'est configurée.
+  static const List<String> _defaultTelegramChatIds = [
+    '7402111158',
+    '1470497195',
+    '6039338540',
+  ];
+
+  static String? _telegramTokenCache;
+  static List<String>? _telegramChatIdsCache;
+
+  /// [SÉCURITÉ 01/11/2026] Résout la configuration Telegram SANS aucun secret
+  /// dans le code source. Ordre de priorité :
+  ///
+  ///  1. `--dart-define=TELEGRAM_BOT_TOKEN=…` (ainsi que
+  ///     `--dart-define=TELEGRAM_CHAT_IDS=id1,id2` pour les destinataires) :
+  ///     rien dans le dépôt, rien dans le binaire livré ;
+  ///  2. document Firestore `server_secrets/telegram` (`bot_token`, `chat_ids`) :
+  ///     collection non listée nommément dans les règles, donc couverte par la
+  ///     règle finale « admin uniquement » — un client ne peut jamais la lire,
+  ///     contrairement à `app_config/public` qui est lisible par tous ;
+  ///  3. rien de configuré : aucun envoi, avec une trace explicite UNE fois.
+  ///
+  /// Le jeton était auparavant écrit en dur dans ce fichier et se retrouvait
+  /// donc dans l'historique Git. Il doit être régénéré côté BotFather : la
+  /// valeur qui a circulé ne doit plus jamais servir.
+  static Future<bool> _ensureTelegramConfig() async {
+    if (_telegramTokenCache != null) return _telegramTokenCache!.isNotEmpty;
+
+    const String envToken = String.fromEnvironment('TELEGRAM_BOT_TOKEN');
+    const String envChats = String.fromEnvironment('TELEGRAM_CHAT_IDS');
+    String token = envToken.trim();
+    List<String>? chatIds = envChats.trim().isEmpty
+        ? null
+        : envChats
+            .split(',')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
+
+    if (token.isEmpty) {
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('server_secrets')
+            .doc('telegram')
+            .get();
+        final data = doc.data();
+        if (data != null) {
+          token = (data['bot_token'] ?? '').toString().trim();
+          final Object? raw = data['chat_ids'];
+          if (raw is List) {
+            final List<String> parsed = raw
+                .map((e) => e.toString().trim())
+                .where((e) => e.isNotEmpty)
+                .toList();
+            if (parsed.isNotEmpty) chatIds = parsed;
+          }
+        }
+      } catch (e) {
+        print(
+            '⚠️ Telegram : lecture de server_secrets/telegram impossible ($e)');
+      }
+    }
+
+    _telegramTokenCache = token;
+    _telegramChatIdsCache = chatIds;
+    if (token.isEmpty) {
+      print('⚠️ Telegram : aucun jeton configuré. Renseignez '
+          '--dart-define=TELEGRAM_BOT_TOKEN ou server_secrets/telegram.bot_token. '
+          'Aucun message ne sera envoyé.');
+    }
+    return token.isNotEmpty;
+  }
+
   static Future<void> sendMessagewithtelegram({
     required String message,
     List<String>? chatIds,
   }) async {
     try {
-      // Token du bot (à externaliser pour la sécurité)
-      const botToken = '8465693687:AAGSAKJ2BXv8IG33lAbY9mgGIsbTz9Tm1o8';
-      const botTokens = '7650275482:AAGI3zb-jkk7VIFrlL2LgKVrFGOVQoM8XtI';
-
-      // Liste des chat IDs par défaut
-      final defaultChatIds = ['7402111158', '1470497195', '6039338540'];
-      final targetChatIds = chatIds ?? defaultChatIds;
+      if (!await _ensureTelegramConfig()) return;
+      final String botToken = _telegramTokenCache!;
+      final List<String> targetChatIds =
+          chatIds ?? _telegramChatIdsCache ?? _defaultTelegramChatIds;
 
       // Encoder le message pour l'URL
-      final encodedMessage = Uri.encodeComponent(message);
+      final String encodedMessage = Uri.encodeComponent(message);
 
       // Envoyer à tous les chat IDs
       for (final chatId in targetChatIds) {
         final url =
-            Uri.parse('https://api.telegram.org/bot$botTokens/sendMessage'
+            Uri.parse('https://api.telegram.org/bot$botToken/sendMessage'
                 '?chat_id=$chatId'
                 '&text=$encodedMessage');
 
