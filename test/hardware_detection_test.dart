@@ -82,11 +82,12 @@ void main() {
       ]);
     });
 
-    test('orange_airtime est routable mais pas encore livrable', () {
+    test('orange_airtime est routable et désormais livrable', () {
       expect(
           handlesOperation(const ['orange_airtime'], 'orange_airtime'), isTrue);
-      // Le manager Orange refuse explicitement : aucun code n'est composé.
-      expect(OrangeUssdManager.deliveryImplemented, isFalse);
+      // [ORANGE 31/10/2026] Le manager Orange compose réellement son code
+      // (Good Deal ou transfert + code secret).
+      expect(OrangeUssdManager.deliveryImplemented, isTrue);
     });
   });
 

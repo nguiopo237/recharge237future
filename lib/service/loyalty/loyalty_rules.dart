@@ -308,6 +308,15 @@ DecisionCredit decisionCredit({
     return const DecisionCredit(0, 'déjà créditée');
   }
 
+  // [CONVERSION 31/10/2026] Une recharge payée EN POINTS n'est pas une vente :
+  // la créditer rembourserait une partie de ce que le programme vient de
+  // distribuer, et gonflerait artificiellement le volume pris en compte pour
+  // calculer la marge. Le client la voit dans son historique, mais elle ne
+  // rapporte rien — ni à lui, ni à son parrain.
+  if ((commande['paiement'] ?? '').toString().trim() == 'points') {
+    return const DecisionCredit(0, 'payée en points');
+  }
+
   final String operateur =
       (commande['operateur_cible'] ?? '').toString().trim().toLowerCase();
   if (!operateurEligible(operateur)) {

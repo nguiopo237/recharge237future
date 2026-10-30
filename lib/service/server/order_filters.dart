@@ -2,8 +2,6 @@
 /// pour être testés (test/order_filters_test.dart).
 library;
 
-import '../ussd/orange_ussd_manager.dart';
-
 /// Statuts `Transact` qui déclenchent une action du serveur :
 ///  - "0"  : requête Good Deal MTN (gratuite, `operateur_cible: mtn_forfait`) ;
 ///  - "1"  : paiement confirmé par la passerelle, à livrer ;
@@ -39,10 +37,9 @@ const List<String> kOperationTypes = [
   'camtel_post',
   'mtn_airtime',
   'mtn_forfait',
-  // [ORANGE 28/10/2026] Type réservé : aucun flux USSD Orange n'est encore
-  // branché, donc l'assigner ne livre rien pour l'instant. Il est déclaré ici
-  // pour que la configuration admin, le contrôle et les tests soient prêts le
-  // jour où le flow sera fourni (cf. lib/service/ussd/orange_ussd_manager.dart).
+  // [ORANGE 31/10/2026] Livraison branchée : crédit Good Deal
+  // `#205*1*{numero}*{montant}#` (ou transfert `#189*1*…*{code}#` si
+  // l'admin le choisit dans `app_config/public.ussd_orange_credit`).
   'orange_airtime',
   // [OFFRES PERSO 29/10/2026] Good Deal Orange : requête gratuite + activation,
   // sur le même téléphone (comme `mtn_forfait`).
@@ -131,18 +128,14 @@ List<OrderRoute>? routesForHandles(List<String> handles) {
     // [CATALOGUE 29/10/2026] Forfaits MTN du catalogue : même SIM, même menu.
     routes.add(const OrderRoute(<String>['1', '11'], 'mtn_bundle'));
   }
-  // [ORANGE 30/10/2026] Le flow USSD Orange n'est pas encore branché. Un
-  // téléphone qui ne saurait pas livrer ne doit surtout PAS réserver la
-  // commande : elle finirait en échec alors que le client a payé. On ignore
-  // donc les types Orange tant que `OrangeUssdManager.deliveryImplemented` est
-  // faux ; les commandes restent au statut « payée, à livrer » (1) et
-  // l'administrateur les traite à la main. Le jour où le flow est fourni, la
-  // constante passe à vrai et tout s'active sans autre modification.
-  const bool orangePret = OrangeUssdManager.deliveryImplemented;
-  if (orangePret && h.contains('orange_airtime')) {
+  // [ORANGE 31/10/2026] Livraison branchée : les commandes Orange sont
+  // désormais réellement servies, donc routées comme MTN — et SEULEMENT vers
+  // un téléphone qui a Orange dans ses handles. Un téléphone sans carte
+  // Orange ne les voit pas.
+  if (h.contains('orange_airtime')) {
     routes.add(const OrderRoute(<String>['1', '11'], 'orange_airtime'));
   }
-  if (orangePret && h.contains('orange_forfait')) {
+  if (h.contains('orange_forfait')) {
     routes.add(const OrderRoute(<String>['0'], 'orange_forfait'));
     routes
         .add(const OrderRoute(<String>['1', '11'], 'orange_forfait_activate'));
@@ -217,9 +210,8 @@ String? relaunchStatusFor(Map<String, dynamic> data) {
       // Requête gratuite de la liste d'offres (aucun paiement).
       return '0';
     case 'orange_forfait_activate':
-      return '1';
     case 'orange_airtime':
-      return null;
+      return '1';
   }
   // Anciennes commandes sans `operateur_cible` : CAMTEL prépayé historique.
   return '1';

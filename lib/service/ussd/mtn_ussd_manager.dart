@@ -6,36 +6,16 @@ import 'package:flutter/foundation.dart';
 import '../notification/client_push.dart';
 import '../sendmail/send_mail.dart';
 import '../server/server_manager.dart';
-import '../server/transaction_claimer.dart';
 import 'session_config.dart';
+import 'ussd_order_io.dart';
+import 'ussd_result.dart';
 import 'ussd_screens.dart';
 import 'ussd_session.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Résultats possibles d'une session USSD
-// ─────────────────────────────────────────────────────────────────────────────
-enum UssdResult { success, failed, timeout, noNetwork }
-
-class UssdSessionResult {
-  final UssdResult result;
-  final String rawMessage; // Dernier message USSD brut
-  final List<String> allMessages; // Tous les écrans de la session
-  final String log; // Journal lisible (PIN masqué)
-
-  // [MESURE 28/10/2026] Durée réelle de la session, étape par étape, écrite
-  // dans la commande : plus besoin d'adb pour savoir où partent les secondes.
-  final List<UssdStepTiming> timings;
-  final int totalMs;
-
-  const UssdSessionResult({
-    required this.result,
-    required this.rawMessage,
-    this.allMessages = const [],
-    this.log = '',
-    this.timings = const <UssdStepTiming>[],
-    this.totalMs = 0,
-  });
-}
+// [ORANGE 31/10/2026] Les résultats d'une session USSD sont désormais
+// PARTAGÉS avec le manager Orange : ils vivent dans `ussd_result.dart` et sont
+// réexportés ici, pour que tous les imports existants continuent de marcher.
+export 'ussd_result.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mots-clés de succès / d'échec MTN
@@ -460,9 +440,14 @@ class MtnUssdManager {
 
   /// [OFFRES PERSO 29/10/2026] Code USSD des offres personnalisées de
   /// [operateur] pour [numero], lu dans `app_config/public` (1 lecture).
-  /// Vide si non configuré (Orange) : aucune session n'est alors lancée.
+  ///
+  /// [ORANGE 31/10/2026] Le menu Good Deal Orange est désormais connu :
+  /// `#205*1*{numero}#` affiche les forfaits de CE numéro (phase 1 du
+  /// parcours, avant le choix et le code secret). Il reste surchargeable
+  /// depuis `app_config/public.ussd_gooddeal_orange`, sans redéployer.
   Future<String> _codeOffresPerso(String operateur, String numero) async {
-    String regle = operateur == 'mtn' ? '*126*7*{numero}#' : '';
+    String regle =
+        operateur == 'mtn' ? '*126*7*{numero}#' : '#205*1*{numero}#';
     try {
       final pub = await FirebaseFirestore.instance
           .collection('app_config')
@@ -769,45 +754,16 @@ class MtnUssdManager {
     return _mtnSuccessKeywords.any((k) => s.contains(_normalize(k)));
   }
 
-  UssdSessionResult _toResult(UssdRunResult r) {
-    final UssdResult res;
-    switch (r.outcome) {
-      case UssdOutcome.success:
-        res = UssdResult.success;
-        break;
-      case UssdOutcome.failed:
-        res = UssdResult.failed;
-        break;
-      case UssdOutcome.uncertain:
-        res = UssdResult.timeout;
-        break;
-      case UssdOutcome.notExecuted:
-        res = r.reason.toLowerCase().contains('aucune réponse')
-            ? UssdResult.timeout
-            : UssdResult.failed;
-        break;
-    }
-    return UssdSessionResult(
-      result: res,
-      rawMessage: r.finalScreen,
-      allMessages: r.screens,
-      log: r.log,
-      timings: r.timings,
-      totalMs: r.totalMs,
-    );
-  }
+  /// Traduction du résultat du moteur USSD — partagée avec Orange
+  /// (`UssdOrderIo.toResult`) : une seule façon de lire un verdict.
+  UssdSessionResult _toResult(UssdRunResult r) => UssdOrderIo.toResult(r);
 
   /// Champs de mesure ajoutés à la commande :
   ///  - `session_ms` : durée totale de la session USSD ;
   ///  - `ussd_timings` : une entrée par étape (attente de l'opérateur vs
   ///    réponse de l'app). Une session sans étape n'écrit rien.
-  Map<String, dynamic> _timingFields(UssdRunResult run) {
-    if (run.timings.isEmpty) return const <String, dynamic>{};
-    return <String, dynamic>{
-      'session_ms': run.totalMs,
-      'ussd_timings': run.timings.map((UssdStepTiming t) => t.toMap()).toList(),
-    };
-  }
+  Map<String, dynamic> _timingFields(UssdRunResult run) =>
+      UssdOrderIo.timingFields(run);
 
   /// [RESEAU 28/10/2026] Garde une commande que le réseau a empêchée.
   ///
@@ -815,19 +771,9 @@ class MtnUssdManager {
   /// statut remis dans son état d'attente : la file de reprise la retrouvera
   /// au retour du réseau, dans l'ordre d'arrivée. Aucun code n'a été composé,
   /// donc aucun risque de double crédit.
-  Future<void> _garder(
-      String docId, UssdRunResult run, String statutAttente) async {
-    await TransactionClaimer.instance
-        .release(docId, ServerManager.instance.deviceId);
-    await _write(docId, {
-      'status': statutAttente,
-      'failure_reason': '${run.reason} — commande gardée : elle repartira '
-          'automatiquement au retour du réseau.',
-      'ussd_outcome': run.outcomeCode,
-      'held_at': FieldValue.serverTimestamp(),
-    });
-    debugPrint('[MtnUssdManager] $docId gardée (réseau indisponible)');
-  }
+  Future<void> _garder(String docId, UssdRunResult run, String statutAttente) =>
+      UssdOrderIo.garder(docId, run, statutAttente,
+          prefixeLog: 'MtnUssdManager');
 
   Future<void> _updateStatus(String docId, String status) async {
     await _write(docId, {'status': status});
@@ -893,22 +839,9 @@ class MtnUssdManager {
 
   static const Duration _readTimeout = Duration(seconds: 12);
 
-  /// Écriture Firestore bornée dans le temps.
-  ///
-  /// [28/10/2026] Sans délai maximal, une écriture bloquée (client Firestore
-  /// figé après une coupure réseau) suspendait toute la session : la commande
-  /// restait en statut 20 et aucun journal n'était enregistré.
-  static const Duration _writeTimeout = Duration(seconds: 12);
-
-  Future<void> _write(String docId, Map<String, dynamic> fields) async {
-    try {
-      await FirebaseFirestore.instance
-          .collection('Transact')
-          .doc(docId)
-          .update(fields)
-          .timeout(_writeTimeout);
-    } catch (e) {
-      debugPrint('[MtnUssdManager] écriture Firestore impossible : $e');
-    }
-  }
+  /// Écriture Firestore bornée dans le temps — partagée avec Orange
+  /// (`UssdOrderIo.write`) : sans délai maximal, une écriture bloquée
+  /// suspendait toute la session (incident du 28/10/2026).
+  Future<void> _write(String docId, Map<String, dynamic> fields) =>
+      UssdOrderIo.write(docId, fields);
 }

@@ -228,6 +228,11 @@ class UssdSessionRunner {
     Duration finalTimeout = const Duration(seconds: 50),
     int maxScreens = 12,
     String? expectedOperator,
+    // [ORANGE 31/10/2026] Version du code à ÉCRIRE dans les journaux, quand le
+    // code composé contient un secret (transfert Orange `...*[code secret]#`).
+    // Sans cela, le code secret terminait dans `ussd_log` (Firestore) et dans
+    // les alertes Telegram. `null` = le code réel peut être journalisé.
+    String? displayCode,
   }) {
     final Future<void> previous = _tail;
     final Completer<void> mine = Completer<void>();
@@ -245,6 +250,7 @@ class UssdSessionRunner {
               finalTimeout: finalTimeout,
               maxScreens: maxScreens,
               expectedOperator: expectedOperator,
+              displayCode: displayCode,
             ))
         .whenComplete(() {
       mine.complete();
@@ -470,7 +476,9 @@ class UssdSessionRunner {
     required Duration finalTimeout,
     required int maxScreens,
     String? expectedOperator,
+    String? displayCode,
   }) async {
+    final String logCode = displayCode ?? code;
     final List<String> screens = <String>[];
     final List<String> log = <String>[];
     final Map<String, int> uses = <String, int>{};
@@ -507,7 +515,7 @@ class UssdSessionRunner {
         timings: List<UssdStepTiming>.unmodifiable(timings),
         totalMs: clock.elapsedMilliseconds,
       );
-      debugPrint('[UssdSession] $code → ${o.name} : ${oneLine(shown)}');
+      debugPrint('[UssdSession] $logCode → ${o.name} : ${oneLine(shown)}');
       debugPrint('[Timing] $code → ${result.timingsLog}');
       return result;
     }
@@ -543,7 +551,7 @@ class UssdSessionRunner {
         '[UssdSession] préparation OK, fermeture d\'une éventuelle fenêtre');
     await _closeDialog();
     debugPrint(
-        '[UssdSession] fenêtre fermée, numérotation de $code (SIM ${slot + 1})');
+        '[UssdSession] fenêtre fermée, numérotation de $logCode (SIM ${slot + 1})');
     await _humanPause(100, 250);
     _inbox.clear();
     UssdLauncher.setUssdMessageListener(_onMessage);
@@ -553,7 +561,7 @@ class UssdSessionRunner {
     } catch (e) {
       return end(UssdOutcome.notExecuted, 'Numérotation impossible : $e');
     }
-    log.add('> $code (SIM ${slot + 1})');
+    log.add('> $logCode (SIM ${slot + 1})');
     debugPrint('[UssdSession] code composé, attente du premier écran');
 
     String? screen = await _nextScreen(firstTimeout);

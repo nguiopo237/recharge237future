@@ -148,6 +148,12 @@ SalesReport buildSalesReport({
         (t['operateur_cible'] ?? '').toString().trim().toLowerCase();
     if (kNonBillableOperations.contains(op)) continue;
 
+    // [CONVERSION 31/10/2026] Une recharge payée EN POINTS n'est pas une
+    // vente : compter son volume gonflerait le chiffre d'affaires et la
+    // commission estimée d'un montant que personne n'a encaissé. Elle coûte
+    // au programme, elle ne le finance pas.
+    if ((t['paiement'] ?? '').toString().trim() == 'points') continue;
+
     final String key = op.isEmpty ? 'camtel_pre' : op;
     final String label = kOperationLabels[key] ?? 'Autre ($key)';
     final AppSales app = byKey.putIfAbsent(key, () => AppSales(key, label));

@@ -16,8 +16,10 @@ void main() {
           relaunchStatusFor({'operateur_cible': 'mtn_forfait_activate'}), '1');
     });
 
-    test('Orange ne se relance pas : aucun flow USSD', () {
-      expect(relaunchStatusFor({'operateur_cible': 'orange_airtime'}), isNull);
+    // [ORANGE 31/10/2026] Le flow USSD Orange existe désormais : la commande
+    // se relance comme MTN, en repassant simplement à « à livrer » (1).
+    test('Orange crédit se relance comme MTN', () {
+      expect(relaunchStatusFor({'operateur_cible': 'orange_airtime'}), '1');
     });
 
     test('anciennes commandes sans type : CAMTEL prépayé', () {

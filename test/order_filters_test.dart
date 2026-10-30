@@ -145,21 +145,27 @@ void main() {
 
   // [OFFRES PERSO 29/10/2026] Good Deal Orange.
   //
-  // [ORANGE 30/10/2026] Tant que le flow USSD Orange n'est pas branché
-  // (`OrangeUssdManager.deliveryImplemented == false`), un téléphone ne doit
-  // PAS écouter les commandes Orange : elles resteraient en échec alors que le
-  // client a payé. Elles doivent rester au statut « payée, à livrer » (1), que
-  // l'admin traite à la main. Le routage est donc VIDE pour un téléphone
-  // dédié Orange (et non `null`, qui voudrait dire « toutes les commandes »).
-  test('Orange non implémenté : aucune route écoutée (commande laissée à l’admin)', () {
-    expect(routesForHandles(<String>['orange_forfait']), isEmpty);
-    expect(routesForHandles(<String>['orange_forfait_activate']), isEmpty);
-    expect(routesForHandles(<String>['orange_airtime']), isEmpty);
-    // Un téléphone mixte garde ses autres opérateurs, sans Orange.
+  // [ORANGE 31/10/2026] Livraison branchée : les commandes Orange sont
+  // réellement servies, elles doivent donc être ÉCOUTÉES — et uniquement par
+  // un téléphone qui déclare Orange (un téléphone MTN seul ne doit jamais les
+  // réserver pour échouer ensuite).
+  test('Orange livré : les commandes sont routées vers le téléphone Orange', () {
+    expect(
+      routesForHandles(<String>['orange_airtime']).toString(),
+      '[1/11 · orange_airtime]',
+    );
+    expect(
+      routesForHandles(<String>['orange_forfait']).toString(),
+      '[0 · orange_forfait, 1/11 · orange_forfait_activate]',
+    );
+    // Un téléphone mixte cumule ses routes, Orange compris.
     expect(
       routesForHandles(<String>['orange_airtime', 'camtel_pre']).toString(),
-      '[1/9/11]',
+      '[1/9/11, 1/11 · orange_airtime]',
     );
+    // Un téléphone sans Orange n'écoute jamais Orange.
+    final routes = routesForHandles(const <String>['mtn_airtime'])!;
+    expect(routes.every((r) => r.operateur != 'orange_airtime'), isTrue);
   });
 
   test('Good Deal Orange : statuts de relance inchangés', () {
@@ -170,6 +176,11 @@ void main() {
     expect(
         relaunchStatusFor(
             <String, dynamic>{'operateur_cible': 'orange_forfait_activate'}),
+        '1');
+    // [ORANGE 31/10/2026] Le crédit Orange se relance comme MTN : la commande
+    // repasse simplement à « à livrer » (1).
+    expect(
+        relaunchStatusFor(<String, dynamic>{'operateur_cible': 'orange_airtime'}),
         '1');
   });
 }

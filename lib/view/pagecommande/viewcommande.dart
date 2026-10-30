@@ -32,6 +32,7 @@ import '../../service/server/remote_command_handler.dart';
 import '../../service/server/server_manager.dart';
 import '../../service/server/transaction_claimer.dart';
 import '../../service/ussd/mtn_ussd_manager.dart';
+import '../../service/ussd/orange_ussd_manager.dart';
 import '../../service/ussd/ussd_session.dart';
 import '../config/sim_config_screen.dart';
 import '../../service/ussd/session_config.dart';
@@ -1034,6 +1035,7 @@ class _CommandeviewState extends State<Commandeview>
     final server = ServerManager.instance;
     final claimer = TransactionClaimer.instance;
     final mtn = MtnUssdManager.instance;
+    final orange = OrangeUssdManager.instance;
     _derniereCommandeExecutee = false;
     // [PRODUCTION 27/10/2026] Garde-fou au branchement sur la vraie base :
     // les anciennes commandes restées à "1"/"9"/"6"/"11" (déjà traitées à
@@ -1221,6 +1223,46 @@ class _CommandeviewState extends State<Commandeview>
     }
 
     // ─────────────────────────────────────────────────────────────
+    // [ORANGE 31/10/2026] ORANGE AIRTIME — vente de crédit
+    // Statuts : 1/11 → 40 (en cours) → 41 (livré) / 42 (échec)
+    // Code composé : `#205*1*[numero]*[montant]#` (Good Deal, défaut) ou
+    // `#189*1*[numero]*[montant]*[code secret]#` (transfert simple), réglé
+    // par `app_config/public.ussd_orange_credit` sans redéployer.
+    // ─────────────────────────────────────────────────────────────
+    if ((status == "1" || status == "11") && operateur == 'orange_airtime') {
+      if (!server.handlesOperation('orange_airtime')) return;
+      // Pas de carte Orange sur ce téléphone : un autre serveur la livrera.
+      if (!_simConfig.orangeConfigured) return;
+      if (!server.canHandle(numeroorange: numero, status: status)) return;
+      // Minimum opérateur (100 F) : inutile de lancer une session refusée.
+      if (!isAmountAllowed(amount)) {
+        await updateValueInFirestore("Transact", docId, "status", "42");
+        await updateValueInFirestore(
+            "Transact", docId, "failure_reason", amountTooSmallReason(amount));
+        return;
+      }
+      final claimed = await claimer.claim(docId, server.deviceId);
+      if (!claimed) return;
+
+      debugPrint('[check] Orange Airtime → $numCible $amount FCFA');
+      _derniereCommandeExecutee = true;
+      final resOrange = await orange.rechargeAirtime(
+        docId: docId,
+        amount: amount,
+        clientNumber: numCible,
+        sim: _simConfig.orange,
+      );
+      _notifyTelegram(
+        operateur: 'Orange Airtime',
+        simSlot: _simConfig.orange.slot,
+        clientNumber: numCible,
+        amount: amount,
+        resultat: resOrange.rawMessage,
+        succes: resOrange.result.name == 'success',
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────
     // MTN FORFAIT Phase 1 — Récupérer la liste des offres
     // [MTN GOOD DEAL 27/10/2026] Déclenché à status == "0" (pas "1") :
     // cette requête est GRATUITE, aucun paiement n'est associé — un
@@ -1317,12 +1359,10 @@ class _CommandeviewState extends State<Commandeview>
       final claimed = await claimer.claim(docId, server.deviceId);
       if (!claimed) return;
       debugPrint('[check] Orange Good Deal Query → $numCible');
-      _derniereCommandeExecutee = true;
-      final resList = await mtn.queryForfaitList(
+      _derniereCommandeExecutee = true;          final resList = await orange.queryForfaitList(
         docId: docId,
         clientNumber: numCible,
         sim: _simConfig.orange,
-        operateur: 'orange',
       );
       _notifyTelegram(
         operateur: 'Orange Good Deal (liste)',
@@ -1349,13 +1389,12 @@ class _CommandeviewState extends State<Commandeview>
       debugPrint(
           '[check] Orange Good Deal Activate → $numCible, offre=$forfaitIndex');
       _derniereCommandeExecutee = true;
-      final resActivate = await mtn.activateForfait(
+      final resActivate = await orange.activateForfait(
         docId: docId,
         clientNumber: numCible,
         forfaitIndex: forfaitIndex,
         sim: _simConfig.orange,
         sourceOrder: sourceOrder,
-        operateur: 'orange',
       );
       _notifyTelegram(
         operateur: 'Orange Good Deal (activation)',
