@@ -73,14 +73,13 @@ class TransactionClaimer {
   Future<bool> release(String docId, String serverId) async {
     try {
       return await FirebaseFirestore.instance.runTransaction<bool>((txn) async {
-        final ref = FirebaseFirestore.instance
-            .collection(_collection)
-            .doc(docId);
+        final ref =
+            FirebaseFirestore.instance.collection(_collection).doc(docId);
         final snap = await txn.get(ref);
         if (!snap.exists) return false;
         final Map<String, dynamic> data = snap.data() ?? const {};
         if ((data['serverId'] ?? '').toString() != serverId) return false;
-        final int attempts = (data['attempts'] as num?)?.int ?? 0;
+        final int attempts = (data['attempts'] as num?)?.toInt() ?? 0;
         txn.update(ref, <String, dynamic>{
           'serverId': '',
           'attempts': attempts > 0 ? attempts - 1 : 0,
@@ -110,12 +109,12 @@ class TransactionClaimer {
     Object? lastError;
     for (int attempt = 0; attempt < _claimBackoffDelays.length; attempt++) {
       bool result = false;
+      lastError = null;
       try {
-        result = await FirebaseFirestore.instance
-            .runTransaction<bool>((txn) async {
-          final ref = FirebaseFirestore.instance
-              .collection(_collection)
-              .doc(docId);
+        result =
+            await FirebaseFirestore.instance.runTransaction<bool>((txn) async {
+          final ref =
+              FirebaseFirestore.instance.collection(_collection).doc(docId);
           final snap = await txn.get(ref);
 
           if (!snap.exists) return false;
@@ -123,7 +122,7 @@ class TransactionClaimer {
           final Map<String, dynamic> data = snap.data() ?? const {};
           final String status = data['status']?.toString() ?? '';
           final String existingOwner = data['serverId']?.toString() ?? '';
-          final int attempts = (data['attempts'] as num?)?.int ?? 0;
+          final int attempts = (data['attempts'] as num?)?.toInt() ?? 0;
           final bool relaunch = data['relance_demandee'] == true;
 
           // Statut non traitable
@@ -164,13 +163,17 @@ class TransactionClaimer {
           }
           return true;
         });
-
       } catch (e) {
         lastError = e;
-        debugPrint('[Claimer] Erreur claim $docId (tentative ${attempt + 1}/${_claimBackoffDelays.length}) : $e');
+        debugPrint(
+            '[Claimer] Erreur claim $docId (tentative ${attempt + 1}/${_claimBackoffDelays.length}) : $e');
       }
 
       if (result) return true;
+      // [29/10/2026] Refus normal (déjà prise, déjà tentée, statut changé) :
+      // pas d'erreur, donc rien à réessayer. Avant, on relisait 3 fois la
+      // commande pour rien et on journalisait « Erreur … définitive : null ».
+      if (lastError == null) return false;
       if (attempt < _claimBackoffDelays.length - 1) {
         await Future.delayed(_claimBackoffDelays[attempt]);
       }

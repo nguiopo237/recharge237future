@@ -76,8 +76,9 @@ void main() {
     });
 
     test('toMap ne perd ni le prix ni la page', () {
-      final Map<String, Object?> map =
-          offerRecords(<String>[_page1]).firstWhere((o) => o.index == '3').toMap();
+      final Map<String, Object?> map = offerRecords(<String>[_page1])
+          .firstWhere((o) => o.index == '3')
+          .toMap();
       expect(map['index'], '3');
       expect(map['price'], 25);
       expect(map['page'], 0);

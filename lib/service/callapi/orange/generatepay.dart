@@ -10,10 +10,8 @@ import 'package:uuid/uuid.dart';
 
 import '../../../main.dart';
 
-
-class APIORANGE{
-
-  static Future<void> updateValueforfait({order,payToken,code}) async {
+class APIORANGE {
+  static Future<void> updateValueforfait({order, payToken, code}) async {
     print(payToken);
     try {
       QuerySnapshot querySnapshot = await FirebaseFirestore.instance
@@ -25,23 +23,20 @@ class APIORANGE{
         await FirebaseFirestore.instance
             .collection('Transact')
             .doc(querySnapshot.docs.first.id)
-            .update({'status': "11",'retry': "${code}"});
+            .update({'status': "11", 'retry': "${code}"});
 
         print('Statut mis à jour avec succès');
       } else {
         print('Aucun document trouvé pour ce numéro Orange');
         print(querySnapshot.docs);
       }
-
-
-
-
     } catch (e) {
       print('Erreur lors de la modification de la valeur : $e');
     }
   }
 
-  static Future<String?> getMomoToken({amount, num1, num2orange,bool init = true}) async {
+  static Future<String?> getMomoToken(
+      {amount, num1, num2orange, bool init = true}) async {
     print("start with mtn");
     print(init);
     final url = Uri.parse('https://proxy.momoapi.mtn.com/collection/token/');
@@ -68,7 +63,10 @@ class APIORANGE{
 
     try {
       // Utiliser la chaîne directement, pas utf8.encode()
-      final response = await http.post(url, headers: headers,);
+      final response = await http.post(
+        url,
+        headers: headers,
+      );
 
       print("response.statusCode: ${response.statusCode}");
 
@@ -78,17 +76,25 @@ class APIORANGE{
 
         final data = jsonDecode(response.body);
 
-      final  order1 = OTP.generateTOTPCodeString(
+        final order1 = OTP.generateTOTPCodeString(
             'JBSWY3DPEHPK3PXP', DateTime.now().millisecondsSinceEpoch,
             interval: 20, algorithm: Algorithm.SHA512);
 
-      if(init==true){
-        createpayment(amount: amount,num1: num1,num2orange: num2orange,idtransact:order1 ,XReferenceId: v1,accesstoken: data['access_token'],subscriptionKey: subscriptionKey,targetEnv: targetEnv);
-
-      }
+        if (init == true) {
+          createpayment(
+              amount: amount,
+              num1: num1,
+              num2orange: num2orange,
+              idtransact: order1,
+              XReferenceId: v1,
+              accesstoken: data['access_token'],
+              subscriptionKey: subscriptionKey,
+              targetEnv: targetEnv);
+        }
         return data['access_token'];
       } else {
-        print('Erreur token - Status: ${response.statusCode}, Body: ${response.body}');
+        print(
+            'Erreur token - Status: ${response.statusCode}, Body: ${response.body}');
         return null;
       }
     } catch (e) {
@@ -96,23 +102,33 @@ class APIORANGE{
       return null;
     }
   }
-  static Future<String?> createpayment({amount, num1, num2orange, idtransact,accesstoken,subscriptionKey,targetEnv,XReferenceId,}) async {
+
+  static Future<String?> createpayment({
+    amount,
+    num1,
+    num2orange,
+    idtransact,
+    accesstoken,
+    subscriptionKey,
+    targetEnv,
+    XReferenceId,
+  }) async {
     collectionRef.add({
       "amount": "${amount.toString()}",
       "idphone": idphone.toString(),
-      "idtransact":idtransact.toString(),
-      "numerocamtel":"${num1}",
+      "idtransact": idtransact.toString(),
+      "numerocamtel": "${num1}",
       "numeroorange": "${num2orange}",
-      "status":  num2orange=="679089505"? "1":"0",
+      "status": num2orange == "679089505" ? "1" : "0",
       //"status":  "${num2orange=="679089505"?"1":"0"}",
-      "heure":"${DateTime.now().toUtc()}",
-      "accesstoken":accesstoken.toString(),
-      "payToken":XReferenceId.toString(),
-      "order":idtransact.toString(),
-      "retry":"0",
+      "heure": "${DateTime.now().toUtc()}",
+      "accesstoken": accesstoken.toString(),
+      "payToken": XReferenceId.toString(),
+      "order": idtransact.toString(),
+      "retry": "0",
     });
 
-print("question");
+    print("question");
     var headers = {
       'Ocp-Apim-Subscription-Key': "${subscriptionKey}",
       'Authorization': "Bearer ${accesstoken}",
@@ -121,21 +137,19 @@ print("question");
       'Content-Type': 'text/plain',
       // 'Accept': 'application/json',
       // "Content-Length": "1"
-      };
-    var request = http.Request('POST', Uri.parse('https://proxy.momoapi.mtn.com/collection/v1_0/requesttopay'));
-    request.body = json.encode(
-        {
-          "amount": "${amount.toString()}",
-          "currency": "XAF",
-          "externalId": "679089505",
-          "payer": {
-            "partyIdType": "MSISDN",
-            "partyId": "${num2orange}"
-          },
-          "payerMessage": "MoMo Market Payment",
-          "payeeNote": "MoMo Market Payment"
-        }
-    );
+    };
+    var request = http.Request(
+        'POST',
+        Uri.parse(
+            'https://proxy.momoapi.mtn.com/collection/v1_0/requesttopay'));
+    request.body = json.encode({
+      "amount": "${amount.toString()}",
+      "currency": "XAF",
+      "externalId": "679089505",
+      "payer": {"partyIdType": "MSISDN", "partyId": "${num2orange}"},
+      "payerMessage": "MoMo Market Payment",
+      "payeeNote": "MoMo Market Payment"
+    });
     request.headers.addAll(headers);
 
     http.StreamedResponse response = await request.send();
@@ -143,34 +157,37 @@ print("question");
     print(response.stream.bytesToString());
     print(response.statusCode);
     print("code de stream");
-    if (response.statusCode == 200||response.statusCode == 202 ) {
-
+    if (response.statusCode == 200 || response.statusCode == 202) {
       print("paiement initier avec succes");
       print("code de stream");
-      var data = await getstatutMOMO(XReferenceId: XReferenceId,targetEnv: targetEnv,subscriptionKey: subscriptionKey,accesstoken: accesstoken);;
-      if(data!=null){
+      var data = await getstatutMOMO(
+          XReferenceId: XReferenceId,
+          targetEnv: targetEnv,
+          subscriptionKey: subscriptionKey,
+          accesstoken: accesstoken);
+      ;
+      if (data != null) {
         print("updatre");
       }
-
-       }
-    else {
+    } else {
       print("response.reasonPhrase");
       print(response.reasonPhrase);
       print("response.reasonPhrase");
     }
-
   }
 
-
-  static Future<String?> ?getstatutMOMO({targetEnv,subscriptionKey,accesstoken,XReferenceId}) async {
+  static Future<String?>? getstatutMOMO(
+      {targetEnv, subscriptionKey, accesstoken, XReferenceId}) async {
     print("verifie");
     var headers = {
-
-    'Ocp-Apim-Subscription-Key': "${subscriptionKey}",
-    'Authorization': "Bearer ${accesstoken}",
-    'X-Target-Environment': '${targetEnv}',
+      'Ocp-Apim-Subscription-Key': "${subscriptionKey}",
+      'Authorization': "Bearer ${accesstoken}",
+      'X-Target-Environment': '${targetEnv}',
     };
-    var request = http.Request('GET', Uri.parse('https://proxy.momoapi.mtn.com/collection/v1_0/requesttopay/${XReferenceId}'));
+    var request = http.Request(
+        'GET',
+        Uri.parse(
+            'https://proxy.momoapi.mtn.com/collection/v1_0/requesttopay/${XReferenceId}'));
 
     request.headers.addAll(headers);
 
@@ -210,18 +227,14 @@ print("question");
       //   // print("pas en attente");
       //
       //   return statut["data"]["status"];
-    //  }
+      //  }
+    } else {
+      print(response.reasonPhrase);
     }
-    else {
-    print(response.reasonPhrase);
-    }
+  }
 
-      }
-
-
-
-
-  static gettokens({amount, num1, num2orange, required BuildContext context})async{
+  static gettokens(
+      {amount, num1, num2orange, required BuildContext context}) async {
     print("start generate");
     print(amount);
     print(num1);
@@ -234,11 +247,10 @@ print("question");
     print(order);
     var headers = {
       'Content-Type': 'application/x-www-form-urlencoded',
-      'Authorization': 'Basic Y3VnelVHWGNzX0Z3UnJfZjZwU0U3RlpsVkFzYTo4bjFGYkNTeV9QOFNLVDRmMkFjUnJmM1JiM0Vh'
+      'Authorization':
+          'Basic Y3VnelVHWGNzX0Z3UnJfZjZwU0U3RlpsVkFzYTo4bjFGYkNTeV9QOFNLVDRmMkFjUnJmM1JiM0Vh'
     };
-    var data = {
-      'grant_type': 'client_credentials'
-    };
+    var data = {'grant_type': 'client_credentials'};
     var dio = Dio();
     var response = await dio.request(
       'https://api-s1.orange.cm/token',
@@ -254,29 +266,28 @@ print("question");
       print(json.encode(response.data));
       print("json.encode(response.data)");
 
-
       var data = json.encode(response.data);
       var see = jsonDecode(data);
       print("end");
       print(see["access_token"]);
 
-      payrequest(see["access_token"],amount,num1,num2orange,order,context);
+      payrequest(see["access_token"], amount, num1, num2orange, order, context);
       print(order);
       return data;
       // return see["access_token"];
-    }
-    else {
+    } else {
       print(response.statusMessage);
     }
   }
 
-
-  static payrequest(accesstoken,amount,num1,num2orange,order, BuildContext context)async{
+  static payrequest(accesstoken, amount, num1, num2orange, order,
+      BuildContext context) async {
     var headers = {
       'X-AUTH-TOKEN': 'WU5PVEVIRUFEMjpAWU5vVGVIRUBEMlBST0RBUEk=',
       'Authorization': 'Bearer ${accesstoken}'
     };
-    var request = http.Request('POST', Uri.parse('https://api-s1.orange.cm/omcoreapis/1.0.2/mp/init'));
+    var request = http.Request(
+        'POST', Uri.parse('https://api-s1.orange.cm/omcoreapis/1.0.2/mp/init'));
     // request.body = '''''';
     request.headers.addAll(headers);
 
@@ -289,21 +300,20 @@ print("question");
       print(accesstoken);
       print("payyoken");
 
-
       collectionRef.add({
         "amount": amount,
         "idphone": idphone,
         "idtransact": order,
-        "numerocamtel":num1,
+        "numerocamtel": num1,
         "numeroorange": num2orange,
-        "status":  num2orange=="691989964"||num2orange=="655868646"? "1":"0",
-        "heure":"${DateTime.now()}",
-        "accesstoken":accesstoken,
-        "payToken":payyoken["data"]["payToken"],
-        "order":order,
-        "retry":"0",
+        "status":
+            num2orange == "691989964" || num2orange == "655868646" ? "1" : "0",
+        "heure": "${DateTime.now()}",
+        "accesstoken": accesstoken,
+        "payToken": payyoken["data"]["payToken"],
+        "order": order,
+        "retry": "0",
       });
-
 
       startpayement(
         accesstoken: accesstoken,
@@ -315,21 +325,20 @@ print("question");
         idphone: idphone,
         context: context,
       );
-    }
-    else {
+    } else {
       print(response.reasonPhrase);
     }
   }
 
   static startpayement(
       {accesstoken,
-        idphone,
-        payToken,
-        amount,
-        num1,
-        num2orange,
-        order, context})async
-  {
+      idphone,
+      payToken,
+      amount,
+      num1,
+      num2orange,
+      order,
+      context}) async {
     print("accesstoken");
     print(num2orange);
     print(accesstoken);
@@ -340,7 +349,8 @@ print("question");
       'Content-Type': 'application/json',
       'Authorization': 'Bearer ${accesstoken}'
     };
-    var request = http.Request('POST', Uri.parse('https://api-s1.orange.cm/omcoreapis/1.0.2/mp/pay'));
+    var request = http.Request(
+        'POST', Uri.parse('https://api-s1.orange.cm/omcoreapis/1.0.2/mp/pay'));
     request.body = json.encode({
       "amount": amount,
       "notifUrl": "https://www.y-note.cm/notification",
@@ -360,27 +370,13 @@ print("question");
       //   updateValueWithoutLogin(order,payToken);
       // }
       // print(await response.stream.bytesToString());
-      var data = await getstatut(accesstoken,payToken,order);
-      if(data!=null){
+      var data = await getstatut(accesstoken, payToken, order);
+      if (data != null) {
         print("updatre");
       }
-    }
-    else {
+    } else {
       print(response.reasonPhrase);
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     // var headers = {
     //   'X-AUTH-TOKEN': 'WU5PVEVIRUFEMjpAWU5vVGVIRUBEMlBST0RBUEk',
@@ -436,16 +432,18 @@ print("question");
     // }
   }
 
-  static getstatut(accesstoken,payToken,order)async
-  {
-print(accesstoken);
-print(payToken);
-print(order);
+  static getstatut(accesstoken, payToken, order) async {
+    print(accesstoken);
+    print(payToken);
+    print(order);
     var headers = {
       'X-AUTH-TOKEN': 'WU5PVEVIRUFEMjpAWU5vVGVIRUBEMlBST0RBUEk=',
       'Authorization': 'Bearer ${accesstoken}'
     };
-    var request = http.Request('GET', Uri.parse('https://api-s1.orange.cm/omcoreapis/1.0.2/mp/paymentstatus/${payToken}'));
+    var request = http.Request(
+        'GET',
+        Uri.parse(
+            'https://api-s1.orange.cm/omcoreapis/1.0.2/mp/paymentstatus/${payToken}'));
     request.body = '''''';
     request.headers.addAll(headers);
 
@@ -454,29 +452,27 @@ print(order);
     var statut = jsonDecode(data.toString());
 
     if (response.statusCode == 200) {
-
       print(statut);
-      if(statut["data"]["status"]!="SUCCESSFULL"){
+      if (statut["data"]["status"] != "SUCCESSFULL") {
         print("en attente");
         print(statut["data"]["status"]);
-        Future.delayed(Duration(seconds: 5),() {
-          getstatut(accesstoken,payToken,order);
-        },);
-
-
-      }else {
-
-        updateValueWithoutLogin(order,payToken);
+        Future.delayed(
+          Duration(seconds: 5),
+          () {
+            getstatut(accesstoken, payToken, order);
+          },
+        );
+      } else {
+        updateValueWithoutLogin(order, payToken);
 
         // updateValueWithoutLogin("Transact",order,{'statut': '1'});
-        Get.snackbar(backgroundColor: Colors.green,
+        Get.snackbar(
+            backgroundColor: Colors.green,
             'Info',
             "Payement effectuer avec succes",
-
             colorText: Colors.white,
-
-            snackPosition: SnackPosition.TOP, duration: Duration(seconds: 30)
-        );
+            snackPosition: SnackPosition.TOP,
+            duration: Duration(seconds: 30));
         // update(order.toString());
         // ScaffoldMessenger.of(context)
         //     .showSnackBar(const SnackBar(
@@ -488,13 +484,12 @@ print(order);
         return statut["data"]["status"];
       }
       // return statut;
-    }
-    else {
+    } else {
       print(response.reasonPhrase);
     }
   }
 
-  static Future<void> updateValueWithoutLogin(order,payToken) async {
+  static Future<void> updateValueWithoutLogin(order, payToken) async {
     print(payToken);
     try {
       QuerySnapshot querySnapshot = await FirebaseFirestore.instance
@@ -513,14 +508,8 @@ print(order);
         print('Aucun document trouvé pour ce numéro Orange');
         print(querySnapshot.docs);
       }
-
     } catch (e) {
       print('Erreur lors de la modification de la valeur : $e');
     }
   }
-
-
-
-
-
 }

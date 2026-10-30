@@ -23,10 +23,14 @@ import 'package:flutter/services.dart';
 /// Codes MNC camerounais (MCC 624) des opérateurs livrés par le serveur.
 /// `mccMnc` renvoyé par Android est le réseau d'origine de la CARTE
 /// (`TelephonyManager.simOperator`) : il reste valable même en itinérance.
-const Map<String, String> kOperatorMnc = <String, String>{
-  'mtn': '01',
-  'orange': '02',
-  'camtel': '03',
+///
+/// [29/10/2026] CAMTEL a DEUX codes : 03 et 05 (Blue 4G). Constaté sur les
+/// deux SIM CAMTEL du Redmi M2003J15SC (62405), refusées à tort comme
+/// « autre opérateur » : aucune commande CAMTEL n'aurait été livrée.
+const Map<String, List<String>> kOperatorMnc = <String, List<String>>{
+  'mtn': <String>['01'],
+  'orange': <String>['02'],
+  'camtel': <String>['03', '05'],
 };
 
 /// Nom lisible d'un code opérateur (`mtn` → « MTN »).
@@ -47,8 +51,8 @@ String operatorDisplayName(String code) {
 String operatorFromMccMnc(String mccMnc) {
   if (mccMnc.length < 5 || !mccMnc.startsWith('624')) return '';
   final String mnc = mccMnc.substring(3);
-  for (final MapEntry<String, String> e in kOperatorMnc.entries) {
-    if (mnc.startsWith(e.value)) return operatorDisplayName(e.key);
+  for (final MapEntry<String, List<String>> e in kOperatorMnc.entries) {
+    if (e.value.any(mnc.startsWith)) return operatorDisplayName(e.key);
   }
   return '';
 }
@@ -121,7 +125,8 @@ class SimNetworkState {
   });
 
   factory SimNetworkState.fromMap(int slot, Map<String, dynamic>? m) {
-    if (m == null) return SimNetworkState.unknown(slot, 'état réseau illisible');
+    if (m == null)
+      return SimNetworkState.unknown(slot, 'état réseau illisible');
     String str(String key) => (m[key] ?? '').toString().trim();
     int integer(String key, [int fallback = -1]) =>
         (m[key] as num?)?.toInt() ?? fallback;
@@ -220,10 +225,11 @@ class SimNetworkState {
   /// Ne se prononce que sur un `mccMnc` camerounais identifiable : une carte
   /// lue sans réseau d'origine (ou étrangère) ne déclenche jamais de refus.
   String? operatorMismatch(String expected) {
-    final String want = kOperatorMnc[expected.toLowerCase()] ?? '';
+    final List<String> want =
+        kOperatorMnc[expected.toLowerCase()] ?? const <String>[];
     if (want.isEmpty) return null;
     if (mccMnc.length < 5 || !mccMnc.startsWith('624')) return null;
-    if (mccMnc.substring(3).startsWith(want)) return null;
+    if (want.any(mccMnc.substring(3).startsWith)) return null;
     final String found = operatorFromMccMnc(mccMnc);
     return '$simLabel porte ${found.isEmpty ? 'un autre opérateur ($mccMnc)' : found} '
         ': une commande ${operatorDisplayName(expected)} ne peut pas y être '
@@ -231,7 +237,8 @@ class SimNetworkState {
   }
 
   /// Ligne de journal (aucun secret).
-  String get summary => '$simLabel · ${networkLabel.isEmpty ? simState : networkLabel}'
+  String get summary =>
+      '$simLabel · ${networkLabel.isEmpty ? simState : networkLabel}'
       '${emergencyOnly ? ' (urgence)' : ''} · réseau "${operatorName}" · '
       'carte "$carrier" $mccMnc · signal $signalLevel/4 · SIM $simState'
       '${detail.isNotEmpty ? ' · $detail' : ''}';
@@ -270,7 +277,8 @@ class SimNetworkGuard {
 
   static Future<SimNetworkState> read(int slot) async {
     try {
-      final Map<String, dynamic>? m = await _native.invokeMapMethod<String, dynamic>(
+      final Map<String, dynamic>? m =
+          await _native.invokeMapMethod<String, dynamic>(
         'serviceState',
         <String, dynamic>{'slot': slot},
       );
@@ -303,6 +311,7 @@ class SimNetworkGuard {
     }
     debugPrint('[SimNetwork] ${state.summary}');
     if (!state.usable) return SimNetworkCheck(state, state.reason);
-    return SimNetworkCheck(state, expected == null ? null : state.operatorMismatch(expected));
+    return SimNetworkCheck(
+        state, expected == null ? null : state.operatorMismatch(expected));
   }
 }

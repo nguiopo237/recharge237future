@@ -97,12 +97,16 @@ void main() {
     test('même opérateur : rien à signaler', () {
       expect(state(mccMnc: '62401').operatorMismatch('mtn'), isNull);
       expect(state(mccMnc: '62403').operatorMismatch('camtel'), isNull);
+      // [29/10/2026] CAMTEL Blue 4G (Redmi M2003J15SC).
+      expect(state(mccMnc: '62405').operatorMismatch('camtel'), isNull);
+      expect(
+          state(mccMnc: '62405').operatorMismatch('mtn'), contains('CAMTEL'));
       expect(state(mccMnc: '62402').operatorMismatch('orange'), isNull);
     });
 
     test('mauvaise carte dans l\'emplacement : refus explicite', () {
-      final String? m = state(carrier: 'CAMTEL', mccMnc: '62403')
-          .operatorMismatch('mtn');
+      final String? m =
+          state(carrier: 'CAMTEL', mccMnc: '62403').operatorMismatch('mtn');
       expect(m, isNotNull);
       expect(m, contains('CAMTEL'));
       expect(m, contains('MTN'));
@@ -116,14 +120,14 @@ void main() {
     });
 
     test('opérateur attendu inconnu : aucune contrainte', () {
-      expect(state(mccMnc: '62401').operatorMismatch('operateur_inconnu'), isNull);
+      expect(
+          state(mccMnc: '62401').operatorMismatch('operateur_inconnu'), isNull);
     });
   });
 
   group('SimNetworkCheck', () {
     test('sans problème : la session part', () {
-      final SimNetworkCheck c =
-          SimNetworkCheck(state(registered: true), null);
+      final SimNetworkCheck c = SimNetworkCheck(state(registered: true), null);
       expect(c.ok, isTrue);
       expect(c.reason, isNotEmpty);
     });

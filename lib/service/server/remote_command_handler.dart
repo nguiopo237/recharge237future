@@ -136,8 +136,8 @@ class RemoteCommandHandler {
           break;
 
         case 'ping':
-          await _respond(deviceId,
-              'Actif — ${DateTime.now().toIso8601String()}');
+          await _respond(
+              deviceId, 'Actif — ${DateTime.now().toIso8601String()}');
           break;
 
         // [RESEAU 28/10/2026] Pilotage de l'écran depuis l'admin.
@@ -146,7 +146,8 @@ class RemoteCommandHandler {
         // À lancer AVANT `radio_cycle` sur un nouveau téléphone : il confirme
         // que l'app sait réellement piloter cet écran.
         case 'airplane_probe':
-          final bool trouve = await NetworkRecovery.instance.probeAirplaneTile();
+          final bool trouve =
+              await NetworkRecovery.instance.probeAirplaneTile();
           await _respond(
               deviceId,
               trouve
@@ -159,11 +160,11 @@ class RemoteCommandHandler {
         case 'radio_cycle':
           final SessionConfig cfg = SessionConfig.fromDocument(
               (await FirebaseFirestore.instance
-                      .collection('servers')
-                      .doc(deviceId)
-                      .get())
-                  .data() ??
-              const <String, dynamic>{});
+                          .collection('servers')
+                          .doc(deviceId)
+                          .get())
+                      .data() ??
+                  const <String, dynamic>{});
           final int slot = cfg.mtnConfigured
               ? cfg.mtn.slot
               : (cfg.camtelConfigured ? cfg.camtelPre.slot : 0);
@@ -213,7 +214,9 @@ class RemoteCommandHandler {
       debugPrint('[RemoteCommand] écoute interrompue : $erreur — reprise '
           'dans ${attente.inSeconds} s');
       await Future<void>.delayed(attente);
-      if (_subscription != null && _onRestart != null && _onReloadConfig != null) {
+      if (_subscription != null &&
+          _onRestart != null &&
+          _onReloadConfig != null) {
         startListening(
           onRestart: _onRestart!,
           onReloadConfig: _onReloadConfig!,
@@ -257,8 +260,8 @@ class RemoteCommandHandler {
   /// changements).
   static String _canonical(Object? v) {
     if (v is Map) {
-      final List<String> keys =
-          v.keys.map((Object? k) => k.toString()).toList()..sort();
+      final List<String> keys = v.keys.map((Object? k) => k.toString()).toList()
+        ..sort();
       return '{${keys.map((String k) => '$k:${_canonical(v[k])}').join(',')}}';
     }
     if (v is Iterable) {

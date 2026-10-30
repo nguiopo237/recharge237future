@@ -97,8 +97,7 @@ class FirestoreBackoff {
   Duration echec([Object? erreur]) {
     _echecsConsecutifs++;
     _saturation = erreur != null && estSaturation(erreur);
-    final Duration suivante =
-        _attente == Duration.zero ? base : _attente * 2;
+    final Duration suivante = _attente == Duration.zero ? base : _attente * 2;
     _attente = suivante > plafond ? plafond : suivante;
     final int alea =
         (_attente.inMilliseconds * 0.2 * _aleatoire.nextDouble()).round();

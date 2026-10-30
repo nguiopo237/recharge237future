@@ -14,7 +14,6 @@ class TransactionsScreen extends StatefulWidget {
 }
 
 class _TransactionsScreenState extends State<TransactionsScreen> {
-
   String _currentFilter = 'Toutes';
 
   // Variables pour stocker les totaux
@@ -49,9 +48,12 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       for (var doc in querySnapshot.docs) {
         final data = doc.data();
         final amount = data['amount'] ?? 0;
-        final status = _currentFilter!="Toutes"? "${data['status']}" : "3";
-        final montant = (amount is num) ? amount.toDouble() :
-        (amount is String) ? double.tryParse(amount) ?? 0 : 0;
+        final status = _currentFilter != "Toutes" ? "${data['status']}" : "3";
+        final montant = (amount is num)
+            ? amount.toDouble()
+            : (amount is String)
+                ? double.tryParse(amount) ?? 0
+                : 0;
 
         if (status == "3") {
           revenus += montant;
@@ -101,7 +103,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
           _buildBalanceCard(_totalBalance),
           _buildQuickFilters(),
           Expanded(
-            child: t.buildTransactionsList(filter: _currentFilter=="Toutes"?null:"3"),
+            child: t.buildTransactionsList(
+                filter: _currentFilter == "Toutes" ? null : "3"),
           ),
         ],
       ),
@@ -126,7 +129,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              NumberFormat.currency(locale: 'fr_FR', symbol: 'FCFA').format(balance),
+              NumberFormat.currency(locale: 'fr_FR', symbol: 'FCFA')
+                  .format(balance),
               style: TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.bold,
@@ -172,7 +176,8 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
         ),
         const SizedBox(height: 4),
         Text(
-          NumberFormat.currency(locale: 'fr_FR', symbol: 'FCFA').format(amount.abs()),
+          NumberFormat.currency(locale: 'fr_FR', symbol: 'FCFA')
+              .format(amount.abs()),
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -213,8 +218,6 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
       ),
     );
   }
-
-
 
   Widget _buildTransactionItem(Transactions transaction) {
     return Card(
@@ -286,25 +289,39 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
 
   String _getStatusText(String status) {
     switch (status) {
-      case "0": return "en attente de validations";
-      case "1": return "en attente de traitement";
-      case "2": return "en cours de traitement";
-      case "3": return "Recharge de crédit Effectuée";
-      case "4": return "en Attente de validation du forfait";
-      case "5": return "Forfait Validé";
-      default: return "Statut inconnu";
+      case "0":
+        return "en attente de validations";
+      case "1":
+        return "en attente de traitement";
+      case "2":
+        return "en cours de traitement";
+      case "3":
+        return "Recharge de crédit Effectuée";
+      case "4":
+        return "en Attente de validation du forfait";
+      case "5":
+        return "Forfait Validé";
+      default:
+        return "Statut inconnu";
     }
   }
 
   Color _getStatusColor(String status) {
     switch (status) {
-      case "0": return Colors.orangeAccent;
-      case "1": return Colors.blue;
-      case "2": return Colors.deepPurple;
-      case "3": return Colors.green;
-      case "4": return Colors.orange;
-      case "5": return Colors.green;
-      default: return Colors.grey;
+      case "0":
+        return Colors.orangeAccent;
+      case "1":
+        return Colors.blue;
+      case "2":
+        return Colors.deepPurple;
+      case "3":
+        return Colors.green;
+      case "4":
+        return Colors.orange;
+      case "5":
+        return Colors.green;
+      default:
+        return Colors.grey;
     }
   }
 
@@ -387,7 +404,7 @@ class Transactions {
       statut: map['status']?.toString() ?? '0',
       accesstoken: map['accesstoken']?.toString() ?? '0',
       order: map['order']?.toString() ?? '0',
-      payToken:map['payToken']?.toString() ?? '0' ,
+      payToken: map['payToken']?.toString() ?? '0',
       icon: _getIconForCategory(map['numeroorange']?.toString() ?? ''),
     );
   }

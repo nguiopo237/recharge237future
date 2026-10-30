@@ -44,7 +44,8 @@ void main() {
   group('isCamtelTransferAccepted', () {
     test('réponse CAMTEL de succès reconnue', () {
       expect(
-        isCamtelTransferAccepted('System is processing your requestion by SMS, please wait'),
+        isCamtelTransferAccepted(
+            'System is processing your requestion by SMS, please wait'),
         isTrue,
       );
     });
@@ -79,5 +80,82 @@ void main() {
     expect(kActionableStatuses, containsAll(['0', '1', '6', '9', '11']));
     expect(kActionableStatuses, isNot(contains('3')));
     expect(kActionableStatuses.length, lessThanOrEqualTo(30)); // limite whereIn
+  });
+
+  group('routesForHandles', () {
+    test('handles vides ou all : tout écouter', () {
+      expect(routesForHandles(const <String>[]), isNull);
+      expect(routesForHandles(const <String>['all']), isNull);
+    });
+
+    test('valeur inconnue : tout écouter par prudence', () {
+      expect(routesForHandles(const <String>['camtel_pre', 'inconnu']), isNull);
+    });
+
+    test('téléphone CAMTEL prépayé : ni Good Deal ni MTN', () {
+      final routes = routesForHandles(const <String>['camtel_pre'])!;
+      expect(routes.map((r) => r.toString()), <String>['1/9/11']);
+    });
+
+    test('téléphone postpayé', () {
+      expect(
+          routesForHandles(const <String>['camtel_post'])!
+              .map((r) => r.toString()),
+          <String>['6/9']);
+    });
+
+    test('téléphone MTN : crédit, requête et activation Good Deal', () {
+      final routes =
+          routesForHandles(const <String>['mtn_airtime', 'mtn_forfait'])!;
+      expect(routes.map((r) => r.toString()), <String>[
+        '1/11 · mtn_airtime',
+        '0 · mtn_forfait',
+        '1/11 · mtn_forfait_activate',
+        '1/11 · mtn_bundle',
+      ]);
+    });
+
+    test('au plus 30 disjonctions (limite Firestore)', () {
+      final routes = routesForHandles(kOperationTypes)!;
+      final int n =
+          routes.fold<int>(0, (int a, OrderRoute r) => a + r.statuses.length);
+      expect(n, lessThanOrEqualTo(30));
+    });
+  });
+
+  test('relance d\'un forfait du catalogue MTN', () {
+    expect(
+        relaunchStatusFor(<String, dynamic>{'operateur_cible': 'mtn_bundle'}),
+        '1');
+  });
+
+  test('handles de l\'écran Serveurs (sous-types MTN) : filtre conservé', () {
+    final routes = routesForHandles(
+        const <String>['mtn_airtime', 'mtn_forfait', 'mtn_forfait_activate']);
+    expect(routes, isNotNull);
+    expect(routes!.map((r) => r.operateur), contains('mtn_bundle'));
+  });
+
+  // [CONFIG SIM 29/10/2026] Téléphone non configuré.
+  test('marqueur none : aucune écoute, aucune commande acceptée', () {
+    expect(routesForHandles(<String>['none']), isEmpty);
+    expect(handlesOperation(<String>['none'], 'camtel_pre'), isFalse);
+    expect(handlesOperation(<String>[], 'camtel_pre'), isTrue);
+  });
+
+  // [OFFRES PERSO 29/10/2026] Good Deal Orange.
+  test('Good Deal Orange : requête à 0, activation à 1/11', () {
+    expect(routesForHandles(<String>['orange_forfait']).toString(),
+        '[0 · orange_forfait, 1/11 · orange_forfait_activate]');
+    expect(routesForHandles(<String>['orange_forfait_activate']).toString(),
+        '[0 · orange_forfait, 1/11 · orange_forfait_activate]');
+    expect(
+        relaunchStatusFor(
+            <String, dynamic>{'operateur_cible': 'orange_forfait'}),
+        '0');
+    expect(
+        relaunchStatusFor(
+            <String, dynamic>{'operateur_cible': 'orange_forfait_activate'}),
+        '1');
   });
 }

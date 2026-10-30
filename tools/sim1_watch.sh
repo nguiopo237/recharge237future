@@ -10,8 +10,8 @@
 # le cycle mode avion (30 s) autorise par l'admin, au plus une fois toutes les
 # 30 minutes, uniquement si la voix reste absente.
 ADB="/c/Users/wlouo/AppData/Local/Android/Sdk/platform-tools/adb.exe"
-LOG="/c/Users/wlouo/IdeaProjects/recharge237future/logs/sim1.log"
-ETAT_CYCLE="/c/Users/wlouo/IdeaProjects/recharge237future/logs/sim1_dernier_cycle.txt"
+LOG="/c/Users/wlouo/IdeaProjects/serveur_recharge237/logs/sim1.log"
+ETAT_CYCLE="/c/Users/wlouo/IdeaProjects/serveur_recharge237/logs/sim1_dernier_cycle.txt"
 INTERVALLE=60
 CYCLE_MIN=30
 

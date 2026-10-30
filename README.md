@@ -11,5 +11,6 @@ et le site Web).
 
 Exploitation des téléphones : voir `docs/EXPLOITATION_TELEPHONES.md`.
 
-Note : l'identifiant Android reste `com.example.projettest` pour ne pas casser
-les téléphones déjà installés ni la config Firebase.
+Identifiant Android : `com.recharge237.serveur` (avant le 29/10/2026 :
+`com.example.projettest`, à désinstaller des téléphones avec
+`tools\migrer_identifiant.bat`).

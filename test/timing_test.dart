@@ -72,9 +72,8 @@ void main() {
           replyStamps.add(clock.elapsedMilliseconds);
           step++;
           Timer(const Duration(milliseconds: 2), () {
-            unawaited(_deliver(step < _mtnFlow.length
-                ? _mtnFlow[step].screen
-                : _finalScreen));
+            unawaited(_deliver(
+                step < _mtnFlow.length ? _mtnFlow[step].screen : _finalScreen));
           });
           return true;
       }

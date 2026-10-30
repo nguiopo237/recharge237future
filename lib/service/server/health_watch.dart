@@ -33,6 +33,14 @@ class HealthWatch {
   Timer? _premier;
 
   bool? _accessibilitePubliee;
+
+  /// Dernier état connu de l'accessibilité (null = pas encore contrôlé).
+  /// Lu par l'écran des commandes pour afficher le bandeau rouge.
+  bool? get accessibiliteOk => _dernierEtat;
+  bool? _dernierEtat;
+
+  /// Prévenu à chaque contrôle (rafraîchit l'écran).
+  void Function()? onChange;
   String? _uidPublie;
 
   void start(String deviceId) {
@@ -63,6 +71,10 @@ class HealthWatch {
 
     final bool accessibiliteOk =
         await UssdSessionRunner.instance.accessibilityReady();
+    if (_dernierEtat != accessibiliteOk) {
+      _dernierEtat = accessibiliteOk;
+      onChange?.call();
+    }
     final String uid = serverAuthUid;
 
     final bool aPublier = accessibiliteOk != _accessibilitePubliee ||
@@ -75,13 +87,12 @@ class HealthWatch {
           .collection('servers')
           .doc(_deviceId)
           .set(<String, dynamic>{
-            'accessibilityOk': accessibiliteOk,
-            'accessibilityCheckedAt': FieldValue.serverTimestamp(),
-            if (uid.isNotEmpty) 'authUid': uid,
-            if (fenetreFermee)
-              'lastStaleDialogClosedAt': FieldValue.serverTimestamp(),
-          }, SetOptions(merge: true))
-          .timeout(const Duration(seconds: 10));
+        'accessibilityOk': accessibiliteOk,
+        'accessibilityCheckedAt': FieldValue.serverTimestamp(),
+        if (uid.isNotEmpty) 'authUid': uid,
+        if (fenetreFermee)
+          'lastStaleDialogClosedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true)).timeout(const Duration(seconds: 10));
     } catch (e) {
       if (FirestoreBackoff.estTransitoire(e)) {
         FirestoreBackoff.instance.echec(e);
@@ -103,8 +114,8 @@ class HealthWatch {
               'Les commandes USSD peuvent de nouveau être livrées.'
           : 'Recharge237 — ACCESSIBILITÉ COUPÉE\n'
               'Téléphone : $_deviceId\n'
-              'Toutes les commandes USSD de ce téléphone échoueront. Réactive '
-              'le service : Paramètres > Accessibilité > ServeurApp Recharge237.');
+              'Toutes les commandes USSD de ce téléphone échoueront.\n'
+              '${UssdSessionRunner.instance.lastAccessibilityState['canSelfEnable'] == true ? 'La réactivation automatique a échoué : redémarre le téléphone, puis vérifie Paramètres > Accessibilité > ServeurApp Recharge237.' : 'Réactivation automatique impossible : branche le téléphone au PC et lance une fois tools\\autoriser_telephone_serveur.bat (ou réactive à la main : Paramètres > Accessibilité > ServeurApp Recharge237).'}');
     }
     if (fenetreFermee) {
       debugPrint('[HealthWatch] fenêtre USSD orpheline fermée');

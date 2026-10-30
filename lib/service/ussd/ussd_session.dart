@@ -233,18 +233,20 @@ class UssdSessionRunner {
     final Completer<void> mine = Completer<void>();
     _tail = mine.future;
     _busy = true;
-    return previous.then((_) => _run(
-          code: code,
-          slot: slot,
-          rules: rules,
-          isSuccess: isSuccess,
-          isCompleteWithoutCommit: isCompleteWithoutCommit,
-          firstTimeout: firstTimeout,
-          stepTimeout: stepTimeout,
-          finalTimeout: finalTimeout,
-          maxScreens: maxScreens,
-          expectedOperator: expectedOperator,
-        )).whenComplete(() {
+    return previous
+        .then((_) => _run(
+              code: code,
+              slot: slot,
+              rules: rules,
+              isSuccess: isSuccess,
+              isCompleteWithoutCommit: isCompleteWithoutCommit,
+              firstTimeout: firstTimeout,
+              stepTimeout: stepTimeout,
+              finalTimeout: finalTimeout,
+              maxScreens: maxScreens,
+              expectedOperator: expectedOperator,
+            ))
+        .whenComplete(() {
       mine.complete();
       // La file est vide quand la session qui vient de finir était la dernière :
       // une session encore en attente garde le serveur occupé.
@@ -261,11 +263,48 @@ class UssdSessionRunner {
   /// [SANTE 29/10/2026] Vrai si le service d'accessibilité est actif et prêt
   /// (même contrôle qu'au début de chaque session). Publié dans
   /// `servers/{id}.accessibilityOk` par HealthWatch.
-  Future<bool> accessibilityReady() async {
+  ///
+  /// [ACCESSIBILITE 29/10/2026] Tente d'abord une réactivation autonome
+  /// (voir [ensureAccessibility]) : HyperOS retire parfois le service tout
+  /// seul quelques minutes après son activation manuelle.
+  Future<bool> accessibilityReady() => ensureAccessibility();
+
+  /// Dernier diagnostic, pour les alertes : `canSelfEnable` dit si le
+  /// téléphone peut se réparer seul (WRITE_SECURE_SETTINGS accordée).
+  Map<String, dynamic> lastAccessibilityState = const <String, dynamic>{};
+
+  /// Vrai si le service est connecté ; sinon essaie de le réactiver.
+  Future<bool> ensureAccessibility() async {
     try {
-      return await UssdLauncher.isAccessibilityEnabled() &&
-          (await _native.invokeMethod<bool>('serviceReady') ?? false);
-    } catch (_) {
+      if (await _native.invokeMethod<bool>('serviceReady') ?? false) {
+        lastAccessibilityState = const <String, dynamic>{'connected': true};
+        return true;
+      }
+      final Map<dynamic, dynamic>? etat = await _native
+          .invokeMethod<Map<dynamic, dynamic>>('accessibilityState');
+      lastAccessibilityState =
+          Map<String, dynamic>.from(etat ?? const <String, dynamic>{});
+      if (lastAccessibilityState['canSelfEnable'] == true) {
+        final Map<dynamic, dynamic>? r = await _native
+            .invokeMethod<Map<dynamic, dynamic>>('enableAccessibility');
+        debugPrint('[UssdSession] Réactivation accessibilité : '
+            '${r?['ok'] == true ? 'OK' : 'ÉCHEC'} — ${r?['detail']}');
+        if (r?['ok'] == true) {
+          lastAccessibilityState = <String, dynamic>{
+            ...lastAccessibilityState,
+            'connected': true,
+            'autoReenabled': true,
+          };
+          return true;
+        }
+      } else {
+        debugPrint('[UssdSession] Accessibilité coupée et réactivation '
+            'automatique impossible (WRITE_SECURE_SETTINGS absente) — '
+            'lancer tools/autoriser_telephone_serveur.bat');
+      }
+      return false;
+    } catch (e) {
+      debugPrint('[UssdSession] Contrôle accessibilité impossible : $e');
       return false;
     }
   }
@@ -280,7 +319,10 @@ class UssdSessionRunner {
   /// Rend `true` si une fenêtre a été trouvée et fermée.
   Future<bool> clearStaleDialog() async {
     try {
-      final bool closed = await _native.invokeMethod<bool>('cancel') ?? false;
+      // [29/10/2026] 'dismissStale' et non 'cancel' : 'cancel' appuie sur
+      // Retour quand il ne trouve rien, ce qui fermait l'app serveur.
+      final bool closed =
+          await _native.invokeMethod<bool>('dismissStale') ?? false;
       if (closed) {
         debugPrint('[UssdSession] Fenêtre USSD orpheline fermée');
       }
@@ -389,7 +431,8 @@ class UssdSessionRunner {
         if (!now.isBefore(graceEnd)) {
           // Rien n'est venu : on ferme comme le ferait un humain, au lieu de
           // laisser la session expirer (et bloquer la commande suivante).
-          debugPrint('[UssdSession] Écran vide depuis ${_unreadableGrace.inSeconds} s → Annuler');
+          debugPrint(
+              '[UssdSession] Écran vide depuis ${_unreadableGrace.inSeconds} s → Annuler');
           await _closeDialog();
           _closedUnreadable = true;
           return emptyScreen;
@@ -409,8 +452,7 @@ class UssdSessionRunner {
 
   Future<void> _closeDialog() async {
     try {
-      final bool closed =
-          await _native.invokeMethod<bool>('cancel') ?? false;
+      final bool closed = await _native.invokeMethod<bool>('cancel') ?? false;
       if (closed) {
         debugPrint('[UssdSession] Fenêtre USSD fermée (Annuler)');
       }
@@ -472,11 +514,7 @@ class UssdSessionRunner {
 
     // 1. Pré-requis : service d'accessibilité actif (il capte les écrans et
     //    tape les réponses).
-    bool ready = false;
-    try {
-      ready = await UssdLauncher.isAccessibilityEnabled() &&
-          (await _native.invokeMethod<bool>('serviceReady') ?? false);
-    } catch (_) {}
+    final bool ready = await ensureAccessibility();
     if (!ready) {
       return end(UssdOutcome.notExecuted,
           'Service d\'accessibilité de l\'app serveur désactivé : impossible de lire les écrans USSD.');
@@ -501,14 +539,17 @@ class UssdSessionRunner {
     }
 
     // 3. Ferme une éventuelle fenêtre USSD restée ouverte, puis compose.
-    debugPrint('[UssdSession] préparation OK, fermeture d\'une éventuelle fenêtre');
+    debugPrint(
+        '[UssdSession] préparation OK, fermeture d\'une éventuelle fenêtre');
     await _closeDialog();
-    debugPrint('[UssdSession] fenêtre fermée, numérotation de $code (SIM ${slot + 1})');
+    debugPrint(
+        '[UssdSession] fenêtre fermée, numérotation de $code (SIM ${slot + 1})');
     await _humanPause(100, 250);
     _inbox.clear();
     UssdLauncher.setUssdMessageListener(_onMessage);
     try {
-      await _native.invokeMethod<void>('dial', <String, dynamic>{'code': code, 'slot': slot});
+      await _native.invokeMethod<void>(
+          'dial', <String, dynamic>{'code': code, 'slot': slot});
     } catch (e) {
       return end(UssdOutcome.notExecuted, 'Numérotation impossible : $e');
     }
@@ -516,7 +557,8 @@ class UssdSessionRunner {
     debugPrint('[UssdSession] code composé, attente du premier écran');
 
     String? screen = await _nextScreen(firstTimeout);
-    debugPrint('[UssdSession] premier écran : ${screen == null ? 'aucun' : oneLine(screen)}');
+    debugPrint(
+        '[UssdSession] premier écran : ${screen == null ? 'aucun' : oneLine(screen)}');
     try {
       for (int i = 0; i < maxScreens; i++) {
         if (screen == null) {
@@ -540,8 +582,8 @@ class UssdSessionRunner {
             return end(UssdOutcome.success, screen);
           }
           if (err != null) return end(UssdOutcome.failed, err.reason);
-          return end(UssdOutcome.uncertain,
-              'Réponse finale non reconnue : $screen');
+          return end(
+              UssdOutcome.uncertain, 'Réponse finale non reconnue : $screen');
         }
 
         if (err != null) {
@@ -581,9 +623,11 @@ class UssdSessionRunner {
         // mort ajouté — juste le geste de saisie d'une main sur le clavier.
         await _humanPause(25, 70);
         try {
-          await _native.invokeMethod<void>('reply', <String, dynamic>{'text': reply});
+          await _native
+              .invokeMethod<void>('reply', <String, dynamic>{'text': reply});
         } catch (e) {
-          return end(UssdOutcome.notExecuted, 'Réponse impossible à saisir : $e');
+          return end(
+              UssdOutcome.notExecuted, 'Réponse impossible à saisir : $e');
         }
         timings.add(UssdStepTiming(
           step: i + 1,

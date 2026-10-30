@@ -12,7 +12,8 @@ void main() {
 
   test('marque lisible sur la carte : elle prime', () {
     expect(SimProbe.operatorOf(carrier: 'MTN', mccMnc: '62401'), 'mtn');
-    expect(SimProbe.operatorOf(carrier: 'Orange CM', mccMnc: '62402'), 'orange');
+    expect(
+        SimProbe.operatorOf(carrier: 'Orange CM', mccMnc: '62402'), 'orange');
     expect(SimProbe.operatorOf(carrier: 'Blue', mccMnc: '62403'), 'camtel');
   });
 

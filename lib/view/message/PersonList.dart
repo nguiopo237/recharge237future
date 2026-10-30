@@ -14,11 +14,15 @@ class _MemberListScreenState extends State<MemberListScreen> {
   // Liste d'exemple des membres
   final List<Member> members = [
     Member(name: 'Alice Dubois', status: 'En ligne', lastSeen: 'Maintenant'),
-    Member(name: 'Bernard Martin', status: 'Hors ligne', lastSeen: 'Il y a 2 min'),
+    Member(
+        name: 'Bernard Martin', status: 'Hors ligne', lastSeen: 'Il y a 2 min'),
     Member(name: 'Claire Petit', status: 'En ligne', lastSeen: 'Maintenant'),
     Member(name: 'David Leroy', status: 'Occupé', lastSeen: 'Il y a 5 min'),
     Member(name: 'Emma Laurent', status: 'En ligne', lastSeen: 'Maintenant'),
-    Member(name: 'François Moreau', status: 'Hors ligne', lastSeen: 'Il y a 10 min'),
+    Member(
+        name: 'François Moreau',
+        status: 'Hors ligne',
+        lastSeen: 'Il y a 10 min'),
     Member(name: 'Gabrielle Simon', status: 'En ligne', lastSeen: 'Maintenant'),
     Member(name: 'Hugo Michel', status: 'Absent', lastSeen: 'Il y a 1 heure'),
   ];
@@ -73,7 +77,10 @@ class _MemberListScreenState extends State<MemberListScreen> {
                 children: [
                   _buildStatItem(
                     'En ligne',
-                    members.where((m) => m.status == 'En ligne').length.toString(),
+                    members
+                        .where((m) => m.status == 'En ligne')
+                        .length
+                        .toString(),
                     Colors.green,
                   ),
                   _buildStatItem(
@@ -83,7 +90,10 @@ class _MemberListScreenState extends State<MemberListScreen> {
                   ),
                   _buildStatItem(
                     'Hors ligne',
-                    members.where((m) => m.status == 'Hors ligne').length.toString(),
+                    members
+                        .where((m) => m.status == 'Hors ligne')
+                        .length
+                        .toString(),
                     Colors.grey,
                   ),
                 ],
@@ -95,8 +105,8 @@ class _MemberListScreenState extends State<MemberListScreen> {
               child: StreamBuilder(
                 stream: firestore
                     .collection('member')
-                 .where("idphone",isNotEqualTo: idphone)
-               // .orderBy("heure", descending: true)
+                    .where("idphone", isNotEqualTo: idphone)
+                    // .orderBy("heure", descending: true)
                     .snapshots(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
@@ -108,15 +118,17 @@ class _MemberListScreenState extends State<MemberListScreen> {
                   } else {
                     // scrollToIndex1();
                     final itemdata = snapshot.data?.docs;
-                    return  ListView.builder(
+                    return ListView.builder(
                       shrinkWrap: true,
                       reverse: true,
                       padding: const EdgeInsets.all(16),
                       itemCount: itemdata!.length,
                       itemBuilder: (context, index) {
-
                         final group = itemdata[index];
-                        final item = Member(name: group["idphone"], status: group["statut"].toString(), lastSeen: 'sdsd');
+                        final item = Member(
+                            name: group["idphone"],
+                            status: group["statut"].toString(),
+                            lastSeen: 'sdsd');
                         return _buildMemberCard(item, index);
                       },
                     );
@@ -190,7 +202,6 @@ class _MemberListScreenState extends State<MemberListScreen> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
-
         leading: Container(
           width: 50,
           height: 50,
@@ -242,7 +253,9 @@ class _MemberListScreenState extends State<MemberListScreen> {
         trailing: Container(
           padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: isOnline ? Colors.green.withOpacity(0.2) : Colors.grey.withOpacity(0.2),
+            color: isOnline
+                ? Colors.green.withOpacity(0.2)
+                : Colors.grey.withOpacity(0.2),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
@@ -271,7 +284,9 @@ class _MemberListScreenState extends State<MemberListScreen> {
         onTap: () {
           // Action lorsqu'on clique sur un membre
           // _showMemberDetails(member);
-          Get.to(ChatScreen(member: member,));
+          Get.to(ChatScreen(
+            member: member,
+          ));
         },
       ),
     );
@@ -379,7 +394,7 @@ class _MemberListScreenState extends State<MemberListScreen> {
 }
 
 class Member {
-    String name;
+  String name;
   final String status;
   final String lastSeen;
   final String? isadmin;

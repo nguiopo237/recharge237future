@@ -5,12 +5,10 @@ import 'package:get/get.dart';
 import 'package:sms_autofill/sms_autofill.dart';
 
 Homecontolleur c = Get.find();
-class Homecontolleur extends GetxController{
 
+class Homecontolleur extends GetxController {
   getmodal(
-
-      {Widget? sectionview, states, isDismissible = true, enableDrag = true})
-  {
+      {Widget? sectionview, states, isDismissible = true, enableDrag = true}) {
     Get.bottomSheet(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
         isScrollControlled: true,
@@ -44,24 +42,23 @@ class Homecontolleur extends GetxController{
   }
 
   getdialog({Widget? sectionview, states}) {
-    return Get.dialog(barrierDismissible: false,
+    return Get.dialog(
+        barrierDismissible: false,
         Dialog(
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            sectionview!,
-          ],
-        ),
-      ),
-    ));
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                sectionview!,
+              ],
+            ),
+          ),
+        ));
   }
+
   //CountdownController countdownController = CountdownController();
   TextEditingController otpEditingController = TextEditingController();
   var messageOtpCode = ''.obs;
-
-
-
 
   @override
   void onInit() async {
@@ -71,11 +68,5 @@ class Homecontolleur extends GetxController{
     print(" ecoute signature");
     // Listen for SMS OTP
     await SmsAutoFill().listenForCode();
-
-
   }
-
-
-
-
 }

@@ -63,8 +63,7 @@ List<SimTarget> networkTargets(SessionConfig c) {
     add(c.camtelPost.slot, 'camtel');
   }
   if (c.orangeConfigured) add(c.orange.slot, 'orange');
-  return bySlot.values.toList()
-    ..sort((a, b) => a.slot.compareTo(b.slot));
+  return bySlot.values.toList()..sort((a, b) => a.slot.compareTo(b.slot));
 }
 
 /// SIM concernée par une commande, d'après son `operateur_cible`.
@@ -91,8 +90,11 @@ SimTarget? targetForOrder(SessionConfig c, String operateurCible) {
           : null;
     case 'mtn_airtime':
     case 'mtn_forfait_activate':
+    case 'mtn_bundle':
       return c.mtnConfigured ? SimTarget(c.mtn.slot, 'mtn') : null;
     case 'orange_airtime':
+    case 'orange_forfait':
+    case 'orange_forfait_activate':
       return c.orangeConfigured ? SimTarget(c.orange.slot, 'orange') : null;
   }
   return null;
@@ -165,7 +167,8 @@ class NetworkWatch {
   /// Dernier état publié (pour l'affichage local).
   List<Map<String, dynamic>> lastResults = const <Map<String, dynamic>>[];
 
-  bool get allOk => lastResults.every((Map<String, dynamic> r) => r['ok'] == true);
+  bool get allOk =>
+      lastResults.every((Map<String, dynamic> r) => r['ok'] == true);
 
   void start(String deviceId) {
     if (_deviceId == deviceId && _timer != null) return;
@@ -203,13 +206,13 @@ class NetworkWatch {
   Future<bool> _hasPendingWork() async {
     if (FirestoreBackoff.instance.enPause) return true;
     try {
-      final QuerySnapshot<Map<String, dynamic>> snap =
-          await FirebaseFirestore.instance
-              .collection('Transact')
-              .where('status', whereIn: kActionableStatuses)
-              .limit(1)
-              .get()
-              .timeout(const Duration(seconds: 10));
+      final QuerySnapshot<Map<String, dynamic>> snap = await FirebaseFirestore
+          .instance
+          .collection('Transact')
+          .where('status', whereIn: kActionableStatuses)
+          .limit(1)
+          .get()
+          .timeout(const Duration(seconds: 10));
       return snap.docs.isNotEmpty;
     } catch (e) {
       // En cas de doute on garde la cadence active : mieux vaut vérifier trop
@@ -234,9 +237,10 @@ class NetworkWatch {
     try {
       // [QUOTA 29/10/2026] Le document serveur est déjà écouté en temps réel
       // (RemoteCommandHandler) : on lit sa copie au lieu de relire la base.
-      Map<String, dynamic>? donnees = ServerDocCache.fraiche(const Duration(hours: 1))
-          ? ServerDocCache.donnees
-          : null;
+      Map<String, dynamic>? donnees =
+          ServerDocCache.fraiche(const Duration(hours: 1))
+              ? ServerDocCache.donnees
+              : null;
       if (donnees == null) {
         final DocumentSnapshot<Map<String, dynamic>> doc =
             await FirebaseFirestore.instance
@@ -250,9 +254,8 @@ class NetworkWatch {
       // [CADENCE 28/10/2026] Réglage à chaud, lu à chaque relevé.
       final Object? brut = donnees['networkCheckMinutes'];
       final int? demande = brut is num ? brut.toInt() : int.tryParse('$brut');
-      _cadenceMinute = (demande != null && demande >= 1 && demande <= 60)
-          ? demande
-          : null;
+      _cadenceMinute =
+          (demande != null && demande >= 1 && demande <= 60) ? demande : null;
 
       final SessionConfig cfg = SessionConfig.fromDocument(donnees);
       final List<SimTarget> targets = networkTargets(cfg);
@@ -314,17 +317,17 @@ class NetworkWatch {
       final DateTime maintenant = DateTime.now();
       final bool aPublier = empreinte != _derniereEmpreinte ||
           _dernierePublication == null ||
-          maintenant.difference(_dernierePublication!) >= const Duration(minutes: 30);
+          maintenant.difference(_dernierePublication!) >=
+              const Duration(minutes: 30);
       if (aPublier) {
         await FirebaseFirestore.instance
             .collection('servers')
             .doc(_deviceId)
             .set(<String, dynamic>{
-              'network': results,
-              'networkOk': allOk,
-              'networkCheckedAt': FieldValue.serverTimestamp(),
-            }, SetOptions(merge: true))
-            .timeout(const Duration(seconds: 10));
+          'network': results,
+          'networkOk': allOk,
+          'networkCheckedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true)).timeout(const Duration(seconds: 10));
         _derniereEmpreinte = empreinte;
         _dernierePublication = maintenant;
       }
@@ -350,14 +353,16 @@ class NetworkWatch {
       // [RESEAU 28/10/2026] Réseau de retour : on relance les commandes
       // gardées. Sert aussi de filet de sécurité toutes les 5 minutes.
       final Future<void> Function()? relance = onNetworkHealthy;
-      if (relance != null && results.any((Map<String, dynamic> r) => r['ok'] == true)) {
+      if (relance != null &&
+          results.any((Map<String, dynamic> r) => r['ok'] == true)) {
         unawaited(relance());
       }
       debugPrint('[NetworkWatch] état publié : '
           '${results.map((Map<String, dynamic> r) => 'slot ${(r['slot'] as int) + 1} ${r['ok'] == true ? 'OK' : 'KO'}').join(' · ')}');
     } catch (e) {
       // Un relevé manqué n'est pas une panne : le suivant corrigera.
-      if (FirestoreBackoff.estTransitoire(e)) FirestoreBackoff.instance.echec(e);
+      if (FirestoreBackoff.estTransitoire(e))
+        FirestoreBackoff.instance.echec(e);
       debugPrint('[NetworkWatch] relevé impossible : $e');
     }
   }
@@ -379,7 +384,8 @@ class NetworkWatch {
     return DateTime.now().difference(last) >= reminder;
   }
 
-  String _downMessage(SimTarget t, SimNetworkCheck c, {required bool reminder}) {
+  String _downMessage(SimTarget t, SimNetworkCheck c,
+      {required bool reminder}) {
     final DateTime? since = _downSince[t.slot];
     final String op = operatorDisplayName(t.operator);
     return '${reminder ? 'Recharge237 — TOUJOURS HORS RÉSEAU' : 'Recharge237 — RÉSEAU INDISPONIBLE'}\n'

@@ -6,24 +6,29 @@ import '../style/middletext.dart';
 class Boxwidget extends StatelessWidget {
   Color colorbox;
   Color colortext;
-  String ?title;
-  String ?subtitle;
-  double ?size;
+  String? title;
+  String? subtitle;
+  double? size;
   void Function()? ontape;
 
-
-   Boxwidget({super.key,this.ontape,this.colorbox = Colors.white,this.size = 22,this.colortext = Colors.black,this.title = "",this.subtitle=""  });
+  Boxwidget(
+      {super.key,
+      this.ontape,
+      this.colorbox = Colors.white,
+      this.size = 22,
+      this.colortext = Colors.black,
+      this.title = "",
+      this.subtitle = ""});
 
   @override
   Widget build(BuildContext context) {
-    return  InkWell(
+    return InkWell(
       onTap: ontape,
       child: Padding(
         padding: const EdgeInsets.all(8.0),
         child: Container(
           decoration: BoxDecoration(
-              color: colorbox,
-              borderRadius: BorderRadius.circular(8)),
+              color: colorbox, borderRadius: BorderRadius.circular(8)),
           child: Padding(
             padding: const EdgeInsets.all(8.0),
             child: Column(

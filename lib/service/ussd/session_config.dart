@@ -105,7 +105,8 @@ class SessionConfig {
   String toString() {
     final List<String> parts = <String>[];
     if (mtnSimPresent) {
-      parts.add('MTN SIM ${mtn.slot + 1}${mtnConfigured ? ' + PIN' : ' sans PIN'}');
+      parts.add(
+          'MTN SIM ${mtn.slot + 1}${mtnConfigured ? ' + PIN' : ' sans PIN'}');
     }
     if (camtelConfigured) {
       parts.add('CAMTEL SIM ${camtelPre.slot + 1}');
@@ -139,7 +140,8 @@ class SessionConfig {
             SimConfig(slot: post?.slot ?? pre?.slot ?? 1, pin: post?.pin ?? ''),
         mtnConfigured: mtn?.hasPin ?? false,
         mtnSimPresent: mtn?.isPresent ?? false,
-        camtelConfigured: (pre?.isPresent ?? false) || (post?.isPresent ?? false),
+        camtelConfigured:
+            (pre?.isPresent ?? false) || (post?.isPresent ?? false),
         orangeConfigured: orange?.isPresent ?? false,
         slotsDeclared: true,
       );
@@ -180,9 +182,11 @@ class SessionConfig {
 
     final List<int> camtelSlots = detected['camtel'] ?? const <int>[];
     final camtelPreSlot = camtelSlots.isNotEmpty ? camtelSlots.first : null;
-    final camtelPostSlot = camtelSlots.length > 1 ? camtelSlots[1] : camtelPreSlot;
+    final camtelPostSlot =
+        camtelSlots.length > 1 ? camtelSlots[1] : camtelPreSlot;
 
-    final mtn = parse('simMTN', defaultSlot: firstSlotOf('mtn') ?? 0, detectedSlot: firstSlotOf('mtn'));
+    final mtn = parse('simMTN',
+        defaultSlot: firstSlotOf('mtn') ?? 0, detectedSlot: firstSlotOf('mtn'));
 
     final rawMtn = d['simMTN'];
     final bool mtnSlotKnown =
@@ -190,7 +194,8 @@ class SessionConfig {
 
     // CAMTEL : soit une carte détectée, soit une déclaration explicite de
     // l'admin (ancien script). Un téléphone MTN seul n'a ni l'un ni l'autre.
-    final bool camtelSlotKnown = camtelSlots.isNotEmpty || d['simCamtelPre'] is Map;
+    final bool camtelSlotKnown =
+        camtelSlots.isNotEmpty || d['simCamtelPre'] is Map;
 
     // Même règle pour Orange : carte vue par la détection, ou déclarée.
     final bool orangeSlotKnown =
@@ -199,7 +204,8 @@ class SessionConfig {
     return SessionConfig(
       mtn: mtn,
       orange: parse('simOrange',
-          defaultSlot: firstSlotOf('orange') ?? 1, detectedSlot: firstSlotOf('orange')),
+          defaultSlot: firstSlotOf('orange') ?? 1,
+          detectedSlot: firstSlotOf('orange')),
       camtelPre: parse('simCamtelPre',
           defaultSlot: camtelPreSlot ?? 0, detectedSlot: camtelPreSlot),
       camtelPost: parse('simCamtelPost',

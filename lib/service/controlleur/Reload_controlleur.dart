@@ -3,14 +3,14 @@ import 'package:get/get.dart';
 import 'package:unique_identifier/unique_identifier.dart';
 
 ReloadControlleur r = Get.find();
-class ReloadControlleur extends GetxController{
+
+class ReloadControlleur extends GetxController {
   RxBool read = false.obs;
   FocusNode focusNode = FocusNode();
   TextEditingController number1 = TextEditingController();
   TextEditingController amounts = TextEditingController();
   TextEditingController number2 = TextEditingController();
   GlobalKey<FormState> formKey = GlobalKey<FormState>();
-
 
   List numbers = [
     "650",
@@ -19,7 +19,6 @@ class ReloadControlleur extends GetxController{
     "653",
     "654",
     "67",
-
     "680",
     "681",
     "682",
@@ -43,22 +42,20 @@ class ReloadControlleur extends GetxController{
     "6594",
     "6595",
     "69",
-
   ];
 
 // Définir les regex une fois (en dehors de la fonction)
-  final RegExp numbersRegex = RegExp(r'^(650|651|652|653|654|67|680|681|682|683)');
+  final RegExp numbersRegex =
+      RegExp(r'^(650|651|652|653|654|67|680|681|682|683)');
   final RegExp numbercRegex = RegExp(r'^(620|621|622|242|243)');
   final RegExp numberoRegex = RegExp(r'^(655|656|657|658|659[0-5]|69)');
 
-   Future<String> detectOperator(String ?number) async {
-    if(number==null){
+  Future<String> detectOperator(String? number) async {
+    if (number == null) {
       number = "000";
-    }else{}
+    } else {}
 
-
-
-    if (number!="000"||number!.isNotEmpty&&number.length==9) {
+    if (number != "000" || number!.isNotEmpty && number.length == 9) {
       error3.value = true;
 
       String prefix = number.substring(0, 3);
@@ -68,22 +65,19 @@ class ReloadControlleur extends GetxController{
         operatorLogo.value = "images/MTN_logo.png";
         print(operatorLogo);
         formKey.currentState?.validate();
-        return  detectedOperator.value;
-
+        return detectedOperator.value;
       } else if (numberoRegex.hasMatch(prefix)) {
         detectedOperator.value = "Orange Money";
         operatorLogo.value = "images/omlogo.png";
         print(operatorLogo);
         formKey.currentState?.validate();
-        return  detectedOperator.value;
-
+        return detectedOperator.value;
       } else if (numbercRegex.hasMatch(prefix)) {
         detectedOperator.value = "Camtel";
         operatorLogo.value = "images/blue.png";
         print(operatorLogo);
         formKey.currentState!.validate();
         return "";
-
       } else {
         detectedOperator.value = "";
         return "";
@@ -95,12 +89,9 @@ class ReloadControlleur extends GetxController{
     }
     return "";
   }
-   Future<String> detectOperator2(String ?number) async {
 
-
+  Future<String> detectOperator2(String? number) async {
     if (number!.isNotEmpty) {
-
-
       String prefix = number.substring(0, 3);
 
       if (numbersRegex.hasMatch(prefix)) {
@@ -108,15 +99,13 @@ class ReloadControlleur extends GetxController{
         operatorLogoall.value = "images/MTN_logo.png";
         print(operatorLogo);
         formKey.currentState?.validate();
-        return  operatorLogoall.value;
-
+        return operatorLogoall.value;
       } else if (numberoRegex.hasMatch(prefix)) {
         detectedOperator.value = "Orange Money";
         operatorLogoall.value = "images/omlogo.png";
         print(operatorLogo);
         formKey.currentState?.validate();
-        return  operatorLogoall.value;
-
+        return operatorLogoall.value;
       }
     } else {
       detectedOperator.value = "";
@@ -125,12 +114,6 @@ class ReloadControlleur extends GetxController{
     }
     return "";
   }
-
-
-
-
-
-
 
   List<int> presetAmounts = [500, 1000, 2000, 3000, 5000, 10000];
   RxBool verifie = false.obs;
@@ -148,7 +131,4 @@ class ReloadControlleur extends GetxController{
   RxString operatorLogo = "".obs; // Stocke le chemin vers le logo
   RxString operatorLogo1 = "".obs; // Stocke le chemi
   RxString operatorLogoall = "".obs; // Stocke le chemi
-
-
-
 }

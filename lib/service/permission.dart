@@ -1,15 +1,14 @@
 import 'package:permission_handler/permission_handler.dart';
 
 class PermissionHelper {
-
   /// Demande toutes les permissions nécessaires au fonctionnement de l'app.
   /// À appeler au démarrage, avant d'initialiser les services.
   static Future<void> requestAll() async {
     await [
       Permission.sms,
       Permission.phone,
-      Permission.microphone,        // requis par certains appareils pour USSD
-      Permission.notification,       // Android 13+
+      Permission.microphone, // requis par certains appareils pour USSD
+      Permission.notification, // Android 13+
       Permission.ignoreBatteryOptimizations, // garder le service vivant
     ].request();
   }
@@ -31,7 +30,6 @@ class PermissionHelper {
 
   /// Vérifie que toutes les permissions critiques sont accordées.
   static Future<bool> allGranted() async {
-    return await Permission.sms.isGranted &&
-        await Permission.phone.isGranted;
+    return await Permission.sms.isGranted && await Permission.phone.isGranted;
   }
 }

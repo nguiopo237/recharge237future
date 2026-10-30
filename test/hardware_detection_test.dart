@@ -78,11 +78,13 @@ void main() {
         'mtn_airtime',
         'mtn_forfait',
         'orange_airtime',
+        'orange_forfait',
       ]);
     });
 
     test('orange_airtime est routable mais pas encore livrable', () {
-      expect(handlesOperation(const ['orange_airtime'], 'orange_airtime'), isTrue);
+      expect(
+          handlesOperation(const ['orange_airtime'], 'orange_airtime'), isTrue);
       // Le manager Orange refuse explicitement : aucun code n'est composé.
       expect(OrangeUssdManager.deliveryImplemented, isFalse);
     });
@@ -98,8 +100,18 @@ void main() {
         {
           'model': '24115RA8EG',
           'sims': [
-            {'slot': 0, 'operator': 'mtn', 'carrier': 'MTN', 'number': '677000000'},
-            {'slot': 1, 'operator': 'camtel', 'carrier': 'CAMTEL', 'number': ''},
+            {
+              'slot': 0,
+              'operator': 'mtn',
+              'carrier': 'MTN',
+              'number': '677000000'
+            },
+            {
+              'slot': 1,
+              'operator': 'camtel',
+              'carrier': 'CAMTEL',
+              'number': ''
+            },
           ],
           if (mtnPin) 'simMTN': {'pin': '1234'},
           if (camtelPins) 'simCamtelPre': {'pin': '5678'},
@@ -162,7 +174,8 @@ void main() {
       expect(c.camtelConfigured, isTrue);
     });
 
-    test('déclaration explicite de l\'admin : CAMTEL autorisé sans détection', () {
+    test('déclaration explicite de l\'admin : CAMTEL autorisé sans détection',
+        () {
       final c = SessionConfig.fromDocument({
         'simCamtelPre': {'slot': 0, 'pin': '1111'},
       });

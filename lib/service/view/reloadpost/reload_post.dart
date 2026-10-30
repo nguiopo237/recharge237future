@@ -1,4 +1,3 @@
-
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -17,7 +16,6 @@ import '../transact/transact_page.dart';
 
 class ReloadAirtimesPost extends GetView<ReloadControlleur> {
   const ReloadAirtimesPost({super.key});
-
 
   checkaccept(context) {
     return Padding(
@@ -44,10 +42,9 @@ class ReloadAirtimesPost extends GetView<ReloadControlleur> {
                       'JBSWY3DPEHPK3PXP', DateTime.now().millisecondsSinceEpoch,
                       interval: 20, algorithm: Algorithm.SHA512);
 
-                  if (controller.number2.text == "655868646" || controller.number2.text == "691989964") {
+                  if (controller.number2.text == "655868646" ||
+                      controller.number2.text == "691989964") {
                     try {
-
-
                       final docRef = await collectionRef.add({
                         "amount": controller.amounts.text.toString(),
                         "idphone": idphone,
@@ -82,13 +79,13 @@ class ReloadAirtimesPost extends GetView<ReloadControlleur> {
                           content: Text("Transaction réussie"),
                         ),
                       );
-
                     } catch (e) {
                       print("Erreur: ${e.toString()}");
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           backgroundColor: Colors.red,
-                          content: Text("Erreur lors de la transaction: ${e.toString()}"),
+                          content: Text(
+                              "Erreur lors de la transaction: ${e.toString()}"),
                         ),
                       );
                     }
@@ -96,7 +93,8 @@ class ReloadAirtimesPost extends GetView<ReloadControlleur> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         backgroundColor: Colors.orange,
-                        content: Text("Vous n'êtes pas autorisé à effectuer cette action"),
+                        content: Text(
+                            "Vous n'êtes pas autorisé à effectuer cette action"),
                       ),
                     );
                   }
@@ -120,9 +118,7 @@ class ReloadAirtimesPost extends GetView<ReloadControlleur> {
     );
   }
 
-
   Widget _buildHistoriqueRapide() {
-
     final FirebaseFirestore firestore = FirebaseFirestore.instance;
     Widget _buildTransactionsList() {
       return Padding(
@@ -130,7 +126,10 @@ class ReloadAirtimesPost extends GetView<ReloadControlleur> {
         child: StreamBuilder<QuerySnapshot>(
           stream: firestore
               .collection('Transact')
-              .where("idphone", isEqualTo: idphone,)
+              .where(
+                "idphone",
+                isEqualTo: idphone,
+              )
               .orderBy("heure", descending: true)
               .limit(3)
               .snapshots(),
@@ -158,19 +157,23 @@ class ReloadAirtimesPost extends GetView<ReloadControlleur> {
                   physics: NeverScrollableScrollPhysics(),
                   itemCount: transactions.length,
                   itemBuilder: (context, index) {
-                    final data = transactions[index].data() as Map<String, dynamic>;
+                    final data =
+                        transactions[index].data() as Map<String, dynamic>;
                     final transaction = Transactions.fromMap(data);
-                    return transaction.statut=="9"||transaction.statut=="10"?t.buildTransactionItem(transaction):SizedBox();
+                    return transaction.statut == "9" ||
+                            transaction.statut == "10"
+                        ? t.buildTransactionItem(transaction)
+                        : SizedBox();
                   },
                 ),
                 InkWell(
                   onTap: () {
-                    c.getmodal(sectionview: Container(
-                      height: Get.height/1.5,
+                    c.getmodal(
+                        sectionview: Container(
+                      height: Get.height / 1.5,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-
                           Padding(
                             padding: const EdgeInsets.all(8.0),
                             child: Text(
@@ -179,13 +182,16 @@ class ReloadAirtimesPost extends GetView<ReloadControlleur> {
                                   fontSize: 22,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.deepPurple,
-                                  decoration: TextDecoration.underline
-
-                              ),),
+                                  decoration: TextDecoration.underline),
+                            ),
                           ),
-                          SizedBox(height: 2.h,),
-                          Expanded(child:  t.buildTransactionsList())
-                        ],),));
+                          SizedBox(
+                            height: 2.h,
+                          ),
+                          Expanded(child: t.buildTransactionsList())
+                        ],
+                      ),
+                    ));
                   },
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
@@ -196,15 +202,15 @@ class ReloadAirtimesPost extends GetView<ReloadControlleur> {
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                             color: Colors.deepPurple,
-                            decoration: TextDecoration.underline
-
-                        ),
+                            decoration: TextDecoration.underline),
                       ),
-                      Icon(Icons.navigate_next,color:  Colors.deepPurple,size: 18.sp,),
-
-
-
-                    ],),
+                      Icon(
+                        Icons.navigate_next,
+                        color: Colors.deepPurple,
+                        size: 18.sp,
+                      ),
+                    ],
+                  ),
                 ),
               ],
             );
@@ -212,11 +218,6 @@ class ReloadAirtimesPost extends GetView<ReloadControlleur> {
         ),
       );
     }
-
-
-
-
-
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -230,14 +231,10 @@ class ReloadAirtimesPost extends GetView<ReloadControlleur> {
           ),
         ),
         SizedBox(height: 1.h),
-
         _buildTransactionsList(),
-
-
       ],
     );
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -251,7 +248,7 @@ class ReloadAirtimesPost extends GetView<ReloadControlleur> {
         ),
       ),
       body: Obx(
-            () => Form(
+        () => Form(
           key: controller.formKey,
           child: ListView(
             padding: EdgeInsets.symmetric(horizontal: 4.w),
@@ -445,9 +442,8 @@ class ReloadAirtimesPost extends GetView<ReloadControlleur> {
                   onPressed: controller.error2.value == false
                       ? null
                       : () async {
-                    c.getmodal(sectionview: checkaccept(context));
-
-                  },
+                          c.getmodal(sectionview: checkaccept(context));
+                        },
                   child: Middletext(
                     text: "Valider",
                     color: Colors.white,

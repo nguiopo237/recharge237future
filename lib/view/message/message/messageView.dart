@@ -12,48 +12,54 @@ import '../../../service/controlleur/transact_controlleur.dart';
 import '../../../service/view/transact/transact_page.dart';
 
 class ChatScreen extends StatefulWidget {
- Member? member;
-  Transactions ?transaction;
-   ChatScreen({super.key, this.member,this.transaction});
+  Member? member;
+  Transactions? transaction;
+  ChatScreen({super.key, this.member, this.transaction});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-
   final TextEditingController _messageController = TextEditingController();
 
   checkstatut() async {
-print(widget.member?.name);
+    print(widget.member?.name);
 
-widget.member = Member(name: '3aa17372b03eddb1', status: 'EN LIGNE', lastSeen: '');
+    widget.member =
+        Member(name: '3aa17372b03eddb1', status: 'EN LIGNE', lastSeen: '');
 
-print(widget.member!.name);
-   String data = await  r.detectOperator(widget.transaction?.category.toString());
+    print(widget.member!.name);
+    String data =
+        await r.detectOperator(widget.transaction?.category.toString());
 
-    if(widget.transaction!=null&&widget.transaction?.statut=="0"&&data.contains("Orange")){
+    if (widget.transaction != null &&
+        widget.transaction?.statut == "0" &&
+        data.contains("Orange")) {
       print("verification avec orange");
-      String statut =    await APIORANGE.getstatut(widget.transaction?.accesstoken,widget.transaction?.payToken,widget.transaction?.order);
- if(statut=="true"){
-   print("verification avec orange");
-   widget.transaction!.statut ="1";
-   print("verification avec orange");
- }
-    }else{
-
+      String statut = await APIORANGE.getstatut(widget.transaction?.accesstoken,
+          widget.transaction?.payToken, widget.transaction?.order);
+      if (statut == "true") {
+        print("verification avec orange");
+        widget.transaction!.statut = "1";
+        print("verification avec orange");
+      }
+    } else {
       final data = await APIORANGE.getMomoToken(init: false);
-      if(data!=null){
-        APIORANGE.getstatutMOMO(accesstoken: data ,subscriptionKey: "48f314fe512e4f99ab450cda504c5b26" ,targetEnv: "mtncameroon",XReferenceId:   widget.transaction?.payToken,);
+      if (data != null) {
+        APIORANGE.getstatutMOMO(
+          accesstoken: data,
+          subscriptionKey: "48f314fe512e4f99ab450cda504c5b26",
+          targetEnv: "mtncameroon",
+          XReferenceId: widget.transaction?.payToken,
+        );
         print("verification mtn");
         print(widget.transaction?.statut);
         print(widget.transaction?.category);
         print(data);
         // print(data);
         print("verification mtn");
-
       }
-
     }
   }
 
@@ -69,12 +75,11 @@ print(widget.member!.name);
     );
   }
 
-
   @override
   void initState() {
     super.initState();
 
-    if(widget.member==null){
+    if (widget.member == null) {
       checkstatut();
     }
 
@@ -82,17 +87,15 @@ print(widget.member!.name);
   }
 
   void _sendMessage() {
-
     if (_messageController.text.trim().isEmpty) return;
 
     collectionmessage_person.add({
-
-    "id": "${idphone}${widget.transaction?.order??""}",
-    "content":  _messageController.text,
-    "timestamp":  DateTime.now().toUtc().toString(),
-    "senderId": "${idphone}${widget.transaction?.order??""}",
-    "receiveId": "${widget.member?.name.toString()}${widget.transaction?.order??""}",
-
+      "id": "${idphone}${widget.transaction?.order ?? ""}",
+      "content": _messageController.text,
+      "timestamp": DateTime.now().toUtc().toString(),
+      "senderId": "${idphone}${widget.transaction?.order ?? ""}",
+      "receiveId":
+          "${widget.member?.name.toString()}${widget.transaction?.order ?? ""}",
     });
 
     _messageController.clear();
@@ -100,13 +103,10 @@ print(widget.member!.name);
 
   @override
   Widget build(BuildContext context) {
-
-
     return Scaffold(
       appBar: AppBar(
-
-        title:  Text(
-         widget.member?.name??"admin",
+        title: Text(
+          widget.member?.name ?? "admin",
           style: TextStyle(
             fontWeight: FontWeight.w600,
             color: Colors.deepPurple[900],
@@ -118,18 +118,21 @@ print(widget.member!.name);
       body: Column(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          SizedBox(height: 2.h,),
-          if(widget.transaction!=null)
-          t.buildTransactionItem(widget.transaction!),
-          SizedBox(height: 1.h,),
+          SizedBox(
+            height: 2.h,
+          ),
+          if (widget.transaction != null)
+            t.buildTransactionItem(widget.transaction!),
+          SizedBox(
+            height: 1.h,
+          ),
 
           Expanded(
             child: StreamBuilder(
-              stream:
-              firestore
+              stream: firestore
                   .collection('message')
-                // .where("senderId", isEqualTo: idphone,)
-               .orderBy("timestamp", descending: false)
+                  // .where("senderId", isEqualTo: idphone,)
+                  .orderBy("timestamp", descending: false)
                   .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
@@ -140,38 +143,41 @@ print(widget.member!.name);
                   return Text('Pas de données disponibles');
                 } else {
                   // Conversion correcte des documents en objets Messagemodel
-                  final messages = snapshot.data!.docs.
-                  where((element) {
-
-                    checkifexist(){
-                      return element["senderId"].toString()=="${idphone}${widget.transaction?.order??""}"
-                          && element["receiveId"].toString()=="${widget.member?.name??"3aa17372b03eddb1"}${widget.transaction?.order??""}"
-                          ||
-                          element["senderId"].toString()=="${widget.member?.name??"3aa17372b03eddb1"}${widget.transaction?.order??""}";
-
-                    }
-                    checkifexist2(){
-                      return element["senderId"].toString()=="${idphone}${widget.transaction?.order??""}"
-                          && element["receiveId"].toString()=="${widget.member?.name??"3aa17372b03eddb1"}${widget.transaction?.order??""}"
-                          ||
-                          element["receiveId"].toString()!="${idphone}${widget.transaction?.order??""}"&&
-
-                              element["senderId"].toString()=="${widget.member?.name??"3aa17372b03eddb1"}${widget.transaction?.order??""}";
-
+                  final messages = snapshot.data!.docs.where((element) {
+                    checkifexist() {
+                      return element["senderId"].toString() ==
+                                  "${idphone}${widget.transaction?.order ?? ""}" &&
+                              element["receiveId"].toString() ==
+                                  "${widget.member?.name ?? "3aa17372b03eddb1"}${widget.transaction?.order ?? ""}" ||
+                          element["senderId"].toString() ==
+                              "${widget.member?.name ?? "3aa17372b03eddb1"}${widget.transaction?.order ?? ""}";
                     }
 
-                    return  widget.transaction!=null? checkifexist():checkifexist2();}).
-                  map((doc) {
+                    checkifexist2() {
+                      return element["senderId"].toString() ==
+                                  "${idphone}${widget.transaction?.order ?? ""}" &&
+                              element["receiveId"].toString() ==
+                                  "${widget.member?.name ?? "3aa17372b03eddb1"}${widget.transaction?.order ?? ""}" ||
+                          element["receiveId"].toString() !=
+                                  "${idphone}${widget.transaction?.order ?? ""}" &&
+                              element["senderId"].toString() ==
+                                  "${widget.member?.name ?? "3aa17372b03eddb1"}${widget.transaction?.order ?? ""}";
+                    }
+
+                    return widget.transaction != null
+                        ? checkifexist()
+                        : checkifexist2();
+                  }).map((doc) {
                     return Messagemodel(
                         content: doc["content"],
                         receiveId: doc["receiveId"],
                         senderId: doc["senderId"],
                         id: doc["id"],
-                        
                         timestamp: DateTime.parse(doc["timestamp"]));
                   }).toList();
-            
-                  final messageGroups = MessageService.groupMessagesByDate(messages);
+
+                  final messageGroups =
+                      MessageService.groupMessagesByDate(messages);
 
                   return Container(
                     child: ListView.builder(
@@ -180,7 +186,7 @@ print(widget.member!.name);
                       itemCount: messageGroups.length,
                       itemBuilder: (context, groupIndex) {
                         final group = messageGroups[groupIndex];
-            
+
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -210,7 +216,8 @@ print(widget.member!.name);
                             ...group.messages.map((message) {
                               return MessageBubble(
                                 message: message,
-                                isMe: message.senderId == "${idphone}${widget.transaction?.order??""}",
+                                isMe: message.senderId ==
+                                    "${idphone}${widget.transaction?.order ?? ""}",
                               );
                             }).toList(),
                           ],
@@ -222,7 +229,6 @@ print(widget.member!.name);
               },
             ),
           ),
-
 
           // Expanded(
           //   child: Container(
@@ -337,7 +343,8 @@ class MessageBubble extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       child: Row(
-        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment:
+            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         children: [
           if (!isMe)
             const CircleAvatar(
@@ -379,7 +386,7 @@ class MessageBubble extends StatelessWidget {
           ),
           if (isMe) const SizedBox(width: 8),
           if (isMe)
-        CircleAvatar(
+            CircleAvatar(
               radius: 16,
               backgroundColor: Colors.blue,
               child: Icon(Icons.person, size: 16, color: Colors.white),
@@ -394,9 +401,8 @@ class MessageBubble extends StatelessWidget {
 //
 //     final messagemodel = messagemodelFromJson(jsonString);
 
-
-
-Messagemodel messagemodelFromJson(String str) => Messagemodel.fromJson(json.decode(str));
+Messagemodel messagemodelFromJson(String str) =>
+    Messagemodel.fromJson(json.decode(str));
 
 String messagemodelToJson(Messagemodel data) => json.encode(data.toJson());
 
@@ -416,22 +422,21 @@ class Messagemodel {
   });
 
   factory Messagemodel.fromJson(Map<String, dynamic> json) => Messagemodel(
-    content: json["content"],
-    id: json["id"],
-    receiveId: json["receiveId"],
-    senderId: json["senderId"],
-    timestamp: json["timestamp"],
-  );
+        content: json["content"],
+        id: json["id"],
+        receiveId: json["receiveId"],
+        senderId: json["senderId"],
+        timestamp: json["timestamp"],
+      );
 
   Map<String, dynamic> toJson() => {
-    "content": content,
-    "id": id,
-    "receiveId": receiveId,
-    "senderId": senderId,
-    "timestamp": timestamp,
-  };
+        "content": content,
+        "id": id,
+        "receiveId": receiveId,
+        "senderId": senderId,
+        "timestamp": timestamp,
+      };
 }
-
 
 class MessageGroup {
   final String title;
@@ -443,10 +448,9 @@ class MessageGroup {
   });
 }
 
-
 class MessageService {
   static List<MessageGroup> groupMessagesByDate(List<Messagemodel> messages) {
-    messages.sort((a, b) => a.timestamp!.compareTo( b.timestamp!));
+    messages.sort((a, b) => a.timestamp!.compareTo(b.timestamp!));
 
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);

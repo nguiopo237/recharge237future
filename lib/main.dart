@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -5,20 +7,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:get/get.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:recharge237_serveur/service/permission.dart';
 import 'package:recharge237_serveur/service/controlleur/initcontrolleur.dart';
 import 'package:recharge237_serveur/service/controlleur/transact_controlleur.dart';
 import 'package:recharge237_serveur/service/controlleur/widget_controlleur.dart';
-import 'package:recharge237_serveur/service/executeussd/inteface.dart';
 import 'package:recharge237_serveur/service/notification/notification_service.dart';
-import 'package:recharge237_serveur/service/view/readsms.dart';
-import 'package:recharge237_serveur/test.dart';
-import 'package:recharge237_serveur/testview.dart';
 import 'package:recharge237_serveur/view/pagecommande/viewcommande.dart';
+import 'package:recharge237_serveur/service/supabase/supabase_service.dart';
 import 'package:sizer/sizer.dart';
 import 'package:unique_identifier/unique_identifier.dart';
 // import 'package:another_telephony/telephony.dart';
-import 'view/home/Home.dart';
 
 // [PRODUCTION 27/10/2026] Le serveur travaille sur la MÊME base que l'app
 // mobile et l'app Web : le projet Firebase `recharge237-r237`. Avant, il
@@ -56,66 +55,67 @@ Future<void> ensureServerSignedIn() async {
 }
 
 CollectionReference collectionRef =
-FirebaseFirestore.instance.collection('Transact');
-CollectionReference sms =
-FirebaseFirestore.instance.collection('sms');
+    FirebaseFirestore.instance.collection('Transact');
+CollectionReference sms = FirebaseFirestore.instance.collection('sms');
 CollectionReference collectionperson =
-FirebaseFirestore.instance.collection('member');
+    FirebaseFirestore.instance.collection('member');
 CollectionReference collectionmessage_person =
-FirebaseFirestore.instance.collection('message');
+    FirebaseFirestore.instance.collection('message');
 CollectionReference collectionmessage_sms =
-FirebaseFirestore.instance.collection('SMS');
+    FirebaseFirestore.instance.collection('SMS');
 
-String ?idphone = '00000';
+String? idphone = '00000';
 final FirebaseFirestore firestore = FirebaseFirestore.instance;
 
 // final Telephony telephony = Telephony.instance;
 // List<SmsMessage> _smsMessages = [];
 bool _smsPermissionGranted = false;
 // List<QueryDocumentSnapshot<Map<String, dynamic>>>users = [];
-QueryDocumentSnapshot<Map<String, dynamic>>? values ;
+QueryDocumentSnapshot<Map<String, dynamic>>? values;
 
 checkuser() async {
-final result =  await FirebaseFirestore.instance
+  final result = await FirebaseFirestore.instance
       .collection('member')
       .where("idphone", isEqualTo: idphone)
-      .get().then((value) {
-    print(value.docs.first['idphone']);
-    values = value.docs.first ;
-    print("value");
-    print(values!["idphone"]);
-    print(values!["isadmin"]);
-    return values!["isadmin"];
-    },);
-if(result!=null){
-  print("result");
-  print(result);
-  print("result");
+      .get()
+      .then(
+    (value) {
+      print(value.docs.first['idphone']);
+      values = value.docs.first;
+      print("value");
+      print(values!["idphone"]);
+      print(values!["isadmin"]);
+      return values!["isadmin"];
+    },
+  );
+  if (result != null) {
+    print("result");
+    print(result);
+    print("result");
+    return result;
+  }
   return result;
 }
-return result;
-}
-
 
 Future<bool> checkMemberExists(String memberName) async {
   try {
     CollectionReference collectionPerson =
-    FirebaseFirestore.instance.collection('member');
+        FirebaseFirestore.instance.collection('member');
     QuerySnapshot querySnapshot = await collectionPerson
-        .where('idphone', isEqualTo: memberName.trim()) // trim() pour enlever les espaces
+        .where('idphone',
+            isEqualTo: memberName.trim()) // trim() pour enlever les espaces
         .limit(1) // Optimisation : on ne prend que le premier résultat
         .get();
     print("verification dans la bd");
     print(querySnapshot.docs.isEmpty);
-    if(querySnapshot.docs.isEmpty){
-  await  collectionPerson.add({
-        "idphone" :memberName,
-        "statut" : "En ligne",
-        "isadmin" : "false",
-
+    if (querySnapshot.docs.isEmpty) {
+      await collectionPerson.add({
+        "idphone": memberName,
+        "statut": "En ligne",
+        "isadmin": "false",
       });
-  checkuser();
-    }else{
+      checkuser();
+    } else {
       checkuser();
     }
     print("verification dans la bd");
@@ -159,6 +159,21 @@ Future<void> _initBackgroundService() async {
   );
 }
 
+/// Exécute une étape de démarrage sans jamais bloquer l'affichage.
+Future<void> _etape(
+    String nom, Future<void> Function() action, Duration limite) async {
+  final Stopwatch chrono = Stopwatch()..start();
+  try {
+    await action().timeout(limite);
+    debugPrint('[Démarrage] $nom : OK (${chrono.elapsedMilliseconds} ms)');
+  } on TimeoutException {
+    debugPrint('[Démarrage] $nom : pas de réponse après ${limite.inSeconds} s '
+        '— on continue');
+  } catch (e) {
+    debugPrint('[Démarrage] $nom : erreur $e — on continue');
+  }
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Le plugin Gradle google-services n'est plus appliqué : c'est cet appel qui
@@ -171,9 +186,21 @@ Future<void> main() async {
   } on FirebaseException catch (e) {
     if (e.code != 'duplicate-app') rethrow;
   }
-  await ensureServerSignedIn();
-  await PermissionHelper.requestAll();
-  await _initBackgroundService();
+  // [DEMARRAGE 29/10/2026] Écran blanc constaté au lancement : tant que ces
+  // étapes n'ont pas fini, runApp() n'est pas appelé et Android n'affiche
+  // que le fond blanc. Chacune est désormais bornée dans le temps et ne
+  // peut plus bloquer l'affichage (connexion lente, dialogue de permission
+  // resté en attente sous MIUI, service de fond qui ne répond pas).
+  await _etape(
+      'connexion Firebase', ensureServerSignedIn, const Duration(seconds: 20));
+  // Les permissions sont demandées APRÈS l'affichage (cf. _MyAppState) :
+  // constaté le 29/10, la demande restait en attente derrière l'écran blanc.
+  await _etape(
+      'service de fond', _initBackgroundService, const Duration(seconds: 10));
+  // [SUPABASE 29/10/2026] Base complémentaire (télémétrie, journaux).
+  // En arrière-plan : Supabase ne retarde plus l'affichage (2,3 s mesurées).
+  unawaited(_etape(
+      'Supabase', SupabaseService.instance.init, const Duration(seconds: 12)));
   AppControllers.initialize();
   runApp(const MyApp());
 }
@@ -188,11 +215,22 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   Future<void> checkSmsPermissions() async {
     print("Vérification des permissions SMS");
-    bool? permissionsGranted = await  c.telephony?.requestPhoneAndSmsPermissions;
-    // final bool? permissionsGranted = await telephony.requestSmsPermissions;
+    // [29/10/2026] `telephony` retiré : la demande passe par permission_handler.
+    bool permissionsGranted;
+    try {
+      final Map<Permission, PermissionStatus> statuts =
+          await <Permission>[Permission.phone, Permission.sms].request();
+      permissionsGranted =
+          statuts.values.every((PermissionStatus s) => s.isGranted);
+    } on PlatformException {
+      // Une autre demande est en cours (écran des commandes) : on lit l'état.
+      await Future<void>.delayed(const Duration(seconds: 3));
+      permissionsGranted =
+          await Permission.phone.isGranted && await Permission.sms.isGranted;
+    }
 
     setState(() {
-      _smsPermissionGranted = permissionsGranted ?? false;
+      _smsPermissionGranted = permissionsGranted;
     });
 
     if (_smsPermissionGranted) {
@@ -251,7 +289,15 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
 
-    checkSmsPermissions();
+    // [DEMARRAGE 29/10/2026] Une seule série de demandes, après le premier
+    // affichage : l'écran des commandes est visible pendant que les
+    // fenêtres de permission s'enchaînent (plus d'écran blanc, plus de
+    // demandes simultanées refusées par permission_handler).
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _etape('permissions', PermissionHelper.requestAll,
+          const Duration(seconds: 90));
+      if (mounted) await checkSmsPermissions();
+    });
   }
 
   @override
@@ -263,11 +309,11 @@ class _MyAppState extends State<MyApp> {
           title: 'Recharge237 AppServeur',
           theme: ThemeData.light(),
           home: Commandeview(),
-         // home: UssdScreen(),
-        // home: RealtimeSmsReaderScreen(),
-        //  home: HomePage(),
+          // home: UssdScreen(),
+          // home: RealtimeSmsReaderScreen(),
+          //  home: HomePage(),
         );
       },
     );
   }
-}
+}

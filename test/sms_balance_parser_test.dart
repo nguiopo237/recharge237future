@@ -33,8 +33,8 @@ void main() {
   });
 
   test('message de solde seul', () {
-    final SmsParse p = parseSmsBody('Votre solde est de 4 500 FCFA.',
-        sender: 'CAMTEL');
+    final SmsParse p =
+        parseSmsBody('Votre solde est de 4 500 FCFA.', sender: 'CAMTEL');
     expect(p.recognised, isTrue);
     expect(p.balance, 4500);
     expect(p.amount, isNull);
@@ -71,8 +71,8 @@ void main() {
   });
 
   test('opérateur déduit de l\'expéditeur quand le texte ne le dit pas', () {
-    final SmsParse p = parseSmsBody('Votre solde est de 900 FCFA.',
-        sender: 'Orange CM');
+    final SmsParse p =
+        parseSmsBody('Votre solde est de 900 FCFA.', sender: 'Orange CM');
     expect(p.operator, 'orange');
   });
 

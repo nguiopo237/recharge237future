@@ -24,7 +24,9 @@ void main() {
   test('un seul battement manqué : pas d\'alerte prématurée', () {
     final InternetWatch w = InternetWatch(maintenant: t0);
     // 30 s de silence : sous le seuil de 75 s.
-    expect(w.beat(joignable: false, maintenant: t0.add(const Duration(seconds: 30))),
+    expect(
+        w.beat(
+            joignable: false, maintenant: t0.add(const Duration(seconds: 30))),
         InternetEvent.none);
     expect(w.ok, isTrue);
   });
@@ -36,9 +38,13 @@ void main() {
     expect(w.ok, isFalse);
     expect(w.coupureDepuis, t0);
     // Les battements suivants ne doivent pas spammer.
-    expect(w.beat(joignable: false, maintenant: t1.add(const Duration(minutes: 5))),
+    expect(
+        w.beat(
+            joignable: false, maintenant: t1.add(const Duration(minutes: 5))),
         InternetEvent.none);
-    expect(w.beat(joignable: false, maintenant: t1.add(const Duration(minutes: 29))),
+    expect(
+        w.beat(
+            joignable: false, maintenant: t1.add(const Duration(minutes: 29))),
         InternetEvent.none);
   });
 
@@ -46,11 +52,17 @@ void main() {
     final InternetWatch w = InternetWatch(maintenant: t0);
     final DateTime t1 = t0.add(const Duration(seconds: 90));
     expect(w.beat(joignable: false, maintenant: t1), InternetEvent.perte);
-    expect(w.beat(joignable: false, maintenant: t1.add(const Duration(minutes: 30))),
+    expect(
+        w.beat(
+            joignable: false, maintenant: t1.add(const Duration(minutes: 30))),
         InternetEvent.rappel);
-    expect(w.beat(joignable: false, maintenant: t1.add(const Duration(minutes: 45))),
+    expect(
+        w.beat(
+            joignable: false, maintenant: t1.add(const Duration(minutes: 45))),
         InternetEvent.none);
-    expect(w.beat(joignable: false, maintenant: t1.add(const Duration(minutes: 61))),
+    expect(
+        w.beat(
+            joignable: false, maintenant: t1.add(const Duration(minutes: 61))),
         InternetEvent.rappel);
   });
 
@@ -63,7 +75,10 @@ void main() {
     expect(w.derniereCoupure, const Duration(minutes: 42));
     expect(w.coupureDepuis, isNull);
     // Un battement normal ensuite : silence.
-    expect(w.beat(joignable: true, maintenant: retour.add(const Duration(seconds: 30))),
+    expect(
+        w.beat(
+            joignable: true,
+            maintenant: retour.add(const Duration(seconds: 30))),
         InternetEvent.none);
   });
 
@@ -73,7 +88,9 @@ void main() {
     final DateTime retour = t0.add(const Duration(minutes: 10));
     w.beat(joignable: true, maintenant: retour);
     expect(
-      w.beat(joignable: false, maintenant: retour.add(const Duration(seconds: 90))),
+      w.beat(
+          joignable: false,
+          maintenant: retour.add(const Duration(seconds: 90))),
       InternetEvent.perte,
     );
   });

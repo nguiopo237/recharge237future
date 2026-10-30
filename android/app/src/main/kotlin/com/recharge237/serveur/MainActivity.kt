@@ -1,12 +1,16 @@
-package com.example.projettest
+package com.recharge237.serveur
 
+import android.Manifest
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.net.Uri
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
+import android.provider.Telephony
 import android.view.WindowManager
 import android.telecom.PhoneAccountHandle
 import android.telecom.TelecomManager
@@ -16,6 +20,7 @@ import android.telephony.TelephonyManager
 import com.kavina.ussd_launcher.UssdAccessibilityService
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 
 /**
@@ -56,6 +61,27 @@ class MainActivity : FlutterActivity() {
         // exactement le besoin d'un serveur de livraison. Il est pris une fois
         // au démarrage et rendu à la destruction de l'activité.
         acquireServerWakeLock()
+        // [SMS 29/10/2026] Remplace le paquet `telephony` (abandonné) : chaque
+        // SMS reçu est envoyé à Dart (lib/service/sms/sms_receiver.dart) pour
+        // les soldes opérateurs et le relais Telegram/e-mail.
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, "r237/sms")
+            .setStreamHandler(smsStreamHandler)
+        // [TELEGRAM 29/10/2026] Petit stockage local (clé → texte) : retient
+        // le dernier « Serveur démarré » annoncé, pour ne plus l'envoyer à
+        // chaque relance de l'app par MIUI.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "r237/prefs")
+            .setMethodCallHandler { call, result ->
+                val prefs = getSharedPreferences("r237_prefs", Context.MODE_PRIVATE)
+                val key = call.argument<String>("key") ?: ""
+                when (call.method) {
+                    "get" -> result.success(prefs.getString(key, null))
+                    "set" -> {
+                        prefs.edit().putString(key, call.argument<String>("value")).apply()
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "r237/ussd")
             .setMethodCallHandler { call, result ->
                 try {
@@ -115,6 +141,46 @@ class MainActivity : FlutterActivity() {
                             result.success(UssdAccessibilityService.cancelSession())
                         }
                         "serviceReady" -> result.success(UssdAccessibilityService.isServiceRunning())
+                        // Fenêtre USSD orpheline : boutons du téléphone seulement, jamais Retour.
+                        "dismissStale" -> result.success(UssdAccessibilityService.dismissStaleUssd())
+                        "accessibilityState" -> result.success(accessibilityState())
+                        // [ARRIERE-PLAN 29/10/2026] Retour = passer en arrière-plan,
+                        // jamais fermer : l'écoute des commandes vit dans cette
+                        // activité. Constaté le 29/10 : deux appuis sur Retour
+                        // fermaient le serveur, plus aucune commande traitée.
+                        "moveToBack" -> result.success(moveTaskToBack(true))
+                        // [RENOMMAGE 29/10/2026] Ancienne version encore installée ?
+                        "oldAppInstalled" -> result.success(
+                            try {
+                                packageManager.getPackageInfo("com.example.projettest", 0)
+                                true
+                            } catch (_: Exception) {
+                                false
+                            }
+                        )
+                        "uninstallOldApp" -> {
+                            try {
+                                startActivity(
+                                    Intent(Intent.ACTION_DELETE, Uri.parse("package:com.example.projettest"))
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                )
+                                result.success(true)
+                            } catch (e: Exception) {
+                                result.success(false)
+                            }
+                        }
+                        "enableAccessibility" -> {
+                            // [ACCESSIBILITE 29/10/2026] Réactivation autonome,
+                            // hors du thread principal (elle attend la reconnexion).
+                            Thread {
+                                val out = try {
+                                    enableOwnAccessibility()
+                                } catch (e: Exception) {
+                                    mapOf("ok" to false, "detail" to (e.message ?: "erreur native"))
+                                }
+                                runOnUiThread { result.success(out) }
+                            }.start()
+                        }
                         "sims" -> result.success(describeHardware())
                         "serviceState" -> {
                             val slot = call.argument<Int>("slot") ?: 0
@@ -159,6 +225,82 @@ class MainActivity : FlutterActivity() {
                     result.error("USSD_NATIVE", e.message, null)
                 }
             }
+    }
+
+    // ── [ACCESSIBILITE 29/10/2026] Service d'accessibilité auto-réparable ──
+    //
+    // Constaté le 29/10 sur le Redmi 23053RN02Y (HyperOS) : le service est
+    // activé à la main à 11:17 puis retiré par le système avant 11:20 —
+    // `enabled_accessibility_services` ne contenait plus que le « Menu
+    // d'accessibilité ». Toutes les commandes échouaient alors en
+    // « notExecuted ».
+    //
+    // Si le téléphone a reçu WRITE_SECURE_SETTINGS (script
+    // tools/autoriser_telephone_serveur.bat, une seule fois par téléphone),
+    // l'app remet elle-même son service dans la liste, sans toucher aux
+    // autres services déjà activés.
+    private val ownAccessibilityComponent: String
+        get() = "$packageName/${UssdAccessibilityService::class.java.name}"
+
+    private fun canWriteSecureSettings(): Boolean =
+        checkSelfPermission(Manifest.permission.WRITE_SECURE_SETTINGS) ==
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+
+    private fun enabledServicesList(): List<String> {
+        val raw = Settings.Secure.getString(
+            contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: ""
+        return raw.split(':').map { it.trim() }.filter { it.isNotEmpty() }
+    }
+
+    private fun isOwnServiceListed(list: List<String>): Boolean {
+        val shortName = "$packageName/${UssdAccessibilityService::class.java.name.removePrefix(packageName)}"
+        return list.any { it.equals(ownAccessibilityComponent, true) || it.equals(shortName, true) }
+    }
+
+    private fun accessibilityState(): Map<String, Any> {
+        val list = enabledServicesList()
+        return mapOf(
+            "enabledInSettings" to isOwnServiceListed(list),
+            "connected" to UssdAccessibilityService.isServiceRunning(),
+            "canSelfEnable" to canWriteSecureSettings(),
+        )
+    }
+
+    private fun writeEnabledServices(list: List<String>) {
+        Settings.Secure.putString(
+            contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+            list.joinToString(":"),
+        )
+    }
+
+    private fun enableOwnAccessibility(): Map<String, Any> {
+        if (UssdAccessibilityService.isServiceRunning()) {
+            return mapOf("ok" to true, "detail" to "déjà connecté")
+        }
+        if (!canWriteSecureSettings()) {
+            return mapOf("ok" to false, "detail" to "WRITE_SECURE_SETTINGS non accordée")
+        }
+        val autres = enabledServicesList().filterNot {
+            it.startsWith("$packageName/", ignoreCase = true)
+        }
+        // Inscrit mais pas connecté : on le retire puis le remet pour forcer
+        // Android à relancer la liaison.
+        writeEnabledServices(autres)
+        Thread.sleep(400)
+        writeEnabledServices(autres + ownAccessibilityComponent)
+        Settings.Secure.putInt(contentResolver, Settings.Secure.ACCESSIBILITY_ENABLED, 1)
+        // Attente de la reconnexion (onServiceConnected), 6 s au plus.
+        var waited = 0
+        while (!UssdAccessibilityService.isServiceRunning() && waited < 6000) {
+            Thread.sleep(250)
+            waited += 250
+        }
+        val ok = UssdAccessibilityService.isServiceRunning()
+        return mapOf(
+            "ok" to ok,
+            "detail" to (if (ok) "réactivé en ${waited} ms" else "inscrit, mais le système ne l'a pas relancé"),
+        )
     }
 
     /**
@@ -342,7 +484,72 @@ class MainActivity : FlutterActivity() {
         serverWakeLock = null
     }
 
+    // ── SMS entrants (canal `r237/sms`) ─────────────────────────────────────
+    //
+    // Récepteur enregistré tant que Dart écoute. Le serveur tourne au premier
+    // plan 24/7 : l'activité vit, le récepteur aussi. Seul le système peut
+    // émettre SMS_RECEIVED (permission BROADCAST_SMS exigée de l'émetteur).
+    private var smsReceiver: BroadcastReceiver? = null
+
+    private val smsStreamHandler = object : EventChannel.StreamHandler {
+        override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+            if (events == null) return
+            stopSmsReceiver()
+            val receiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context?, intent: Intent?) {
+                    if (intent?.action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION) return
+                    try {
+                        val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent) ?: return
+                        // Un SMS long arrive en plusieurs morceaux : on les
+                        // recolle par expéditeur avant de l'envoyer à Dart.
+                        val parts = LinkedHashMap<String, StringBuilder>()
+                        var date = System.currentTimeMillis()
+                        for (m in messages) {
+                            if (m == null) continue
+                            val address = m.displayOriginatingAddress ?: m.originatingAddress ?: ""
+                            parts.getOrPut(address) { StringBuilder() }
+                                .append(m.displayMessageBody ?: m.messageBody ?: "")
+                            date = m.timestampMillis
+                        }
+                        for ((address, body) in parts) {
+                            events.success(
+                                mapOf("address" to address, "body" to body.toString(), "date" to date)
+                            )
+                        }
+                    } catch (e: Exception) {
+                        events.error("SMS_PARSE", e.message, null)
+                    }
+                }
+            }
+            val filter = IntentFilter(Telephony.Sms.Intents.SMS_RECEIVED_ACTION).apply {
+                priority = 999
+            }
+            if (Build.VERSION.SDK_INT >= 33) {
+                registerReceiver(receiver, filter, Manifest.permission.BROADCAST_SMS, null,
+                    Context.RECEIVER_EXPORTED)
+            } else {
+                registerReceiver(receiver, filter, Manifest.permission.BROADCAST_SMS, null)
+            }
+            smsReceiver = receiver
+        }
+
+        override fun onCancel(arguments: Any?) {
+            stopSmsReceiver()
+        }
+    }
+
+    private fun stopSmsReceiver() {
+        smsReceiver?.let {
+            try {
+                unregisterReceiver(it)
+            } catch (_: Exception) {
+            }
+        }
+        smsReceiver = null
+    }
+
     override fun onDestroy() {
+        stopSmsReceiver()
         releaseServerWakeLock()
         super.onDestroy()
     }

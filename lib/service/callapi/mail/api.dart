@@ -2,21 +2,21 @@
 import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server/gmail.dart';
 
-class API{
+class API {
   static Future<void> sendEmail(
       {String? amount,
-        String? numeroc,
-        // SmsMessage ?sms,
-        String? idtransact,
-        String? subject = "",
-        String? body}) async
-  {
+      String? numeroc,
+      // SmsMessage ?sms,
+      String? idtransact,
+      String? subject = "",
+      String? body}) async {
     // Validation des adresses
     String fromEmail = "camillenguiopo@gmail.com";
     String toEmail = "recharge2370@gmail.com";
-    String ?username = 'camillenguiopo@gmail.com';
+    String? username = 'camillenguiopo@gmail.com';
     String password = 'wyha qkhy guca hqif';
-    body = "salue nous avons tranferer le credit de ${amount}  au numero suivant ${numeroc} voici le numero transact ${idtransact} ,le contenue du sms est le suivant : ${null==null?"pas de sms":"sms.body"}";
+    body =
+        "salue nous avons tranferer le credit de ${amount}  au numero suivant ${numeroc} voici le numero transact ${idtransact} ,le contenue du sms est le suivant : ${null == null ? "pas de sms" : "sms.body"}";
 
     if (fromEmail == null || toEmail == null) {
       throw ArgumentError('Les adresses email ne peuvent pas être null');

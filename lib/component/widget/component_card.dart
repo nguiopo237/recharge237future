@@ -12,11 +12,9 @@ import '../../model/listnumbermode.dart';
 
 import 'package:timeago/timeago.dart' as timeago;
 
-
 import '../../service/controlleur/widget_controlleur.dart';
 import '../../service/sendmail/send_mail.dart';
 import 'invoice.dart';
-
 
 class Componentcard extends StatefulWidget {
   final Listnumberspaymodel post;
@@ -28,8 +26,6 @@ class Componentcard extends StatefulWidget {
 }
 
 class _ComponentcardState extends State<Componentcard> {
-
-
   List<String> _ussdMessages = [];
   final UssdService _ussdService = UssdService();
   TextEditingController ussdController = TextEditingController();
@@ -52,7 +48,8 @@ class _ComponentcardState extends State<Componentcard> {
   void _handleUssdResponse(UssdResponse response) {
     print("session d ecoute et reponse");
     setState(() {
-      _ussdMessages.add('${response.message}\n État de la sitation: ${response.state}');
+      _ussdMessages
+          .add('${response.message}\n État de la sitation: ${response.state}');
 
       if (response.state == UssdSessionState.error ||
           response.state == UssdSessionState.error ||
@@ -78,7 +75,8 @@ class _ComponentcardState extends State<Componentcard> {
     });
   }
 
-  Future<void> launchMultiSessionUssd({amount,number,bool post = false}) async {
+  Future<void> launchMultiSessionUssd(
+      {amount, number, bool post = false}) async {
     print("ecoute du ussd kmille activation ");
     print(post);
     print("ecoute du ussd kmille");
@@ -89,18 +87,15 @@ class _ComponentcardState extends State<Componentcard> {
     });
 
     try {
-
-
       // optionControllers.clear();
       List<String> options =
-      optionControllers.map((controller) => controller.text).toList();
+          optionControllers.map((controller) => controller.text).toList();
       print("ici");
 
       _ussdService.ussdResponseStream.listen((response) {
-
         setState(() {
           _ussdResult =
-          'Message: ${response.message}\nState: ${response.state}';
+              'Message: ${response.message}\nState: ${response.state}';
         });
       }, onError: (error) {
         setState(() {
@@ -113,7 +108,8 @@ class _ComponentcardState extends State<Componentcard> {
         try {
           final response = await _ussdService.sendUssd(ussdCode);
           setState(() {
-            _ussdMessages.add('Message: ${response.message}\nÉtat: ${response.state}');
+            _ussdMessages
+                .add('Message: ${response.message}\nÉtat: ${response.state}');
           });
         } catch (e) {
           setState(() {
@@ -121,10 +117,13 @@ class _ComponentcardState extends State<Componentcard> {
           });
         }
       }
+
       optionControllers.clear();
-      optionControllers.addAll([TextEditingController(text: "${number}"),TextEditingController(text: "${number}"),TextEditingController(text: "1")]);
-
-
+      optionControllers.addAll([
+        TextEditingController(text: "${number}"),
+        TextEditingController(text: "${number}"),
+        TextEditingController(text: "1")
+      ]);
 
       //  _sendUssdCode(_ussdController.text);
       // _launchMultiSessionUssd();
@@ -145,6 +144,7 @@ class _ComponentcardState extends State<Componentcard> {
       });
     }
   }
+
   Future<void> loadSimCards() async {
     var status = await Permission.phone.request();
     if (status.isGranted) {
@@ -165,9 +165,6 @@ class _ComponentcardState extends State<Componentcard> {
       print("Permission téléphone non accordée");
     }
   }
-
-
-
 
   String getStatutText({int statut = 0}) {
     switch (statut) {
@@ -207,23 +204,22 @@ class _ComponentcardState extends State<Componentcard> {
     }
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () {
         Clipboard.setData(ClipboardData(text: "${widget.post.numeros}"));
-        SendEmail.updateValueInFirestore("solde","jNIO5y2lj8s9PiTSV4cU","dsm","6565");
+        SendEmail.updateValueInFirestore(
+            "solde", "jNIO5y2lj8s9PiTSV4cU", "dsm", "6565");
 
         // FlutterClipboard.copy(
         //     '${widget.post.numeros}');
         // Get.to(invoiceR237(
         //   post: widget.post,
         // ));
-       // optionControllers.clear();
-       // optionControllers.addAll([TextEditingController(text: "${widget.post.numeros}"),TextEditingController(text: "${widget.post.numeros}"),TextEditingController(text: "1")]);
-       // launchMultiSessionUssd(number:widget.post.numeros,);
+        // optionControllers.clear();
+        // optionControllers.addAll([TextEditingController(text: "${widget.post.numeros}"),TextEditingController(text: "${widget.post.numeros}"),TextEditingController(text: "1")]);
+        // launchMultiSessionUssd(number:widget.post.numeros,);
       },
       child: Padding(
         padding: const EdgeInsets.all(8.0),
@@ -237,8 +233,8 @@ class _ComponentcardState extends State<Componentcard> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text("${c.formaterDateFrancais(DateTime.parse(widget.post.heure.toString()))} à ${c.formaterHeure(DateTime.parse(widget.post.heure.toString()))} "),
-
+                  Text(
+                      "${c.formaterDateFrancais(DateTime.parse(widget.post.heure.toString()))} à ${c.formaterHeure(DateTime.parse(widget.post.heure.toString()))} "),
                   Text(widget.post.numeros.toString()),
                   getStatutWidget()
                 ],
@@ -246,7 +242,9 @@ class _ComponentcardState extends State<Componentcard> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text("${widget.post.amount} Fcfa",),
+                  Text(
+                    "${widget.post.amount} Fcfa",
+                  ),
                   // Text(widget.post.payToken.toString()),
 
                   Text(widget.post.id.toString()),
@@ -256,12 +254,12 @@ class _ComponentcardState extends State<Componentcard> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    getStatutText(statut: widget.post.statut?.toInt()??0),
+                    getStatutText(statut: widget.post.statut?.toInt() ?? 0),
                     style: TextStyle(
-                      color: getStatutColor(statut: widget.post.statut?.toInt()??0),
+                      color: getStatutColor(
+                          statut: widget.post.statut?.toInt() ?? 0),
                     ),
                   ),
-
                   Text(widget.post.numeror.toString()),
                 ],
               ),
@@ -288,6 +286,4 @@ class _ComponentcardState extends State<Componentcard> {
         );
     }
   }
-
-
 }

@@ -1,4 +1,3 @@
-
 import 'dart:async';
 
 import 'package:clipboard/clipboard.dart';
@@ -11,7 +10,6 @@ import 'package:get/get.dart';
 import 'package:internet_connection_checker/internet_connection_checker.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:telephony/telephony.dart';
 import 'package:ussd_flutter/ussd_service.dart';
 import 'package:ussd_launcher/ussd_launcher.dart';
 
@@ -20,8 +18,10 @@ import '../../main.dart' show serverAuthUid;
 import '../../service/controlleur/widget_controlleur.dart' show c;
 import '../../service/sendmail/send_mail.dart';
 import '../../service/report/report_service.dart';
+import '../../service/report/sms_balance_parser.dart' show parseSmsBody;
 import '../../service/server/order_filters.dart';
 import '../../service/server/firestore_backoff.dart';
+import '../../service/sms/sms_receiver.dart';
 import '../../service/server/health_watch.dart';
 import '../../service/server/network_watch.dart';
 import '../../service/server/order_relaunch.dart';
@@ -31,11 +31,11 @@ import '../../service/server/server_manager.dart';
 import '../../service/server/transaction_claimer.dart';
 import '../../service/ussd/mtn_ussd_manager.dart';
 import '../../service/ussd/ussd_session.dart';
+import '../config/sim_config_screen.dart';
 import '../../service/ussd/session_config.dart';
 import '../../service/ussd/sim_network.dart';
 import '../../service/ussd/ussd_screens.dart'
     show isTransientScreen, isUnusableScreen;
-
 
 class Commandeview extends StatefulWidget {
   const Commandeview({super.key});
@@ -44,15 +44,16 @@ class Commandeview extends StatefulWidget {
   State<Commandeview> createState() => _CommandeviewState();
 }
 
-class _CommandeviewState extends State<Commandeview> {
+class _CommandeviewState extends State<Commandeview>
+    with WidgetsBindingObserver {
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
   bool _isLoading = false;
 
   // Config SIM/PIN chargée depuis Firestore au démarrage
   SessionConfig _simConfig = const SessionConfig(
-    mtn:        SimConfig(slot: 0),
-    orange:     SimConfig(slot: 1),
-    camtelPre:  SimConfig(slot: 0),
+    mtn: SimConfig(slot: 0),
+    orange: SimConfig(slot: 1),
+    camtelPre: SimConfig(slot: 0),
     camtelPost: SimConfig(slot: 1),
   );
   final UssdService _ussdService = UssdService();
@@ -75,15 +76,18 @@ class _CommandeviewState extends State<Commandeview> {
     }
   }
 
-  Future<void> updateValueInFirestore(String collectionName, String documentId, String fieldName, dynamic newValue) async {
+  Future<void> updateValueInFirestore(String collectionName, String documentId,
+      String fieldName, dynamic newValue) async {
     try {
       // Récupérer une référence à la collection et au document
-      DocumentReference docRef = FirebaseFirestore.instance.collection(collectionName).doc(documentId);
+      DocumentReference docRef =
+          FirebaseFirestore.instance.collection(collectionName).doc(documentId);
 
       // Mettre à jour la valeur
       // [28/10/2026] Délai maximal : une écriture bloquée ne doit pas figer
       // la boucle de traitement des commandes.
-      await docRef.update({fieldName: newValue}).timeout(const Duration(seconds: 12));
+      await docRef
+          .update({fieldName: newValue}).timeout(const Duration(seconds: 12));
 
       print('Valeur mise à jour avec succès');
     } catch (e) {
@@ -91,22 +95,20 @@ class _CommandeviewState extends State<Commandeview> {
     }
   }
 
-
-  restartapp(documentid,numerocam,amount){
-    if(Get.context==null){
+  restartapp(documentid, numerocam, amount) {
+    if (Get.context == null) {
       print("context vide");
       // Phoenix.rebirth(Get.context!);
       Get.reset();
-    }else{
+    } else {
       // Phoenix.rebirth(Get.context!); // Restarting app
       Get.reset();
     }
-
   }
 
   // Controlleur c = Get.find();
 
-  getdata(documentid, numerocam, amount, idtransact,type )async{
+  getdata(documentid, numerocam, amount, idtransact, type) async {
     print("started transact");
     print(type);
     print("started transact");
@@ -137,18 +139,23 @@ class _CommandeviewState extends State<Commandeview> {
     // passait à "3" (réussie) — ou "10" pour le post — AVANT même l'envoi du
     // USSD : le client voyait « réussi » alors que rien n'était encore livré.
     // Le statut final n'est plus écrit qu'après la réponse de l'opérateur.
-    updateValueInFirestore("Transact",documentid,"status","2");
+    updateValueInFirestore("Transact", documentid, "status", "2");
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         backgroundColor: Colors.blue,
         duration: Duration(seconds: 18),
-        content: Text(idtransact,style: TextStyle(color: Colors.white),)));
+        content: Text(
+          idtransact,
+          style: TextStyle(color: Colors.white),
+        )));
     String ussdSuccessMessage = "";
     bool result = await InternetConnectionChecker().hasConnection;
-    int subscriptionId = 1; // ID de la souscription SIM, généralement 1 pour la première carte SIM
+    int subscriptionId =
+        1; // ID de la souscription SIM, généralement 1 pour la première carte SIM
     // String code = "*155#";
-    String code = "*555*1*${numerocam}*${amount}*2006#";// Remplacez ceci par le code USSD que vous souhaitez exécuter
+    String code =
+        "*555*1*${numerocam}*${amount}*2006#"; // Remplacez ceci par le code USSD que vous souhaitez exécuter
     //String code = "*155#"; // Remplacez ceci par le code USSD que vous souhaitez exécuter
-    if(result == true) {
+    if (result == true) {
       print('connexion internet disponible');
       print(numerocam);
       print(amount);
@@ -169,16 +176,12 @@ class _CommandeviewState extends State<Commandeview> {
       print(dateTimeString);
       // await Future.delayed(Duration(seconds: 6));
       try {
-
-
-        if(selectedSlotIndex==0){
-
+        if (selectedSlotIndex == 0) {
           print("charger les element 0");
           optionControllers.clear();
-          optionControllers.add(TextEditingController(text: _simConfig.camtelPre.pin));
-
-        }else{
-
+          optionControllers
+              .add(TextEditingController(text: _simConfig.camtelPre.pin));
+        } else {
           if (ussdController.text.isEmpty) {
             //  ussdController.text = "*555*2*${numerocam}*10*2006#";
             ussdController.text = "*825*1*2*1*2#";
@@ -189,7 +192,10 @@ class _CommandeviewState extends State<Commandeview> {
         print(optionControllers.first.text);
         print("charger les element");
 
-        await  launchMultiSessionUssd(amount: amount,number: numerocam,post: type=="1"?false:true);
+        await launchMultiSessionUssd(
+            amount: amount,
+            number: numerocam,
+            post: type == "1" ? false : true);
         // [PRODUCTION 27/10/2026] `ussdSuccessMessage` n'était jamais rempli :
         // toute recharge finissait en "4" (échec), même réussie. On lit les
         // réponses réellement reçues de l'opérateur (laissées le temps
@@ -200,28 +206,30 @@ class _CommandeviewState extends State<Commandeview> {
         // fenêtre laissée ouverte bloque la commande suivante).
         await _closeUssdDialog();
         _notifyTelegram(
-          operateur:    'Camtel Prépayé',
-          simSlot:      _simConfig.camtelPre.slot,
+          operateur: 'Camtel Prépayé',
+          simSlot: _simConfig.camtelPre.slot,
           clientNumber: numerocam,
-          amount:       amount,
+          amount: amount,
           // Dernière réponse système reçue pendant la session CAMTEL.
-          resultat:     _derniereReponseSysteme.isNotEmpty
+          resultat: _derniereReponseSysteme.isNotEmpty
               ? _derniereReponseSysteme
               : _ussdMessages.join('\n'),
+          succes: isCamtelTransferAccepted(ussdSuccessMessage),
         );
         print("message camtel");
         print(ussdSuccessMessage);
         print("message camtel");
-        if(isCamtelTransferAccepted(ussdSuccessMessage)){
-          updateValueInFirestore("Transact",documentid,"status",type=="1"?"3":"10");
+        if (isCamtelTransferAccepted(ussdSuccessMessage)) {
+          updateValueInFirestore(
+              "Transact", documentid, "status", type == "1" ? "3" : "10");
 
-          SendEmail.sendMyMail(
-              phoneNumber: numerocam,
-              recipientEmail: 'Your top-up service for ${numerocam} on ${dateTimeString} is successful. TransactionID is ${idtransact}, amount is ${amount} FCFA. Now your balance is ${amount} FCFA.');
+          // [E-MAIL 29/10/2026] Plus d'e-mail à chaque recharge réussie :
+          // Gmail bloque l'envoi au-delà de ~500 e-mails/jour. Le bilan
+          // quotidien récapitule les ventes.
 
           ScaffoldMessenger.of(context)
               .hideCurrentSnackBar(reason: SnackBarClosedReason.swipe);
-        }else{
+        } else {
           print("message camtel");
           print(numerocam);
           print(amount);
@@ -229,7 +237,10 @@ class _CommandeviewState extends State<Commandeview> {
           print("message camtel");
           //API.sendMyMail(numeroc: numerocam,amount: amount,idtransact:idtransact );
           final String reponse = ussdSuccessMessage.trim();
-          await FirebaseFirestore.instance.collection("Transact").doc(documentid).update({
+          await FirebaseFirestore.instance
+              .collection("Transact")
+              .doc(documentid)
+              .update({
             "status": "4",
             "failure_reason": reponse.isEmpty
                 ? "Aucune réponse de l'opérateur CAMTEL"
@@ -241,31 +252,25 @@ class _CommandeviewState extends State<Commandeview> {
           // restartapp(documentid,numerocam,amount);
         }
 
-
         print("Succès ! Message : $ussdSuccessMessage");
         print("Succès ! Message : $documentid");
       } on PlatformException catch (e) {
-        updateValueInFirestore("Transact",documentid,"status","4");
+        updateValueInFirestore("Transact", documentid, "status", "4");
         ScaffoldMessenger.of(context)
             .hideCurrentSnackBar(reason: SnackBarClosedReason.swipe);
 
         // restartapp(documentid,numerocam,amount);
         print("Erreur ! Code : ${e.code} - Message : ${e.message}");
       }
-
     } else {
       // restartapp(documentid,numerocam,amount);
       print('No internet :( Reason:');
-
     }
-
   }
-
 
   late StreamSubscription subscription;
   bool isDeviceConnected = false;
   bool isAlertSet = false;
-
 
   void removeOptionField() {
     setState(() {
@@ -275,11 +280,9 @@ class _CommandeviewState extends State<Commandeview> {
     });
   }
 
-
   getConnectivity() {
-
     c.subscription = Connectivity().onConnectivityChanged.listen(
-          (List<ConnectivityResult> results) async {
+      (List<ConnectivityResult> results) async {
         // Prendre le premier résultat de la liste
         print("results.length");
         print(results.length);
@@ -287,9 +290,9 @@ class _CommandeviewState extends State<Commandeview> {
         if (results.isNotEmpty) {
           // final result = results.first;
 
-          c.isDeviceConnected.value = await InternetConnectionChecker().hasConnection;
+          c.isDeviceConnected.value =
+              await InternetConnectionChecker().hasConnection;
           if (!c.isDeviceConnected.value && c.isAlertSet.value == false) {
-
             // c.snackbar(message: "noconnection".tr,type: SnackbarType.warning);
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
               backgroundColor: Colors.grey,
@@ -306,19 +309,19 @@ class _CommandeviewState extends State<Commandeview> {
               duration: Duration(seconds: 5),
               content: Text("Connexion retablie".tr),
             ));
-
           }
         }
       },
     );
   }
 
-  Future<void> loadcreditonpost(String documentid, String numerocam, String amount, String idtransact) async {
+  Future<void> loadcreditonpost(String documentid, String numerocam,
+      String amount, String idtransact) async {
     print("Started transaction");
     print("Numéro CAM: $numerocam");
 
     // [RESEAU 28/10/2026] Meme garde que pour la prepayee, sur l'emplacement
-        // de la SIM postpayee : aucun code n'est compose sans reseau.
+    // de la SIM postpayee : aucun code n'est compose sans reseau.
     final SimNetworkCheck reseauPost = await SimNetworkGuard.check(
       _simConfig.camtelPost.slot,
       expected: 'camtel',
@@ -369,51 +372,49 @@ class _CommandeviewState extends State<Commandeview> {
 
       // Exécution USSD
 
-      String? ussdResponse = "await UssdAdvanced.multisessionUssd(code: code, subscriptionId: 1)";
+      String? ussdResponse =
+          "await UssdAdvanced.multisessionUssd(code: code, subscriptionId: 1)";
       print("Réponse CAMTEL: $ussdResponse");
       print("Réponse CAMTELs: $ussdResponse");
       String? _response;
 
-      String? _res2 =" await UssdAdvanced.sendMessage('1')";
+      String? _res2 = " await UssdAdvanced.sendMessage('1')";
       setState(() {
         _response = _res2;
       });
       print("Réponse final : $_response");
       // await UssdAdvanced.cancelSession();
 
-
-
       // Traitement de la réponse
-      if (ussdResponse!.contains("System is processing your requestion by SMS, please wait")) {
+      if (ussdResponse!.contains(
+          "System is processing your requestion by SMS, please wait")) {
         await updateValueInFirestore("Transact", documentid, "status", "8");
-        await   SendEmail.sendMyMail(
+        await SendEmail.sendMyMail(
             phoneNumber: numerocam,
-            recipientEmail: ' top-up ${numerocam}${amount}${documentid}${idtransact}');
+            recipientEmail:
+                ' top-up ${numerocam}${amount}${documentid}${idtransact}');
       } else {
         await updateValueInFirestore("Transact", documentid, "status", "9");
       }
       _notifyTelegram(
-        operateur:    'Camtel Postpayé',
-        simSlot:      _simConfig.camtelPost.slot,
+        operateur: 'Camtel Postpayé',
+        simSlot: _simConfig.camtelPost.slot,
         clientNumber: numerocam,
-        amount:       amount,
-        resultat:     ussdResponse,
+        amount: amount,
+        resultat: ussdResponse,
       );
 
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
-
     } on PlatformException catch (e) {
       print("Erreur USSD: ${e.code} - ${e.message}");
       await updateValueInFirestore("Transact", documentid, "status", "9");
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       // restartapp(documentid, numerocam, amount);
-
     } on TimeoutException catch (e) {
       print("Timeout USSD: ${e.message}");
       await updateValueInFirestore("Transact", documentid, "status", "9");
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       // restartapp(documentid, numerocam, amount);
-
     } catch (e) {
       print("Erreur inattendue: $e");
       await updateValueInFirestore("Transact", documentid, "status", "9");
@@ -425,7 +426,8 @@ class _CommandeviewState extends State<Commandeview> {
   void filtrerDocuments() async {
     try {
       // Récupérer la référence de la collection
-      CollectionReference transactRef = FirebaseFirestore.instance.collection('Transact');
+      CollectionReference transactRef =
+          FirebaseFirestore.instance.collection('Transact');
 
       // Effectuer la requête
       Query query = transactRef.where('status', isEqualTo: "1");
@@ -448,14 +450,10 @@ class _CommandeviewState extends State<Commandeview> {
         }
       }
       print('Reconnaissance terminée');
-
-
-
     } catch (e) {
       print('Erreur lors de la reconnaissance : $e');
     }
   }
-
 
   void onStart(ServiceInstance service) {
     Timer.periodic(Duration(seconds: 30), (timer) {
@@ -463,7 +461,6 @@ class _CommandeviewState extends State<Commandeview> {
       print("Running background service");
     });
   }
-
 
   Future<void> initializeService() async {
     final service = FlutterBackgroundService();
@@ -486,12 +483,13 @@ class _CommandeviewState extends State<Commandeview> {
   String eventLog = "En attente d'événements...";
   bool isUssdSessionActive = false;
   final EventChannel _accessibilityChannel =
-  EventChannel('com.example.projettest');
+      EventChannel('com.example.projettest');
 
   void _handleUssdResponse(UssdResponse response) {
     print("session d ecoute et reponse");
     setState(() {
-      _ussdMessages.add('${response.message}\n État de la sitation: ${response.state}');
+      _ussdMessages
+          .add('${response.message}\n État de la sitation: ${response.state}');
 
       if (response.state == UssdSessionState.error ||
           response.state == UssdSessionState.error ||
@@ -518,10 +516,9 @@ class _CommandeviewState extends State<Commandeview> {
     });
   }
 
-
   void _setupUssdResponseListener() {
     ussdSubscription = _ussdService.ussdResponseStream.listen(
-          (UssdResponse response) {
+      (UssdResponse response) {
         _handleUssdResponse(response);
       },
       onError: (error) {
@@ -537,23 +534,22 @@ class _CommandeviewState extends State<Commandeview> {
       if (message.contains("401") ||
           message.contains("501") ||
           message.contains("502")) {
-      //  sessionStatus = "Session USSD terminée.";
+        //  sessionStatus = "Session USSD terminée.";
       }
     });
   }
 
-
-
   checkstate() {
     UssdLauncher.setUssdMessageListener(_onUssdMessageReceived);
-     print("_onUssdMessageReceived");
-     print(_onUssdMessageReceived);
-     print("_onUssdMessageReceived");
+    print("_onUssdMessageReceived");
+    print(_onUssdMessageReceived);
+    print("_onUssdMessageReceived");
   }
+
   void listenToAccessibilityEvents() {
     print("exelent");
     _accessibilityChannel.receiveBroadcastStream().listen(
-          (dynamic event) {
+      (dynamic event) {
         setState(() {
           eventLog = event.toString(); // Affiche les données reçues
         });
@@ -565,6 +561,7 @@ class _CommandeviewState extends State<Commandeview> {
       },
     );
   }
+
   void _updateUssdMessages(String newText) {
     setState(() {
       _ussdMessages.add(newText);
@@ -579,7 +576,17 @@ class _CommandeviewState extends State<Commandeview> {
     required String clientNumber,
     required String amount,
     required String resultat,
+    bool succes = false,
   }) async {
+    // [TELEGRAM 29/10/2026] Une livraison réussie n'envoie plus de message :
+    // à 10 000 commandes/jour, c'était 30 000 messages (3 destinataires).
+    // Elle figure dans le bilan quotidien ; Telegram ne sert plus qu'aux
+    // échecs et aux doutes, ceux qui demandent une action de l'admin.
+    if (succes) {
+      debugPrint(
+          '[Telegram] $operateur $clientNumber $amount F : livré — pas de message');
+      return;
+    }
     final deviceId = ServerManager.instance.deviceId;
     // Signature = dernière réponse système de l'opération. Si l'appelant n'en
     // fournit pas, on prend le dernier écran capté pendant la session, puis un
@@ -589,8 +596,7 @@ class _CommandeviewState extends State<Commandeview> {
         : (_derniereReponseSysteme.trim().isNotEmpty
             ? _derniereReponseSysteme.trim()
             : "Aucune réponse de l'opérateur");
-    final message =
-        'Recharge237 — opération USSD\n'
+    final message = 'Recharge237 — opération USSD\n'
         'Téléphone : $deviceId\n'
         'SIM       : slot ${simSlot + 1} ($operateur)\n'
         'Client    : $clientNumber\n'
@@ -602,7 +608,6 @@ class _CommandeviewState extends State<Commandeview> {
         'Une seule tentative — relancer depuis l\'admin si nécessaire.';
     await SendEmail.sendMessagewithtelegram(message: message);
   }
-
 
   Future<void> _sendUssdCode(String ussdCode) async {
     print("_ussdResult");
@@ -623,8 +628,6 @@ class _CommandeviewState extends State<Commandeview> {
     }
   }
 
-
-
   /// [28/10/2026] Même règle que MTN, appliquée aux autres opérateurs : une
   /// fenêtre USSD laissée ouverte (écran vide, session expirée) ne doit jamais
   /// rester par-dessus l'app — elle bloque la commande suivante. On appuie sur
@@ -639,7 +642,8 @@ class _CommandeviewState extends State<Commandeview> {
 
   /// Relance manuelle d'une commande : une seule nouvelle tentative, puis
   /// rapport habituel. `true` = relance acceptée.
-  Future<bool> _relancerCommande(String docId, Map<String, dynamic> data) async {
+  Future<bool> _relancerCommande(
+      String docId, Map<String, dynamic> data) async {
     final String? status = await OrderRelaunch.request(
       docId: docId,
       data: data,
@@ -650,9 +654,9 @@ class _CommandeviewState extends State<Commandeview> {
 
   Future<bool> _closeUssdDialog() async {
     try {
-      final bool closed = await const MethodChannel('r237/ussd')
-              .invokeMethod<bool>('cancel') ??
-          false;
+      final bool closed =
+          await const MethodChannel('r237/ussd').invokeMethod<bool>('cancel') ??
+              false;
       if (closed) debugPrint('[USSD] Fenêtre fermée (Annuler)');
       return closed;
     } catch (_) {
@@ -682,14 +686,16 @@ class _CommandeviewState extends State<Commandeview> {
     });
   }
 
-  Future<void> launchMultiSessionUssd({amount,number,bool post = false}) async {
+  Future<void> launchMultiSessionUssd(
+      {amount, number, bool post = false}) async {
     print("ecoute du ussd kmille");
     print(post);
     print("ecoute du ussd kmille");
     setState(() {
       _isLoading = true;
       _ussdMessages.clear();
-      _ussdResult = ''; // [PRODUCTION 27/10/2026] pas de réponse d'une session précédente
+      _ussdResult =
+          ''; // [PRODUCTION 27/10/2026] pas de réponse d'une session précédente
       _derniereReponseSysteme = '';
       sessionStatus = '';
     });
@@ -698,18 +704,15 @@ class _CommandeviewState extends State<Commandeview> {
     _surEcranVide = null;
 
     try {
-
-
       // optionControllers.clear();
       List<String> options =
-      optionControllers.map((controller) => controller.text).toList();
+          optionControllers.map((controller) => controller.text).toList();
       // print("ici");
 
       _ussdService.ussdResponseStream.listen((response) {
-
         setState(() {
           _ussdResult =
-          'Message: ${response.message}\nState: ${response.state}';
+              'Message: ${response.message}\nState: ${response.state}';
         });
       }, onError: (error) {
         setState(() {
@@ -717,9 +720,8 @@ class _CommandeviewState extends State<Commandeview> {
         });
       });
 
-
       //  _sendUssdCode(_ussdController.text);
-     // _launchMultiSessionUssd();
+      // _launchMultiSessionUssd();
 
       UssdLauncher.setUssdMessageListener((String message) {
         final String m = message.trim();
@@ -737,7 +739,9 @@ class _CommandeviewState extends State<Commandeview> {
         //code: "*825*1*2*1*2#",
         // [PRODUCTION 27/10/2026] Slot lu dans servers/{deviceId}
         // (simCamtelPre / simCamtelPost), défaut 0 / 1 comme avant.
-        slotIndex: post == false ? _simConfig.camtelPre.slot : _simConfig.camtelPost.slot,
+        slotIndex: post == false
+            ? _simConfig.camtelPre.slot
+            : _simConfig.camtelPost.slot,
         options: options,
       );
     } catch (e) {
@@ -751,7 +755,7 @@ class _CommandeviewState extends State<Commandeview> {
     }
   }
 
-   MethodChannel _channel = MethodChannel('ussd_launcher');
+  MethodChannel _channel = MethodChannel('ussd_launcher');
 
   /// Vrai tant que l'écoute des commandes est active.
   ///
@@ -768,6 +772,37 @@ class _CommandeviewState extends State<Commandeview> {
   /// seule alerte Telegram par panne, et une au retour.
   bool _alerteEcouteEnvoyee = false;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _ecouteCommandes;
+
+  /// [ROUTAGE 29/10/2026] Familles de commandes écoutées (null = toutes).
+  List<OrderRoute>? _routesEcoutees;
+
+  /// Vrai si la requête filtrée a été refusée : on reste sur l'écoute complète.
+  bool _ecouteComplete = false;
+
+  Query<Map<String, dynamic>> _requeteCommandes(List<OrderRoute>? routes) {
+    final CollectionReference<Map<String, dynamic>> col =
+        FirebaseFirestore.instance.collection('Transact');
+    if (routes == null) {
+      return col.where('status', whereIn: kActionableStatuses);
+    }
+    Filter filtreRoute(OrderRoute r) {
+      final Filter statut = r.statuses.length == 1
+          ? Filter('status', isEqualTo: r.statuses.first)
+          : Filter('status', whereIn: r.statuses);
+      final String? op = r.operateur;
+      return op == null
+          ? statut
+          : Filter.and(statut, Filter('operateur_cible', isEqualTo: op));
+    }
+
+    final List<Filter> f = routes.map(filtreRoute).toList();
+    if (f.length == 1) return col.where(f.first);
+    Filter ou = Filter.or(f[0], f[1]);
+    for (int i = 2; i < f.length; i++) {
+      ou = Filter.or(ou, f[i]);
+    }
+    return col.where(ou);
+  }
 
   check() async {
     final bgService = FlutterBackgroundService();
@@ -786,14 +821,28 @@ class _CommandeviewState extends State<Commandeview> {
     // coûterait au minimum 2 880 lectures par jour, même sans aucune
     // commande, et ajouterait jusqu'à 30 s d'attente au client.
     await _ecouteCommandes?.cancel();
-    _ecouteCommandes = FirebaseFirestore.instance
-        .collection('Transact')
-        .where('status', whereIn: kActionableStatuses)
-        .snapshots()
-        .listen((querySnapshot) async {
+    // [ROUTAGE 29/10/2026] Seulement les commandes des opérateurs servis par
+    // CE téléphone (cf. routesForHandles). Repli sur l'écoute complète si la
+    // requête filtrée est refusée par la base (index manquant…).
+    final List<OrderRoute>? routes = _ecouteComplete
+        ? null
+        : routesForHandles(ServerManager.instance.handles);
+    _routesEcoutees = routes;
+    // [CONFIG SIM 29/10/2026] Aucune SIM déclarée : on n'écoute rien plutôt
+    // que de prendre des commandes qu'on ne peut pas livrer.
+    if (routes != null && routes.isEmpty) {
+      debugPrint('[check] SIM non configurées — aucune commande écoutée');
+      if (mounted) setState(() {});
+      return;
+    }
+    debugPrint(
+        '[check] écoute : ${routes == null ? 'toutes les commandes' : routes.join(' | ')}');
+    _ecouteCommandes =
+        _requeteCommandes(routes).snapshots().listen((querySnapshot) async {
       _ecouteActive = true;
       // Une copie venue du cache local ne prouve pas que la base répond.
-      if (!querySnapshot.metadata.isFromCache) FirestoreBackoff.instance.succes();
+      if (!querySnapshot.metadata.isFromCache)
+        FirestoreBackoff.instance.succes();
       if (_alerteEcouteEnvoyee && !querySnapshot.metadata.isFromCache) {
         _alerteEcouteEnvoyee = false;
         SendEmail.sendMessagewithtelegram(
@@ -816,6 +865,19 @@ class _CommandeviewState extends State<Commandeview> {
       });
     }, onError: (Object erreur, StackTrace _) async {
       _ecouteActive = false;
+      // [ROUTAGE 29/10/2026] Requête filtrée refusée (index absent, requête
+      // jugée invalide) : on repasse sur l'écoute complète, qui marche
+      // toujours, plutôt que de ne plus rien voir.
+      if (routes != null &&
+          erreur is FirebaseException &&
+          (erreur.code == 'failed-precondition' ||
+              erreur.code == 'invalid-argument')) {
+        debugPrint(
+            '[check] écoute filtrée refusée ($erreur) : écoute complète');
+        _ecouteComplete = true;
+        if (mounted) check();
+        return;
+      }
       final Duration attente = FirestoreBackoff.instance.echec(erreur);
       debugPrint('[check] écoute des commandes interrompue : $erreur — '
           'nouvelle tentative dans ${attente.inSeconds} s');
@@ -856,13 +918,13 @@ class _CommandeviewState extends State<Commandeview> {
     if (_draining) return;
     _draining = true;
     try {
-      final QuerySnapshot<Map<String, dynamic>> snap =
-          await FirebaseFirestore.instance
-              .collection('Transact')
-              .where('status', whereIn: kActionableStatuses)
-              .limit(50)
-              .get()
-              .timeout(const Duration(seconds: 15));
+      final QuerySnapshot<Map<String, dynamic>> snap = await FirebaseFirestore
+          .instance
+          .collection('Transact')
+          .where('status', whereIn: kActionableStatuses)
+          .limit(50)
+          .get()
+          .timeout(const Duration(seconds: 15));
       final docs = snap.docs.toList()
         ..sort((a, b) => (a.data()['heure'] ?? '')
             .toString()
@@ -953,16 +1015,16 @@ class _CommandeviewState extends State<Commandeview> {
     // Firestore) peut repartir — et elle aussi une seule fois.
     final bool relanceDemandee = data['relance_demandee'] == true;
     if (!isRecentOrder(data['heure']) && !relanceDemandee) return;
-    final status        = data['status']?.toString() ?? '';
-    final operateur     = data['operateur_cible']?.toString() ?? 'camtel_pre';
-    final numero        = data['numeroorange']?.toString() ?? '';
-    final numCible      = data['numerocamtel']?.toString() ?? '';
-    final amount        = data['amount']?.toString() ?? '';
-    final idTransact    = data['idtransact']?.toString() ?? '';
-    final forfaitIndex  = data['forfait_index']?.toString() ?? '';
+    final status = data['status']?.toString() ?? '';
+    final operateur = data['operateur_cible']?.toString() ?? 'camtel_pre';
+    final numero = data['numeroorange']?.toString() ?? '';
+    final numCible = data['numerocamtel']?.toString() ?? '';
+    final amount = data['amount']?.toString() ?? '';
+    final idTransact = data['idtransact']?.toString() ?? '';
+    final forfaitIndex = data['forfait_index']?.toString() ?? '';
     // [PRIX 28/10/2026] Commande de requête qui a fourni la liste d'offres :
     // elle contient le prix MTN de référence, seul juge pour l'activation.
-    final sourceOrder   = data['source_order']?.toString() ?? '';
+    final sourceOrder = data['source_order']?.toString() ?? '';
 
     // [RESEAU 28/10/2026] Pas de réseau pour cet opérateur : la commande est
     // GARDÉE telle quelle — aucune réclamation, aucun statut touché, aucun
@@ -981,222 +1043,358 @@ class _CommandeviewState extends State<Commandeview> {
       }
     }
 
-        // ─────────────────────────────────────────────────────────────
-        // CAMTEL PRÉPAYÉ / RETRY  (comportement original inchangé)
-        // ─────────────────────────────────────────────────────────────
-        if ((status == "1" || status == "9") &&
-            (operateur == 'camtel_pre' || operateur == '')) {
-          // [ROUTAGE 28/10/2026] L'admin décide quel téléphone exécute quoi
-          // (`handles` dans servers/{deviceId}).
-          if (!server.handlesOperation('camtel_pre')) return;
-          // [PRODUCTION 27/10/2026] Le transfert *550* est un transfert de
-          // crédit CAMTEL : jamais vers un numéro d'un autre opérateur.
-          if (!isCamtelNumber(numCible)) {
-            debugPrint('[check] $docId ignorée : $numCible n\'est pas un numéro CAMTEL');
-            return;
-          }
-          // [DETECTION 28/10/2026] Pas de SIM CAMTEL sur ce téléphone : la
-          // commande reste à un autre serveur (aucun USSD CAMTEL lancé sur
-          // une SIM MTN, aucun statut modifié).
-          if (!_simConfig.camtelConfigured) return;
-          if (!server.canHandle(numeroorange: numero, status: status)) return;
-          // [28/10/2026] Minimum opérateur : 100 F.
-          if (!isAmountAllowed(amount)) {
-            await updateValueInFirestore("Transact", docId, "status", "22");
-            await updateValueInFirestore(
-                "Transact", docId, "failure_reason", amountTooSmallReason(amount));
-            return;
-          }
-          final claimed = await claimer.claim(docId, server.deviceId);
-          if (!claimed) return;
+    // ─────────────────────────────────────────────────────────────
+    // CAMTEL PRÉPAYÉ / RETRY  (comportement original inchangé)
+    // ─────────────────────────────────────────────────────────────
+    if ((status == "1" || status == "9") &&
+        (operateur == 'camtel_pre' || operateur == '')) {
+      // [ROUTAGE 29/10/2026] "9" = recharge POSTPAYÉE (getdata compose
+      // alors sur la SIM post). Elle reste acceptée par un téléphone
+      // CAMTEL prépayé (comme avant) ET l'est désormais aussi par un
+      // téléphone qui ne sert que le postpayé.
+      // [ROUTAGE 28/10/2026] L'admin décide quel téléphone exécute quoi
+      // (`handles` dans servers/{deviceId}).
+      final bool servi = status == "9"
+          ? server.handlesOperation('camtel_post') ||
+              server.handlesOperation('camtel_pre')
+          : server.handlesOperation('camtel_pre');
+      if (!servi) return;
+      // [PRODUCTION 27/10/2026] Le transfert *550* est un transfert de
+      // crédit CAMTEL : jamais vers un numéro d'un autre opérateur.
+      if (!isCamtelNumber(numCible)) {
+        debugPrint(
+            '[check] $docId ignorée : $numCible n\'est pas un numéro CAMTEL');
+        return;
+      }
+      // [DETECTION 28/10/2026] Pas de SIM CAMTEL sur ce téléphone : la
+      // commande reste à un autre serveur (aucun USSD CAMTEL lancé sur
+      // une SIM MTN, aucun statut modifié).
+      if (!_simConfig.camtelConfigured) return;
+      if (!server.canHandle(numeroorange: numero, status: status)) return;
+      // [28/10/2026] Minimum opérateur : 100 F.
+      if (!isAmountAllowed(amount)) {
+        await updateValueInFirestore("Transact", docId, "status", "22");
+        await updateValueInFirestore(
+            "Transact", docId, "failure_reason", amountTooSmallReason(amount));
+        return;
+      }
+      final claimed = await claimer.claim(docId, server.deviceId);
+      if (!claimed) return;
 
-          await Future.delayed(const Duration(seconds: 1));
-          _derniereCommandeExecutee = true;
-          getdata(docId, numCible, amount, idTransact, status);
-        }
+      await Future.delayed(const Duration(seconds: 1));
+      _derniereCommandeExecutee = true;
+      getdata(docId, numCible, amount, idTransact, status);
+    }
 
-        // ─────────────────────────────────────────────────────────────
-        // CAMTEL POSTPAYÉ  (comportement original inchangé)
-        // ─────────────────────────────────────────────────────────────
-        if (status == "6" && operateur == 'camtel_post') {
-          if (!server.handlesOperation('camtel_post')) return;
-          if (!isCamtelNumber(numCible)) return;
-          // [DETECTION 28/10/2026] Même garde que la prépayée : un téléphone
-          // sans SIM CAMTEL ne doit pas prendre une recharge postpayée.
-          if (!_simConfig.camtelConfigured) return;
-          if (!server.canHandle(numeroorange: numero, status: status)) return;
-          final claimed = await claimer.claim(docId, server.deviceId);
-          if (!claimed) return;
+    // ─────────────────────────────────────────────────────────────
+    // CAMTEL POSTPAYÉ  (comportement original inchangé)
+    // ─────────────────────────────────────────────────────────────
+    if (status == "6" && operateur == 'camtel_post') {
+      if (!server.handlesOperation('camtel_post')) return;
+      if (!isCamtelNumber(numCible)) return;
+      // [DETECTION 28/10/2026] Même garde que la prépayée : un téléphone
+      // sans SIM CAMTEL ne doit pas prendre une recharge postpayée.
+      if (!_simConfig.camtelConfigured) return;
+      if (!server.canHandle(numeroorange: numero, status: status)) return;
+      final claimed = await claimer.claim(docId, server.deviceId);
+      if (!claimed) return;
 
-          _derniereCommandeExecutee = true;
-          loadcreditonpost(docId, numCible, amount, idTransact);
-        }
+      _derniereCommandeExecutee = true;
+      loadcreditonpost(docId, numCible, amount, idTransact);
+    }
 
-        // ─────────────────────────────────────────────────────────────
-        // RETRY USSD CAMTEL  (comportement original inchangé)
-        // ─────────────────────────────────────────────────────────────
-        if (status == "11") {
-          // [DETECTION 28/10/2026] Le retry rejoue une commande CAMTEL : réservé
-          // aux téléphones qui ont la SIM correspondante.
-          if (!_simConfig.camtelConfigured) return;
-          if (!server.handlesOperation('camtel_pre')) return;
-          if (!server.canHandle(numeroorange: numero, status: '1')) return;
-          final claimed = await claimer.claim(docId, server.deviceId);
-          if (!claimed) return;
+    // ─────────────────────────────────────────────────────────────
+    // RETRY USSD CAMTEL  (comportement original inchangé)
+    // ─────────────────────────────────────────────────────────────
+    // [ROUTAGE 29/10/2026] Seulement les commandes CAMTEL : une commande
+    // MTN d'un point de vente arrive aussi au statut "11" (la passerelle
+    // pose "11" pour tout POS) et partait ici, avec un code CAMTEL composé
+    // sur un numéro MTN. Elle passe maintenant par les branches MTN.
+    if (status == "11" && (operateur == 'camtel_pre' || operateur == '')) {
+      // [DETECTION 28/10/2026] Le retry rejoue une commande CAMTEL : réservé
+      // aux téléphones qui ont la SIM correspondante.
+      if (!_simConfig.camtelConfigured) return;
+      if (!server.handlesOperation('camtel_pre')) return;
+      if (!server.canHandle(numeroorange: numero, status: '1')) return;
+      final claimed = await claimer.claim(docId, server.deviceId);
+      if (!claimed) return;
 
-          optionControllers.clear();
-          optionControllers.addAll([
-            TextEditingController(text: numCible),
-            TextEditingController(text: numCible),
-            TextEditingController(text: "1"),
-          ]);
-          // [RESEAU 28/10/2026] Une relance de point de vente compose aussi
-          // un vrai code : sans reseau, on ne la lance pas.
-          final SimNetworkCheck reseauRetry = await SimNetworkGuard.check(
-            _simConfig.camtelPre.slot,
-            expected: 'camtel',
-          );
-          if (!reseauRetry.ok) {
-            // [RESEAU 28/10/2026] Rien n'a été composé : la commande est
-            // GARDÉE, pas marquée en échec.
-            debugPrint('[reseau] $docId (retry) gardée : ${reseauRetry.reason}');
-            await claimer.release(docId, server.deviceId);
-            await updateValueInFirestore("Transact", docId, "failure_reason",
-                '${reseauRetry.reason} — commande gardée, elle repartira au retour du réseau.');
-            return;
-          }
-          _derniereCommandeExecutee = true;
-          updateValueInFirestore("Transact", docId, "status", "12");
-          await _closeUssdDialog();
-          await _channel.invokeMethod('multisessionUssd', {
-            'ussdCode': "${data['retry'] ?? ''}",
-            'slotIndex': 0,
-            'options': optionControllers.map((c) => c.text).toList(),
-          });
-        }
+      optionControllers.clear();
+      optionControllers.addAll([
+        TextEditingController(text: numCible),
+        TextEditingController(text: numCible),
+        TextEditingController(text: "1"),
+      ]);
+      // [RESEAU 28/10/2026] Une relance de point de vente compose aussi
+      // un vrai code : sans reseau, on ne la lance pas.
+      final SimNetworkCheck reseauRetry = await SimNetworkGuard.check(
+        _simConfig.camtelPre.slot,
+        expected: 'camtel',
+      );
+      if (!reseauRetry.ok) {
+        // [RESEAU 28/10/2026] Rien n'a été composé : la commande est
+        // GARDÉE, pas marquée en échec.
+        debugPrint('[reseau] $docId (retry) gardée : ${reseauRetry.reason}');
+        await claimer.release(docId, server.deviceId);
+        await updateValueInFirestore("Transact", docId, "failure_reason",
+            '${reseauRetry.reason} — commande gardée, elle repartira au retour du réseau.');
+        return;
+      }
+      _derniereCommandeExecutee = true;
+      updateValueInFirestore("Transact", docId, "status", "12");
+      await _closeUssdDialog();
+      await _channel.invokeMethod('multisessionUssd', {
+        'ussdCode': "${data['retry'] ?? ''}",
+        'slotIndex': 0,
+        'options': optionControllers.map((c) => c.text).toList(),
+      });
+    }
 
-        // ─────────────────────────────────────────────────────────────
-        // MTN AIRTIME  — Workflow A interactif
-        // Statuts : 1 (en attente) → 20 (en cours) → 21 (ok) / 22 (ko)
-        // ─────────────────────────────────────────────────────────────
-        if (status == "1" && operateur == 'mtn_airtime') {
-          if (!server.handlesOperation('mtn_airtime')) return;
-          // [MTN 27/10/2026] Pas de SIM MTN déclarée sur ce téléphone :
-          // on laisse la commande à un autre serveur (aucun USSD MTN lancé
-          // sur une SIM CAMTEL, aucun statut modifié).
-          if (!_simConfig.mtnConfigured) return;
-          if (!server.canHandle(numeroorange: numero, status: status)) return;
-          // [28/10/2026] Minimum opérateur MTN : 100 F (refusé en dessous par
-          // l'USSD de vente de crédit). Inutile de lancer la session.
-          if (!isAmountAllowed(amount)) {
-            await updateValueInFirestore("Transact", docId, "status", "22");
-            await updateValueInFirestore(
-                "Transact", docId, "failure_reason", amountTooSmallReason(amount));
-            return;
-          }
-          final claimed = await claimer.claim(docId, server.deviceId);
-          if (!claimed) return;
+    // ─────────────────────────────────────────────────────────────
+    // MTN AIRTIME  — Workflow A interactif
+    // Statuts : 1 (en attente) → 20 (en cours) → 21 (ok) / 22 (ko)
+    // ─────────────────────────────────────────────────────────────
+    if ((status == "1" || status == "11") && operateur == 'mtn_airtime') {
+      if (!server.handlesOperation('mtn_airtime')) return;
+      // [MTN 27/10/2026] Pas de SIM MTN déclarée sur ce téléphone :
+      // on laisse la commande à un autre serveur (aucun USSD MTN lancé
+      // sur une SIM CAMTEL, aucun statut modifié).
+      if (!_simConfig.mtnConfigured) return;
+      if (!server.canHandle(numeroorange: numero, status: status)) return;
+      // [28/10/2026] Minimum opérateur MTN : 100 F (refusé en dessous par
+      // l'USSD de vente de crédit). Inutile de lancer la session.
+      if (!isAmountAllowed(amount)) {
+        await updateValueInFirestore("Transact", docId, "status", "22");
+        await updateValueInFirestore(
+            "Transact", docId, "failure_reason", amountTooSmallReason(amount));
+        return;
+      }
+      final claimed = await claimer.claim(docId, server.deviceId);
+      if (!claimed) return;
 
-          debugPrint('[check] MTN Airtime → $numCible $amount FCFA');
-          _derniereCommandeExecutee = true;
-          final resAirtime = await mtn.rechargeAirtime(
-            docId:        docId,
-            amount:       amount,
-            clientNumber: numCible,
-            sim:          _simConfig.mtn,
-          );
-          _notifyTelegram(
-            operateur:    'MTN Airtime',
-            simSlot:      _simConfig.mtn.slot,
-            clientNumber: numCible,
-            amount:       amount,
-            resultat:     resAirtime.rawMessage,
-          );
-        }
+      debugPrint('[check] MTN Airtime → $numCible $amount FCFA');
+      _derniereCommandeExecutee = true;
+      final resAirtime = await mtn.rechargeAirtime(
+        docId: docId,
+        amount: amount,
+        clientNumber: numCible,
+        sim: _simConfig.mtn,
+      );
+      _notifyTelegram(
+        operateur: 'MTN Airtime',
+        simSlot: _simConfig.mtn.slot,
+        clientNumber: numCible,
+        amount: amount,
+        resultat: resAirtime.rawMessage,
+        succes: resAirtime.result.name == 'success',
+      );
+    }
 
-        // ─────────────────────────────────────────────────────────────
-        // MTN FORFAIT Phase 1 — Récupérer la liste des offres
-        // [MTN GOOD DEAL 27/10/2026] Déclenché à status == "0" (pas "1") :
-        // cette requête est GRATUITE, aucun paiement n'est associé — un
-        // client normal ne peut jamais poser status == "1" lui-même
-        // (firestore.rules le réserve à l'admin/la passerelle), donc cette
-        // transaction n'atteindrait jamais "1" si on attendait ce statut.
-        // → après succès, status passe à "31" et `forfait_list` est rempli
-        // ─────────────────────────────────────────────────────────────
-        if (status == "0" && operateur == 'mtn_forfait') {
-          if (!server.handlesOperation('mtn_forfait')) return;
-          // [MTN 27/10/2026] Pas de SIM MTN déclarée sur ce téléphone :
-          // on laisse la commande à un autre serveur (aucun USSD MTN lancé
-          // sur une SIM CAMTEL, aucun statut modifié).
-          //
-          // [BOOST 28/10/2026] Cette requête est GRATUITE et ne saisit aucun
-          // code secret : la carte MTN suffit, le PIN n'est pas requis.
-          if (!_simConfig.mtnSimPresent) return;
-          if (!server.canHandle(numeroorange: numero, status: status)) return;
-          final claimed = await claimer.claim(docId, server.deviceId);
-          if (!claimed) return;
+    // ─────────────────────────────────────────────────────────────
+    // MTN FORFAIT Phase 1 — Récupérer la liste des offres
+    // [MTN GOOD DEAL 27/10/2026] Déclenché à status == "0" (pas "1") :
+    // cette requête est GRATUITE, aucun paiement n'est associé — un
+    // client normal ne peut jamais poser status == "1" lui-même
+    // (firestore.rules le réserve à l'admin/la passerelle), donc cette
+    // transaction n'atteindrait jamais "1" si on attendait ce statut.
+    // → après succès, status passe à "31" et `forfait_list` est rempli
+    // ─────────────────────────────────────────────────────────────
+    if (status == "0" && operateur == 'mtn_forfait') {
+      if (!server.handlesOperation('mtn_forfait')) return;
+      // [MTN 27/10/2026] Pas de SIM MTN déclarée sur ce téléphone :
+      // on laisse la commande à un autre serveur (aucun USSD MTN lancé
+      // sur une SIM CAMTEL, aucun statut modifié).
+      //
+      // [BOOST 28/10/2026] Cette requête est GRATUITE et ne saisit aucun
+      // code secret : la carte MTN suffit, le PIN n'est pas requis.
+      if (!_simConfig.mtnSimPresent) return;
+      if (!server.canHandle(numeroorange: numero, status: status)) return;
+      final claimed = await claimer.claim(docId, server.deviceId);
+      if (!claimed) return;
 
-          debugPrint('[check] MTN Forfait Query → $numCible');
-          _derniereCommandeExecutee = true;
-          final resList = await mtn.queryForfaitList(
-            docId:        docId,
-            clientNumber: numCible,
-            sim:          _simConfig.mtn,
-          );
-          _notifyTelegram(
-            operateur:    'MTN Forfait (liste)',
-            simSlot:      _simConfig.mtn.slot,
-            clientNumber: numCible,
-            amount:       '—',
-            resultat:     resList.isEmpty ? 'Aucune offre récupérée' : resList.join('\n'),
-          );
-          // Après ça, l'app client lit `forfait_list` et affiche les offres.
-          // L'utilisateur sélectionne + paie → l'app met status à "1" et
-          // operateur à "mtn_forfait_activate" avec forfait_index rempli.
-        }
+      debugPrint('[check] MTN Forfait Query → $numCible');
+      _derniereCommandeExecutee = true;
+      final resList = await mtn.queryForfaitList(
+        docId: docId,
+        clientNumber: numCible,
+        sim: _simConfig.mtn,
+      );
+      _notifyTelegram(
+        operateur: 'MTN Forfait (liste)',
+        simSlot: _simConfig.mtn.slot,
+        clientNumber: numCible,
+        amount: '—',
+        resultat:
+            resList.isEmpty ? 'Aucune offre récupérée' : resList.join('\n'),
+        succes: resList.isNotEmpty,
+      );
+      // Après ça, l'app client lit `forfait_list` et affiche les offres.
+      // L'utilisateur sélectionne + paie → l'app met status à "1" et
+      // operateur à "mtn_forfait_activate" avec forfait_index rempli.
+    }
 
-        // ─────────────────────────────────────────────────────────────
-        // MTN FORFAIT Phase 2 — Activer l'offre choisie après paiement
-        // Statuts : 1 → 33 (activation) → 34 (ok) / 35 (ko)
-        // ─────────────────────────────────────────────────────────────
-        if (status == "1" && operateur == 'mtn_forfait_activate') {
-          // [MTN 27/10/2026] Pas de SIM MTN déclarée sur ce téléphone :
-          // on laisse la commande à un autre serveur (aucun USSD MTN lancé
-          // sur une SIM CAMTEL, aucun statut modifié).
-          if (!_simConfig.mtnConfigured) return;
-          // Le même téléphone doit traiter la requête ET l'activation.
-          if (!server.handlesOperation('mtn_forfait')) return;
-          if (forfaitIndex.isEmpty) {
-            debugPrint('[check] Erreur : forfait_index manquant pour $docId');
-            return;
-          }
-          if (!server.canHandle(numeroorange: numero, status: status)) return;
-          final claimed = await claimer.claim(docId, server.deviceId);
-          if (!claimed) return;
+    // ─────────────────────────────────────────────────────────────
+    // MTN FORFAIT Phase 2 — Activer l'offre choisie après paiement
+    // Statuts : 1 → 33 (activation) → 34 (ok) / 35 (ko)
+    // ─────────────────────────────────────────────────────────────
+    if ((status == "1" || status == "11") &&
+        operateur == 'mtn_forfait_activate') {
+      // [MTN 27/10/2026] Pas de SIM MTN déclarée sur ce téléphone :
+      // on laisse la commande à un autre serveur (aucun USSD MTN lancé
+      // sur une SIM CAMTEL, aucun statut modifié).
+      if (!_simConfig.mtnConfigured) return;
+      // Le même téléphone doit traiter la requête ET l'activation.
+      if (!server.handlesOperation('mtn_forfait')) return;
+      if (forfaitIndex.isEmpty) {
+        debugPrint('[check] Erreur : forfait_index manquant pour $docId');
+        return;
+      }
+      if (!server.canHandle(numeroorange: numero, status: status)) return;
+      final claimed = await claimer.claim(docId, server.deviceId);
+      if (!claimed) return;
 
-          debugPrint('[check] MTN Forfait Activate → $numCible, offre=$forfaitIndex');
-          _derniereCommandeExecutee = true;
-          final resActivate = await mtn.activateForfait(
-            docId:        docId,
-            clientNumber: numCible,
-            forfaitIndex: forfaitIndex,
-            sim:          _simConfig.mtn,
-            sourceOrder:  sourceOrder,
-          );
-          _notifyTelegram(
-            operateur:    'MTN Forfait (activation)',
-            simSlot:      _simConfig.mtn.slot,
-            clientNumber: numCible,
-            amount:       '—',
-            resultat:     resActivate.rawMessage,
-          );
-        }
+      debugPrint(
+          '[check] MTN Forfait Activate → $numCible, offre=$forfaitIndex');
+      _derniereCommandeExecutee = true;
+      final resActivate = await mtn.activateForfait(
+        docId: docId,
+        clientNumber: numCible,
+        forfaitIndex: forfaitIndex,
+        sim: _simConfig.mtn,
+        sourceOrder: sourceOrder,
+      );
+      _notifyTelegram(
+        operateur: 'MTN Forfait (activation)',
+        simSlot: _simConfig.mtn.slot,
+        clientNumber: numCible,
+        amount: '—',
+        resultat: resActivate.rawMessage,
+        succes: resActivate.result.name == 'success',
+      );
+    }
 
+    // ─────────────────────────────────────────────────────────────
+    // [OFFRES PERSO 29/10/2026] GOOD DEAL ORANGE — même parcours que le
+    // Boost MTN : requête gratuite (0 → 30 → 31/32), puis activation de
+    // l'offre payée (1/11 → 33 → 34/35). Code USSD réglé par l'admin
+    // (app_config/public.ussd_gooddeal_orange) ; non configuré = la
+    // commande échoue proprement, aucun code composé.
+    // ─────────────────────────────────────────────────────────────
+    if (status == "0" && operateur == 'orange_forfait') {
+      if (!server.handlesOperation('orange_forfait')) return;
+      if (!_simConfig.orangeConfigured) return;
+      if (!server.canHandle(numeroorange: numero, status: status)) return;
+      final claimed = await claimer.claim(docId, server.deviceId);
+      if (!claimed) return;
+      debugPrint('[check] Orange Good Deal Query → $numCible');
+      _derniereCommandeExecutee = true;
+      final resList = await mtn.queryForfaitList(
+        docId: docId,
+        clientNumber: numCible,
+        sim: _simConfig.orange,
+        operateur: 'orange',
+      );
+      _notifyTelegram(
+        operateur: 'Orange Good Deal (liste)',
+        simSlot: _simConfig.orange.slot,
+        clientNumber: numCible,
+        amount: '—',
+        resultat:
+            resList.isEmpty ? 'Aucune offre récupérée' : resList.join('\n'),
+        succes: resList.isNotEmpty,
+      );
+    }
+
+    if ((status == "1" || status == "11") &&
+        operateur == 'orange_forfait_activate') {
+      if (!_simConfig.orangeConfigured) return;
+      if (!server.handlesOperation('orange_forfait')) return;
+      if (forfaitIndex.isEmpty) {
+        debugPrint('[check] Erreur : forfait_index manquant pour $docId');
+        return;
+      }
+      if (!server.canHandle(numeroorange: numero, status: status)) return;
+      final claimed = await claimer.claim(docId, server.deviceId);
+      if (!claimed) return;
+      debugPrint(
+          '[check] Orange Good Deal Activate → $numCible, offre=$forfaitIndex');
+      _derniereCommandeExecutee = true;
+      final resActivate = await mtn.activateForfait(
+        docId: docId,
+        clientNumber: numCible,
+        forfaitIndex: forfaitIndex,
+        sim: _simConfig.orange,
+        sourceOrder: sourceOrder,
+        operateur: 'orange',
+      );
+      _notifyTelegram(
+        operateur: 'Orange Good Deal (activation)',
+        simSlot: _simConfig.orange.slot,
+        clientNumber: numCible,
+        amount: '—',
+        resultat: resActivate.rawMessage,
+        succes: resActivate.result.name == 'success',
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // [CATALOGUE 29/10/2026] FORFAIT MTN DU CATALOGUE (Surf Day,
+    // Giga surf, MTN Home…), payé par le client. Même menu que Boost :
+    // le serveur cherche la ligne du forfait payé et l'active.
+    // Statuts : 1/11 → 33 (activation) → 34 (ok) / 35 (ko)
+    // ─────────────────────────────────────────────────────────────
+    if ((status == "1" || status == "11") && operateur == 'mtn_bundle') {
+      if (!_simConfig.mtnConfigured) return;
+      if (!server.handlesOperation('mtn_forfait')) return;
+      final String code = data['retry']?.toString() ?? '';
+      if (code.isEmpty || code == '0') {
+        // Pas un remboursement : l'admin active à la main (alerte Telegram).
+        await FirebaseFirestore.instance.collection('Transact').doc(docId).set({
+          'status': '35',
+          'failure_reason': 'Votre paiement est bien reçu. Notre équipe active '
+              'votre forfait et vous prévient.',
+          'admin_detail':
+              'Forfait MTN sans code catalogue : activation automatique impossible.',
+          'a_traiter_admin': true,
+        }, SetOptions(merge: true));
+        await SendEmail.sendMessagewithtelegram(
+          message: 'Recharge237 — FORFAIT À ACTIVER À LA MAIN\n'
+              'Client    : $numCible\n'
+              'Montant   : $amount F\n'
+              'Commande  : $docId\n'
+              'Raison    : forfait MTN sans code catalogue.\n'
+              'Le client a PAYÉ : active le forfait puis passe la commande à 34.',
+        );
+        return;
+      }
+      if (!server.canHandle(numeroorange: numero, status: status)) return;
+      final claimed = await claimer.claim(docId, server.deviceId);
+      if (!claimed) return;
+
+      debugPrint('[check] MTN Forfait catalogue → $numCible, forfait=$code');
+      _derniereCommandeExecutee = true;
+      final resCatalogue = await mtn.activateCatalogBundle(
+        docId: docId,
+        clientNumber: numCible,
+        forfaitCode: code,
+        sim: _simConfig.mtn,
+      );
+      _notifyTelegram(
+        operateur: 'MTN Forfait catalogue',
+        simSlot: _simConfig.mtn.slot,
+        clientNumber: numCible,
+        amount: amount,
+        resultat: resCatalogue.rawMessage,
+        succes: resCatalogue.result.name == 'success',
+      );
+    }
   }
+
   // Initialisé directement ici (et non dans check(), qui est asynchrone)
   // car build() peut s'exécuter avant que check() ne termine, provoquant
   // un LateInitializationError sur un écran blanc.
-  final ScrollController _controller = ScrollController(initialScrollOffset: 0.0);
+  final ScrollController _controller =
+      ScrollController(initialScrollOffset: 0.0);
   void scrollToIndex1() {
     double itemHeight = 80.0; // Hauteur approximative de chaque élément
     _controller.animateTo(
@@ -1205,7 +1403,6 @@ class _CommandeviewState extends State<Commandeview> {
       curve: Curves.easeInOut,
     );
   }
-
 
   backgroundMessageHandler() async {
     print('SMS EN ARRIÈRE-PLAN ');
@@ -1223,9 +1420,17 @@ class _CommandeviewState extends State<Commandeview> {
     });
   }
 
-
   Future<void> loadSimCards() async {
-    var status = await Permission.phone.request();
+    // [29/10/2026] main.dart demande déjà les permissions au même moment :
+    // deux demandes simultanées lèvent une PlatformException. On lit alors
+    // simplement l'état une fois la première demande terminée.
+    PermissionStatus status;
+    try {
+      status = await Permission.phone.request();
+    } on PlatformException {
+      await Future<void>.delayed(const Duration(seconds: 3));
+      status = await Permission.phone.status;
+    }
     if (status.isGranted) {
       try {
         final simCards = await UssdLauncher.getSimCards();
@@ -1245,11 +1450,13 @@ class _CommandeviewState extends State<Commandeview> {
     }
   }
 
-
-
   @override
   void initState() {
     super.initState();
+    // [ACCESSIBILITE 29/10/2026] Suivi premier plan / arrière-plan :
+    // didChangeAppLifecycleState n'était jamais appelé (observateur absent).
+    WidgetsBinding.instance.addObserver(this);
+    _verifierAncienneApp();
     readSMS();
     loadSimCards();
     _setupUssdResponseListener();
@@ -1257,11 +1464,10 @@ class _CommandeviewState extends State<Commandeview> {
     // Initialise l'enregistrement serveur, charge les PIN, puis démarre l'écoute
     // [PRODUCTION 27/10/2026] L'UID du serveur est envoyé sur Telegram à
     // chaque démarrage : l'admin sait ainsi quel compte déclarer admin.
-    SendEmail.sendMessagewithtelegram(
-      message: 'Serveur Recharge237 démarré\n'
-          'UID Firebase : ${serverAuthUid.isEmpty ? "NON CONNECTÉ" : serverAuthUid}\n'
-          'À déclarer admin : users/{UID}.isadmin = true',
-    );
+    // [TELEGRAM 29/10/2026] MIUI relance souvent l'app : ce message partait
+    // à chaque redémarrage. Il n'est plus envoyé que si l'UID a changé ou
+    // si le dernier envoi date de plus de 12 h.
+    _annoncerDemarrage();
     ServerManager.instance.initialize().then((_) async {
       // [ORPHELINES 28/10/2026] Si l'app a été tuée en pleine session (mise à
       // jour, plantage, redémarrage du téléphone), Android laisse le dialogue
@@ -1274,6 +1480,9 @@ class _CommandeviewState extends State<Commandeview> {
       // revient), au lieu de le découvrir sur une commande échouée.
       NetworkWatch.instance.start(ServerManager.instance.deviceId);
       // [SANTE 29/10/2026] Accessibilité, UID et fenêtres USSD orphelines.
+      HealthWatch.instance.onChange = () {
+        if (mounted) setState(() {});
+      };
       HealthWatch.instance.start(ServerManager.instance.deviceId);
       // [COMPTA 28/10/2026] Bilan quotidien, soldes lus dans les SMS des
       // opérateurs et diffusion Telegram.
@@ -1289,7 +1498,9 @@ class _CommandeviewState extends State<Commandeview> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _ecouteCommandes?.cancel();
+    _smsRelais?.cancel();
     RemoteCommandHandler.instance.stopListening();
     // [RESEAU 28/10/2026] Plus de surveillance quand le serveur n'écoute plus :
     // inutile d'alerter l'admin sur un téléphone volontairement hors service.
@@ -1316,6 +1527,13 @@ class _CommandeviewState extends State<Commandeview> {
     // la même configuration : ils suivent le même rechargement.
     await ReportService.instance.rechargerConfig();
     debugPrint('[RemoteCommand] Config rechargée — $_simConfig');
+    // [ROUTAGE 29/10/2026] Opérateurs servis modifiés par l'admin : on
+    // réécoute avec le nouveau filtre.
+    final List<OrderRoute>? nouvelles =
+        routesForHandles(ServerManager.instance.handles);
+    if ('$nouvelles' != '$_routesEcoutees' && mounted) check();
+    // Bandeau « SIM non configurées » : suit la configuration.
+    if (mounted) setState(() {});
   }
 
   @override
@@ -1323,70 +1541,48 @@ class _CommandeviewState extends State<Commandeview> {
     setState(() {
       _hasFocus = state == AppLifecycleState.hidden;
     });
+    // Retour des réglages d'accessibilité : contrôle immédiat (le bandeau
+    // rouge disparaît sans attendre le contrôle des 5 min).
+    if (state == AppLifecycleState.resumed) {
+      HealthWatch.instance.checkNow();
+      _verifierAncienneApp();
+    }
   }
 
+  bool _hasFocus = false;
 
+  StreamSubscription<SmsRecu>? _smsRelais;
 
-bool _hasFocus =false;
-
-  @pragma('vm:entry-point')
-  static Future<void> backgroundMessageHandlers(SmsMessage message) async {
-    print('📱 SMS reçu en arrière-plan: ${message.body}');
-    // Tu peux stocker en local ou envoyer une notification
-    SendEmail.sendMyMail(
-        phoneNumber: message.address.toString(),
-        recipientEmail: message.body.toString());
-  }
-
+  /// Relaie chaque SMS reçu sur Telegram et par e-mail.
+  ///
+  /// [SMS 29/10/2026] Passe par le récepteur natif (SmsReceiver, canal
+  /// `r237/sms`) qui remplace le paquet `telephony`. Même comportement
+  /// qu'avant ; l'app serveur tourne au premier plan, l'écoute en
+  /// arrière-plan séparée n'est plus nécessaire.
   void readSMS() {
-    print('Message reçu: 2.0');
-    c.telephony?.listenIncomingSms(
-      onNewMessage: (SmsMessage message) {
-        print('Message reçu: ${message.body}');
-        SendEmail.sendMessagewithtelegram(
-          message: 'Téléphone : ${ServerManager.instance.deviceId}\n'
-              'SMS de    : ${message.address}\n'
-              '─────────────────────\n'
-              '${message.body}',
-        );
-        SendEmail.sendMyMail(
-            phoneNumber: message.address.toString(),
-            recipientEmail: message.body.toString());
-
-        if(message.body.toString().contains("System is processing your requestion by SMS, please wait")){
-         // updateValueInFirestore("Transact",documentid,"status","3");
-
-          // SendEmail.sendMyMail(
-          //     phoneNumber: message.address.toString(),
-          //  recipientEmail: message.body.toString(),
-          //  //   recipientEmail: 'Your top-up service for ${numerocam} on ${dateTimeString} is successful. TransactionID is ${idtransact}, amount is ${amount} FCFA. Now your balance is ${amount} FCFA.'
-          // );
-
-          ScaffoldMessenger.of(context)
-              .hideCurrentSnackBar(reason: SnackBarClosedReason.swipe);
-        }else{
-          // print("message camtel");
-          // print(numerocam);
-          // print(amount);
-          // print(idtransact);
-          // print("message camtel");
-          //API.sendMyMail(numeroc: numerocam,amount: amount,idtransact:idtransact );
-          //updateValueInFirestore("Transact",documentid,"status","4");
-          ScaffoldMessenger.of(context)
-              .hideCurrentSnackBar(reason: SnackBarClosedReason.swipe);
-
-          // restartapp(documentid,numerocam,amount);
-        }
-
-
-      },
-      listenInBackground: true,
-
-      onBackgroundMessage: backgroundMessageHandlers
-    );
+    _smsRelais?.cancel();
+    _smsRelais = SmsReceiver.flux.listen((SmsRecu message) {
+      debugPrint('Message reçu: ${message.body}');
+      // [TELEGRAM 29/10/2026] Chaque recharge déclenche un SMS de
+      // l'opérateur : les relayer tous doublait le volume Telegram et
+      // dépassait la limite Gmail (~500 e-mails/jour). Les SMS de solde et
+      // de transaction reconnus sont exploités par ReportService (bilan,
+      // solde bas, écart) ; seuls les autres sont relayés, sans e-mail.
+      if (parseSmsBody(message.body, sender: message.address).recognised) {
+        return;
+      }
+      SendEmail.sendMessagewithtelegram(
+        message: 'Téléphone : ${ServerManager.instance.deviceId}\n'
+            'SMS de    : ${message.address}\n'
+            '─────────────────────\n'
+            '${message.body}',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .hideCurrentSnackBar(reason: SnackBarClosedReason.swipe);
+      }
+    }, onError: (Object e) => debugPrint('[SMS] relais impossible : $e'));
   }
-
-
 
   // ── Habillage de l'écran serveur ──────────────────────────────────────────
   // Objectif : lisible d'un coup d'œil sur le téléphone qui tourne 24/7 —
@@ -1399,11 +1595,25 @@ bool _hasFocus =false;
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
-      onWillPop: () async => !_isLoading,
+      // [ARRIERE-PLAN 29/10/2026] Retour ne ferme plus le serveur : il passe
+      // en arrière-plan et continue de traiter les commandes.
+      onWillPop: () async {
+        try {
+          await const MethodChannel('r237/ussd').invokeMethod('moveToBack');
+        } catch (_) {}
+        return false;
+      },
       child: Scaffold(
         backgroundColor: const Color(0xFFF4F6FA),
         appBar: _buildAppBar(),
-        body: _buildBody(),
+        body: Column(
+          children: [
+            _bandeauAncienneApp(),
+            _bandeauAccessibilite(),
+            _bandeauConfigSim(),
+            Expanded(child: _buildBody()),
+          ],
+        ),
         bottomNavigationBar: _buildStatusStrip(),
       ),
     );
@@ -1429,7 +1639,8 @@ bool _hasFocus =false;
               ),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.cell_tower_rounded, color: Colors.white, size: 19),
+            child: const Icon(Icons.cell_tower_rounded,
+                color: Colors.white, size: 19),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -1470,7 +1681,8 @@ bool _hasFocus =false;
           icon: const Icon(Icons.more_vert_rounded, color: Color(0xFF06294D)),
           color: Colors.white,
           surfaceTintColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           onSelected: (int value) {
             switch (value) {
               case 1:
@@ -1486,9 +1698,14 @@ bool _hasFocus =false;
               case 4:
                 _testUssd();
                 break;
+              case 5:
+                _ouvrirConfigSim();
+                break;
             }
           },
           itemBuilder: (_) => const [
+            PopupMenuItem(value: 5, child: Text('Configurer les SIM')),
+            PopupMenuDivider(),
             PopupMenuItem(value: 1, child: Text("Copier l'ID du téléphone")),
             PopupMenuItem(value: 2, child: Text("Copier l'UID Firebase")),
             PopupMenuItem(value: 3, child: Text('Recharger la configuration')),
@@ -1514,7 +1731,8 @@ bool _hasFocus =false;
           .limit(30)
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
         if (snapshot.hasError) {
@@ -1531,7 +1749,8 @@ bool _hasFocus =false;
           return _buildMessage(
             icon: Icons.inbox_rounded,
             title: 'Aucune commande',
-            detail: 'Les commandes des clients apparaîtront ici automatiquement.',
+            detail:
+                'Les commandes des clients apparaîtront ici automatiquement.',
           );
         }
 
@@ -1596,8 +1815,8 @@ bool _hasFocus =false;
                     child: TransactionCard(
                       data: m,
                       docId: '${m['_doc']}',
-                      onLongPress: () =>
-                          _copier('Identifiant', '${m['idtransact'] ?? m['_doc']}'),
+                      onLongPress: () => _copier(
+                          'Identifiant', '${m['idtransact'] ?? m['_doc']}'),
                       // [28/10/2026] Seul moyen de faire une 2e tentative :
                       // l'admin la demande (le serveur, lui, ne relance jamais).
                       onRelaunch: () => _relancerCommande(
@@ -1700,7 +1919,9 @@ bool _hasFocus =false;
                 color: selected ? const Color(0xFF06294D) : Colors.white,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: selected ? const Color(0xFF06294D) : const Color(0xFFE6EAF0),
+                  color: selected
+                      ? const Color(0xFF06294D)
+                      : const Color(0xFFE6EAF0),
                 ),
               ),
               child: Text(
@@ -1753,7 +1974,8 @@ bool _hasFocus =false;
             Text(
               detail,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12, height: 1.4, color: Color(0xFF7A8699)),
+              style: const TextStyle(
+                  fontSize: 12, height: 1.4, color: Color(0xFF7A8699)),
             ),
           ],
         ),
@@ -1763,7 +1985,8 @@ bool _hasFocus =false;
 
   Widget _buildStatusStrip() {
     return GestureDetector(
-      onLongPress: () => _copier('ID du téléphone', ServerManager.instance.deviceId),
+      onLongPress: () =>
+          _copier('ID du téléphone', ServerManager.instance.deviceId),
       child: Container(
         color: const Color(0xFF0B1522),
         // Barre de gestes / boutons système du bas : sans cette marge, l'ID et
@@ -1798,7 +2021,9 @@ bool _hasFocus =false;
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    serverAuthUid.isEmpty ? 'UID  non connecté' : 'UID  $serverAuthUid',
+                    serverAuthUid.isEmpty
+                        ? 'UID  non connecté'
+                        : 'UID  $serverAuthUid',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -1819,6 +2044,158 @@ bool _hasFocus =false;
         ),
       ),
     );
+  }
+
+  /// [CONFIG SIM 29/10/2026] Écran de configuration des SIM ; au retour,
+  /// la configuration est rechargée et l'écoute des commandes réalignée.
+  Future<void> _ouvrirConfigSim() async {
+    final bool? enregistre = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(builder: (_) => const SimConfigScreen()),
+    );
+    if (enregistre == true) {
+      await _remoteReloadConfig();
+      if (mounted) setState(() {});
+      _toast('SIM configurées — le téléphone les utilise dès maintenant');
+    }
+  }
+
+  /// [RENOMMAGE 29/10/2026] L'app s'appelle désormais com.recharge237.serveur.
+  /// Android voit l'ancienne (com.example.projettest) comme une autre app :
+  /// tant qu'elle est installée, elle prend aussi des commandes. Ce bandeau
+  /// la signale et ouvre sa désinstallation en un geste.
+  bool _ancienneApp = false;
+
+  Future<void> _verifierAncienneApp() async {
+    try {
+      final bool presente = await const MethodChannel('r237/ussd')
+              .invokeMethod<bool>('oldAppInstalled') ??
+          false;
+      if (mounted && presente != _ancienneApp) {
+        setState(() => _ancienneApp = presente);
+      }
+    } catch (_) {}
+  }
+
+  Widget _bandeauAncienneApp() {
+    if (!_ancienneApp) return const SizedBox.shrink();
+    return Material(
+      color: const Color(0xFFFDECEC),
+      child: InkWell(
+        onTap: () =>
+            const MethodChannel('r237/ussd').invokeMethod('uninstallOldApp'),
+        child: const Padding(
+          padding: EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Row(
+            children: [
+              Icon(Icons.delete_forever_rounded, color: Color(0xFFD90200)),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'L\'ancienne version de ServeurApp est encore installée et '
+                  'prend aussi des commandes. Touche ici pour la désinstaller.',
+                  style: TextStyle(
+                      color: Color(0xFF8A0000), fontWeight: FontWeight.w600),
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: Color(0xFFD90200)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// [ACCESSIBILITE 29/10/2026] Bandeau rouge tant que l'accessibilité est
+  /// coupée : sans elle, aucune commande ne part et le téléphone ne se
+  /// réveille même pas (la session est refusée avant de composer).
+  Widget _bandeauAccessibilite() {
+    if (HealthWatch.instance.accessibiliteOk != false) {
+      return const SizedBox.shrink();
+    }
+    return Material(
+      color: const Color(0xFFFDECEC),
+      child: InkWell(
+        onTap: () => UssdLauncher.openAccessibilitySettings(),
+        child: const Padding(
+          padding: EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Row(
+            children: [
+              Icon(Icons.accessibility_new_rounded, color: Color(0xFFD90200)),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Accessibilité coupée : aucune commande ne peut être livrée. '
+                  'Touche ici, puis active « ServeurApp Recharge237 ».',
+                  style: TextStyle(
+                      color: Color(0xFF8A0000), fontWeight: FontWeight.w600),
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: Color(0xFFD90200)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Bandeau affiché tant qu'aucune SIM n'est déclarée.
+  Widget _bandeauConfigSim() {
+    if (ServerManager.instance.configured) return const SizedBox.shrink();
+    return Material(
+      color: const Color(0xFFFFF4E5),
+      child: InkWell(
+        onTap: _ouvrirConfigSim,
+        child: const Padding(
+          padding: EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Row(
+            children: [
+              Icon(Icons.sim_card_alert_rounded, color: Color(0xFFB25E00)),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'SIM non configurées : ce téléphone ne prend aucune commande. '
+                  'Touche ici pour choisir le rôle de chaque carte et saisir son PIN.',
+                  style: TextStyle(
+                      color: Color(0xFF7A4100), fontWeight: FontWeight.w600),
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: Color(0xFFB25E00)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static const MethodChannel _prefs = MethodChannel('r237/prefs');
+
+  Future<void> _annoncerDemarrage() async {
+    try {
+      final String? dernierUid =
+          await _prefs.invokeMethod<String>('get', {'key': 'start_uid'});
+      final int dernierEnvoi = int.tryParse(
+              await _prefs.invokeMethod<String>('get', {'key': 'start_at'}) ??
+                  '') ??
+          0;
+      final int maintenant = DateTime.now().millisecondsSinceEpoch;
+      if (dernierUid == serverAuthUid &&
+          maintenant - dernierEnvoi <
+              const Duration(hours: 12).inMilliseconds) {
+        debugPrint('[Telegram] démarrage déjà annoncé — pas de message');
+        return;
+      }
+      await SendEmail.sendMessagewithtelegram(
+        message: 'Serveur Recharge237 démarré\n'
+            'Téléphone : ${ServerManager.instance.deviceId}\n'
+            'UID Firebase : ${serverAuthUid.isEmpty ? "NON CONNECTÉ" : serverAuthUid}',
+      );
+      await _prefs
+          .invokeMethod('set', {'key': 'start_uid', 'value': serverAuthUid});
+      await _prefs
+          .invokeMethod('set', {'key': 'start_at', 'value': '$maintenant'});
+    } catch (e) {
+      debugPrint('[Telegram] annonce de démarrage impossible : $e');
+    }
   }
 
   void _copier(String label, String value) {
@@ -1852,11 +2229,19 @@ bool _hasFocus =false;
       TextEditingController(text: "1"),
     ]);
     await _closeUssdDialog();
-    await _channel.invokeMethod('multisessionUssd', {
-      'ussdCode': "*825*1*2*1*2#",
-      'slotIndex': 0,
-      'options': optionControllers.map((c) => c.text).toList(),
-    });
+    // [29/10/2026] Sans accessibilité, le plugin lève une exception qui
+    // n'était pas rattrapée (« Unhandled Exception … ACCESSIBILITY_NOT_ENABLED »).
+    try {
+      await _channel.invokeMethod('multisessionUssd', {
+        'ussdCode': "*825*1*2*1*2#",
+        'slotIndex': 0,
+        'options': optionControllers.map((c) => c.text).toList(),
+      });
+    } on PlatformException catch (e) {
+      _toast(e.code == 'ACCESSIBILITY_NOT_ENABLED'
+          ? 'Active le service d\'accessibilité de ServeurApp Recharge237'
+          : 'Test USSD impossible : ${e.message ?? e.code}');
+    }
   }
 }
 

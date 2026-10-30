@@ -84,12 +84,26 @@ String smsNormalise(String s) {
   final String lower = s.toLowerCase();
   final StringBuffer out = StringBuffer();
   const Map<String, String> accents = <String, String>{
-    'à': 'a', 'á': 'a', 'â': 'a', 'ä': 'a',
-    'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
-    'í': 'i', 'î': 'i', 'ï': 'i',
-    'ó': 'o', 'ô': 'o', 'ö': 'o',
-    'ú': 'u', 'ù': 'u', 'û': 'u', 'ü': 'u',
-    'ç': 'c', 'ñ': 'n',
+    'à': 'a',
+    'á': 'a',
+    'â': 'a',
+    'ä': 'a',
+    'é': 'e',
+    'è': 'e',
+    'ê': 'e',
+    'ë': 'e',
+    'í': 'i',
+    'î': 'i',
+    'ï': 'i',
+    'ó': 'o',
+    'ô': 'o',
+    'ö': 'o',
+    'ú': 'u',
+    'ù': 'u',
+    'û': 'u',
+    'ü': 'u',
+    'ç': 'c',
+    'ñ': 'n',
   };
   for (final int unit in lower.codeUnits) {
     final String ch = String.fromCharCode(unit);

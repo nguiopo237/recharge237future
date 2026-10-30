@@ -15,12 +15,25 @@ library;
 /// Minuscules, sans accents, espaces normalisés.
 String normalizeUssd(String raw) {
   const Map<String, String> accents = {
-    'à': 'a', 'â': 'a', 'ä': 'a', 'á': 'a',
+    'à': 'a',
+    'â': 'a',
+    'ä': 'a',
+    'á': 'a',
     'ç': 'c',
-    'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
-    'î': 'i', 'ï': 'i', 'í': 'i',
-    'ô': 'o', 'ö': 'o', 'ó': 'o',
-    'ù': 'u', 'û': 'u', 'ü': 'u', 'ú': 'u',
+    'é': 'e',
+    'è': 'e',
+    'ê': 'e',
+    'ë': 'e',
+    'î': 'i',
+    'ï': 'i',
+    'í': 'i',
+    'ô': 'o',
+    'ö': 'o',
+    'ó': 'o',
+    'ù': 'u',
+    'û': 'u',
+    'ü': 'u',
+    'ú': 'u',
     '’': "'",
   };
   final StringBuffer b = StringBuffer();
@@ -220,9 +233,11 @@ String offerDisplayTitle(String raw) {
           .firstMatch(t);
   if (debit != null) t = debit.group(1)!;
   // 3. Unités et durées lisibles.
-  t = t.replaceAllMapped(RegExp(r'(\d+(?:[.,]\d+)?)\s*GB\b', caseSensitive: false),
+  t = t.replaceAllMapped(
+      RegExp(r'(\d+(?:[.,]\d+)?)\s*GB\b', caseSensitive: false),
       (Match m) => '${m.group(1)!.replaceAll('.', ',')} Go');
-  t = t.replaceAllMapped(RegExp(r'(\d+(?:[.,]\d+)?)\s*MB\b', caseSensitive: false),
+  t = t.replaceAllMapped(
+      RegExp(r'(\d+(?:[.,]\d+)?)\s*MB\b', caseSensitive: false),
       (Match m) => '${m.group(1)!.replaceAll('.', ',')} Mo');
   t = t.replaceAllMapped(RegExp(r'/\s*(\d{1,2})\s*D\b', caseSensitive: false),
       (Match m) => ' / ${m.group(1)} ${m.group(1) == '1' ? 'jour' : 'jours'}');
@@ -230,14 +245,14 @@ String offerDisplayTitle(String raw) {
   t = t
       .replaceAllMapped(RegExp(r'\bd appels?\b', caseSensitive: false),
           (Match m) => "d'appels")
-      .replaceAllMapped(RegExp(r'\bjusqu a\b', caseSensitive: false),
-          (Match m) => "jusqu'à")
+      .replaceAllMapped(
+          RegExp(r'\bjusqu a\b', caseSensitive: false), (Match m) => "jusqu'à")
       .replaceAllMapped(RegExp(r'\bde credit\b', caseSensitive: false),
           (Match m) => 'de crédit')
-      .replaceAllMapped(RegExp(r'\bvalide\b', caseSensitive: false),
-          (Match m) => 'valable')
-      .replaceAllMapped(RegExp(r'\bdepot\b', caseSensitive: false),
-          (Match m) => 'Dépôt');
+      .replaceAllMapped(
+          RegExp(r'\bvalide\b', caseSensitive: false), (Match m) => 'valable')
+      .replaceAllMapped(
+          RegExp(r'\bdepot\b', caseSensitive: false), (Match m) => 'Dépôt');
   // 5. Espaces et ponctuation orphelins laissés par les retraits.
   t = t.replaceAll(RegExp(r'\s*\+\s*'), ' + ');
   t = t.replaceAllMapped(RegExp(r'(\d)\s*F\b'), (Match m) => '${m.group(1)} F');
@@ -421,16 +436,17 @@ bool asksPin(String raw) {
       .hasMatch(s);
 }
 
-bool asksAmount(String raw) => normalizeUssd(raw).contains('montant') ||
+bool asksAmount(String raw) =>
+    normalizeUssd(raw).contains('montant') ||
     normalizeUssd(raw).contains('amount');
 
-bool asksPhoneNumber(String raw) => RegExp(
-        r'numero|telephone|beneficiaire|destinataire|phone number|msisdn')
-    .hasMatch(normalizeUssd(raw));
+bool asksPhoneNumber(String raw) =>
+    RegExp(r'numero|telephone|beneficiaire|destinataire|phone number|msisdn')
+        .hasMatch(normalizeUssd(raw));
 
 /// Option "Confirmer" d'un écran de confirmation ("1) Confirmer"), ou `null`.
-String? findConfirmOption(String raw) =>
-    findMenuOption(raw, RegExp(r'^(confirmer|valider|oui|accepter|yes|confirm)'));
+String? findConfirmOption(String raw) => findMenuOption(
+    raw, RegExp(r'^(confirmer|valider|oui|accepter|yes|confirm)'));
 
 /// Numéros de téléphone camerounais (9 chiffres, éventuellement précédés
 /// de 237) cités dans l'écran.
@@ -445,7 +461,8 @@ bool phonesConsistent(String raw, String clientNumber) {
   final List<String> phones = mentionedPhones(raw);
   if (phones.isEmpty) return true;
   final String c = clientNumber.replaceAll(RegExp(r'[^0-9]'), '');
-  final String local = c.length == 12 && c.startsWith('237') ? c.substring(3) : c;
+  final String local =
+      c.length == 12 && c.startsWith('237') ? c.substring(3) : c;
   return phones.contains(local);
 }
 
@@ -523,3 +540,93 @@ bool isBlockingInfoScreen(String raw) {
 
 /// Texte sur une ligne pour les journaux.
 String oneLine(String raw) => raw.replaceAll(RegExp(r'\s*\n\s*'), ' | ').trim();
+
+// ── Forfaits du catalogue (29/10/2026) ──────────────────────────────────────
+
+/// Volume en Mo d'un texte (« 1,5 Go », « 600 MB », « 1GB »), ou `null`.
+List<double> volumesMo(String text) => RegExp(
+      r'(\d+(?:[.,]\d+)?)\s*(GB|GO|G\b|MB|MO)',
+      caseSensitive: false,
+    ).allMatches(text).map((RegExpMatch m) {
+      final double v = double.tryParse(m.group(1)!.replaceAll(',', '.')) ?? 0;
+      final String u = m.group(2)!.toUpperCase();
+      return u.startsWith('G') ? v * 1024 : v;
+    }).toList();
+
+/// Durée en jours d'un texte (« 30 jours », « /30D », « 7J », « 24H »), ou
+/// `null` si rien n'est lisible.
+int? dureeJours(String text) {
+  final RegExpMatch? j =
+      RegExp(r'(\d+)\s*(jours?|j\b|d\b|days?)', caseSensitive: false)
+          .firstMatch(text);
+  if (j != null) return int.tryParse(j.group(1)!);
+  final RegExpMatch? h =
+      RegExp(r'(\d+)\s*h\b', caseSensitive: false).firstMatch(text);
+  if (h != null) {
+    final int heures = int.tryParse(h.group(1)!) ?? 0;
+    return heures >= 24 ? heures ~/ 24 : 0;
+  }
+  return null;
+}
+
+/// [CATALOGUE 29/10/2026] Option à taper sur CET écran pour le forfait payé,
+/// ou `null` s'il n'y est pas (le serveur passe alors à la page suivante).
+///
+/// L'opérateur n'écrit pas les noms commerciaux du catalogue : on reconnaît
+/// l'offre d'abord par son PRIX, puis par son volume et sa durée quand
+/// plusieurs offres ont le même prix. Dans le doute (plusieurs candidates
+/// indiscernables), on ne choisit pas : mieux vaut un échec remboursable
+/// qu'un mauvais forfait activé.
+String? findBundleOption(
+  String screen, {
+  required int price,
+  String volume = '',
+  String validite = '',
+}) {
+  final List<UssdOffer> offres = offerRecords(<String>[screen]);
+  // Le prix peut être écrit en unités (« 1000U=… ») ou en francs (« 1000F »).
+  final RegExp prixEcrit =
+      RegExp('(^|[^0-9])$price\\s*(U|F|FCFA)\\b', caseSensitive: false);
+  final List<UssdOffer> memePrix = offres
+      .where((UssdOffer o) => o.price == price || prixEcrit.hasMatch(o.label))
+      .toList();
+
+  final List<double> volCible = volumesMo(volume);
+  final int? joursCible = dureeJours(validite);
+  int score(UssdOffer o) {
+    int s = 0;
+    final List<double> v = volumesMo(o.label);
+    if (volCible.isNotEmpty &&
+        v.any((double x) => volCible.any((double c) => (x - c).abs() < 1))) {
+      s += 2;
+    }
+    final int? j = dureeJours(o.label);
+    if (joursCible != null && j != null && j == joursCible) s += 1;
+    return s;
+  }
+
+  if (memePrix.isEmpty) {
+    // Aucun prix reconnu : on n'accepte qu'une offre UNIQUE dont le volume ET
+    // la durée correspondent exactement, et qui n'affiche AUCUN prix (sinon
+    // c'est que son prix est différent de celui payé).
+    if (volCible.isEmpty || joursCible == null) return null;
+    final RegExp prixUnites = RegExp(r'\d+\s*U\s*=', caseSensitive: false);
+    final List<UssdOffer> exactes = offres
+        .where((UssdOffer o) =>
+            score(o) == 3 && o.price == null && !prixUnites.hasMatch(o.label))
+        .toList();
+    return exactes.length == 1 ? exactes.first.key : null;
+  }
+  if (memePrix.length == 1) {
+    final UssdOffer o = memePrix.first;
+    // Prix unique sur l'écran : on accepte, sauf si le volume lu contredit
+    // clairement celui du forfait payé.
+    final List<double> v = volumesMo(o.label);
+    if (volCible.isNotEmpty && v.isNotEmpty && score(o) < 2) return null;
+    return o.key;
+  }
+  memePrix.sort((UssdOffer a, UssdOffer b) => score(b).compareTo(score(a)));
+  final int meilleur = score(memePrix[0]);
+  if (meilleur == 0 || score(memePrix[1]) == meilleur) return null;
+  return memePrix[0].key;
+}

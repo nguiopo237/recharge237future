@@ -24,7 +24,8 @@ void main() {
 
   test('double à chaque échec et plafonne à 5 minutes', () {
     final List<int> attentes = <int>[
-      for (int i = 0; i < 10; i++) b.echec(Exception('Quota exceeded')).inSeconds,
+      for (int i = 0; i < 10; i++)
+        b.echec(Exception('Quota exceeded')).inSeconds,
     ];
     expect(attentes, <int>[5, 10, 20, 40, 80, 160, 300, 300, 300, 300]);
     expect(b.saturation, isTrue);
@@ -53,8 +54,10 @@ void main() {
     expect(appels, 0);
   });
 
-  test('executer compte les erreurs transitoires, relance les autres', () async {
-    final int? r = await b.executer<int>(() async => throw TimeoutException('x'));
+  test('executer compte les erreurs transitoires, relance les autres',
+      () async {
+    final int? r =
+        await b.executer<int>(() async => throw TimeoutException('x'));
     expect(r, isNull);
     expect(b.echecsConsecutifs, 1);
     maintenant = maintenant.add(const Duration(minutes: 1));
@@ -63,8 +66,11 @@ void main() {
   });
 
   test('reconnaît le message de quota', () {
-    expect(FirestoreBackoff.estSaturation(
-        Exception('8 RESOURCE_EXHAUSTED: Quota exceeded.')), isTrue);
-    expect(FirestoreBackoff.estSaturation(Exception('permission-denied')), isFalse);
+    expect(
+        FirestoreBackoff.estSaturation(
+            Exception('8 RESOURCE_EXHAUSTED: Quota exceeded.')),
+        isTrue);
+    expect(FirestoreBackoff.estSaturation(Exception('permission-denied')),
+        isFalse);
   });
 }

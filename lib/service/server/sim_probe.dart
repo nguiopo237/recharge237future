@@ -74,11 +74,14 @@ class SimProbe {
   static const MethodChannel _channel = MethodChannel('r237/ussd');
 
   /// MCC/MNC des opérateurs camerounais (secours quand le nom de la SIM est
-  /// inexploitable). 62401 = MTN, 62402 = Orange, 62403 = CAMTEL.
+  /// inexploitable). 62401 = MTN, 62402 = Orange, 62403 et 62405 = CAMTEL.
   static const Map<String, String> _operatorByMnc = {
     '62401': 'mtn',
     '62402': 'orange',
     '62403': 'camtel',
+    // [29/10/2026] CAMTEL 4G (Blue) : constaté sur les 2 SIM CAMTEL du
+    // Redmi M2003J15SC, rejetées à tort comme « autre opérateur ».
+    '62405': 'camtel',
   };
 
   /// Normalise un opérateur : marque écrite sur la carte, puis MCC/MNC.

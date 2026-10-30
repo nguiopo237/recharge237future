@@ -6,9 +6,12 @@ import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-List<Listnumberspaymodel> listnumberspaymodelFromJson(String str) => List<Listnumberspaymodel>.from(json.decode(str).map((x) => Listnumberspaymodel.fromJson(x)));
+List<Listnumberspaymodel> listnumberspaymodelFromJson(String str) =>
+    List<Listnumberspaymodel>.from(
+        json.decode(str).map((x) => Listnumberspaymodel.fromJson(x)));
 
-String listnumberspaymodelToJson(List<Listnumberspaymodel> data) => json.encode(List<dynamic>.from(data.map((x) => x.toJson())));
+String listnumberspaymodelToJson(List<Listnumberspaymodel> data) =>
+    json.encode(List<dynamic>.from(data.map((x) => x.toJson())));
 
 class Listnumberspaymodel {
   int? id;
@@ -29,23 +32,24 @@ class Listnumberspaymodel {
     this.idtransact,
   });
 
-  factory Listnumberspaymodel.fromJson(Map<String, dynamic> json) => Listnumberspaymodel(
-    id: json["id"],
-    numeros: json["numeros"],
-    amount: json["amount"],
-    numeror: json["numeror"],
-    heure: json["heure"],
-    statut: json["statut"],
-    idtransact: json["idtransact"],
-  );
+  factory Listnumberspaymodel.fromJson(Map<String, dynamic> json) =>
+      Listnumberspaymodel(
+        id: json["id"],
+        numeros: json["numeros"],
+        amount: json["amount"],
+        numeror: json["numeror"],
+        heure: json["heure"],
+        statut: json["statut"],
+        idtransact: json["idtransact"],
+      );
 
   Map<String, dynamic> toJson() => {
-    "id": id,
-    "numeros": numeros,
-    "amount": amount,
-    "numeror": numeror,
-    "heure": heure,
-    "statut": statut,
-    "idtransact": idtransact,
-  };
+        "id": id,
+        "numeros": numeros,
+        "amount": amount,
+        "numeror": numeror,
+        "heure": heure,
+        "statut": statut,
+        "idtransact": idtransact,
+      };
 }

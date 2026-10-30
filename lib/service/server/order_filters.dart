@@ -17,7 +17,8 @@ const Duration kMaxOrderAge = Duration(hours: 12);
 /// `heure` est écrit par les apps sous la forme `DateTime.now().toUtc()`
 /// convertie en texte (ex. "2026-10-27 23:05:12.345Z"). Illisible ou trop
 /// ancienne => `false` (on ne traite pas, par prudence).
-bool isRecentOrder(Object? heure, {DateTime? now, Duration maxAge = kMaxOrderAge}) {
+bool isRecentOrder(Object? heure,
+    {DateTime? now, Duration maxAge = kMaxOrderAge}) {
   if (heure == null) return false;
   final DateTime? t = DateTime.tryParse(heure.toString().trim());
   if (t == null) return false;
@@ -40,6 +41,9 @@ const List<String> kOperationTypes = [
   // pour que la configuration admin, le contrôle et les tests soient prêts le
   // jour où le flow sera fourni (cf. lib/service/ussd/orange_ussd_manager.dart).
   'orange_airtime',
+  // [OFFRES PERSO 29/10/2026] Good Deal Orange : requête gratuite + activation,
+  // sur le même téléphone (comme `mtn_forfait`).
+  'orange_forfait',
 ];
 
 /// Routage décidé par l'admin : quel téléphone exécute quel type de recharge
@@ -55,9 +59,81 @@ const List<String> kOperationTypes = [
 /// choisie : un téléphone à SIM MTN doit traiter les deux, sinon le client
 /// reçoit une liste d'offres que personne n'active.
 bool handlesOperation(List<String> handles, String type) {
+  if (handles.contains('none')) return false;
   if (handles.isEmpty) return true;
   if (handles.contains('all')) return true;
   return handles.contains(type);
+}
+
+/// [ROUTAGE 29/10/2026] Une famille de commandes qu'un téléphone écoute :
+/// statuts concernés, et `operateur_cible` exigé (`null` = n'importe lequel,
+/// y compris absent — les commandes CAMTEL n'ont pas toujours ce champ).
+class OrderRoute {
+  final List<String> statuses;
+  final String? operateur;
+  const OrderRoute(this.statuses, [this.operateur]);
+
+  @override
+  String toString() =>
+      '${statuses.join('/')}${operateur == null ? '' : ' · $operateur'}';
+}
+
+/// [ROUTAGE 29/10/2026] Ce que CE téléphone doit écouter, d'après `handles`.
+///
+/// Avant, chaque téléphone écoutait toutes les commandes à traiter de tous
+/// les opérateurs, y compris chaque commande créée et pas encore payée
+/// (statut "0") : chaque changement coûtait une lecture PAR téléphone.
+/// Désormais un téléphone CAMTEL ne voit plus les commandes MTN, et seul un
+/// téléphone Good Deal voit les requêtes au statut "0".
+///
+/// Correspondance (identique aux branches de check()) :
+///  - camtel_pre    : "1", "9" (postpayé, accepté comme avant) et "11"
+///                    (point de vente) — sans filtre d'opérateur, les
+///                    anciennes commandes CAMTEL n'ayant pas le champ ;
+///  - camtel_post   : "9" et "6" ;
+///  - mtn_airtime   : "1"/"11" avec `mtn_airtime` ;
+///  - mtn_forfait   : "0" avec `mtn_forfait` (requête), "1"/"11" avec
+///                    `mtn_forfait_activate` (activation Boost) et avec
+///                    `mtn_bundle` (forfait du catalogue) ;
+///  - orange_airtime: "1"/"11" avec `orange_airtime`.
+///
+/// `null` = tout écouter (handles vides, `all`, ou valeurs inconnues : on ne
+/// risque jamais de laisser une commande sans téléphone).
+List<OrderRoute>? routesForHandles(List<String> handles) {
+  final Set<String> h =
+      handles.map((String e) => e.trim().toLowerCase()).toSet();
+  if (h.isEmpty || h.contains('all')) return null;
+  // [CONFIG SIM 29/10/2026] Téléphone non configuré : n'écoute rien.
+  if (h.contains('none')) return const <OrderRoute>[];
+  // L'écran Serveurs écrit aussi les sous-types MTN : ils relèvent de
+  // `mtn_forfait` (même SIM, même menu).
+  if (h.remove('mtn_forfait_activate') | h.remove('mtn_bundle'))
+    h.add('mtn_forfait');
+  if (h.remove('orange_forfait_activate')) h.add('orange_forfait');
+  if (h.any((String e) => !kOperationTypes.contains(e))) return null;
+  final List<OrderRoute> routes = <OrderRoute>[];
+  if (h.contains('camtel_pre'))
+    routes.add(const OrderRoute(<String>['1', '9', '11']));
+  if (h.contains('camtel_post'))
+    routes.add(const OrderRoute(<String>['6', '9']));
+  if (h.contains('mtn_airtime')) {
+    routes.add(const OrderRoute(<String>['1', '11'], 'mtn_airtime'));
+  }
+  if (h.contains('mtn_forfait')) {
+    routes.add(const OrderRoute(<String>['0'], 'mtn_forfait'));
+    routes.add(const OrderRoute(<String>['1', '11'], 'mtn_forfait_activate'));
+    // [CATALOGUE 29/10/2026] Forfaits MTN du catalogue : même SIM, même menu.
+    routes.add(const OrderRoute(<String>['1', '11'], 'mtn_bundle'));
+  }
+  if (h.contains('orange_airtime')) {
+    routes.add(const OrderRoute(<String>['1', '11'], 'orange_airtime'));
+  }
+  if (h.contains('orange_forfait')) {
+    routes.add(const OrderRoute(<String>['0'], 'orange_forfait'));
+    routes
+        .add(const OrderRoute(<String>['1', '11'], 'orange_forfait_activate'));
+  }
+  return routes.isEmpty ? null : routes;
 }
 
 /// [28/10/2026] Montant minimal accepté par les opérateurs (MTN, Orange,
@@ -69,7 +145,8 @@ const int kMinRechargeAmount = 100;
 bool isAmountAllowed(Object? amount) {
   final int? v = amount is num
       ? amount.toInt()
-      : int.tryParse((amount?.toString() ?? '').replaceAll(RegExp(r'[^0-9]'), ''));
+      : int.tryParse(
+          (amount?.toString() ?? '').replaceAll(RegExp(r'[^0-9]'), ''));
   return v != null && v >= kMinRechargeAmount;
 }
 
@@ -112,10 +189,14 @@ String? relaunchStatusFor(Map<String, dynamic> data) {
       return op == 'camtel_pre' ? '1' : '6';
     case 'mtn_airtime':
     case 'mtn_forfait_activate':
+    case 'mtn_bundle':
       return '1';
     case 'mtn_forfait':
+    case 'orange_forfait':
       // Requête gratuite de la liste d'offres (aucun paiement).
       return '0';
+    case 'orange_forfait_activate':
+      return '1';
     case 'orange_airtime':
       return null;
   }
@@ -136,7 +217,8 @@ const Set<String> kNotRelaunchableStatuses = {
 bool canRelaunch(Map<String, dynamic> data) {
   final String status = (data['status'] ?? '').toString().trim();
   if (kNotRelaunchableStatuses.contains(status)) return false;
-  if ((data['relance_demandee'] as Object?) == true) return false; // déjà demandée
+  if ((data['relance_demandee'] as Object?) == true)
+    return false; // déjà demandée
   return relaunchStatusFor(data) != null;
 }
 

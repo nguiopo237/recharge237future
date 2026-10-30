@@ -9,6 +9,7 @@ const Map<String, String> kOperationLabels = <String, String>{
   'camtel_post': 'CAMTEL postpayé',
   'mtn_airtime': 'MTN crédit',
   'mtn_forfait_activate': 'MTN Boost / Good Deal',
+  'mtn_bundle': 'MTN forfait catalogue',
   'orange_airtime': 'Orange crédit',
 };
 
@@ -22,6 +23,7 @@ const Map<String, Set<String>> kDeliveredStatuses = <String, Set<String>>{
   'camtel_post': <String>{'8', '10'},
   'mtn_airtime': <String>{'21'},
   'mtn_forfait_activate': <String>{'34', '5'},
+  'mtn_bundle': <String>{'34'},
   'orange_airtime': <String>{'41'},
 };
 
@@ -31,6 +33,7 @@ const Map<String, Set<String>> kFailedStatuses = <String, Set<String>>{
   'camtel_post': <String>{'4'},
   'mtn_airtime': <String>{'22'},
   'mtn_forfait_activate': <String>{'35'},
+  'mtn_bundle': <String>{'35'},
   'orange_airtime': <String>{'42'},
 };
 
@@ -75,8 +78,7 @@ class SalesReport {
     this.commissions = const <String, double>{},
   });
 
-  int get totalVolume =>
-      apps.fold(0, (int s, AppSales a) => s + a.volume);
+  int get totalVolume => apps.fold(0, (int s, AppSales a) => s + a.volume);
   int get totalDelivered =>
       apps.fold(0, (int s, AppSales a) => s + a.delivered);
   int get totalFailed => apps.fold(0, (int s, AppSales a) => s + a.failed);
@@ -122,7 +124,8 @@ String formatHeure(DateTime d) =>
 
 int? _montant(Object? raw) {
   if (raw is num) return raw.round();
-  final String digits = (raw ?? '').toString().replaceAll(RegExp(r'[^0-9]'), '');
+  final String digits =
+      (raw ?? '').toString().replaceAll(RegExp(r'[^0-9]'), '');
   if (digits.isEmpty) return null;
   return int.tryParse(digits);
 }
@@ -141,7 +144,8 @@ SalesReport buildSalesReport({
   final Map<String, AppSales> byKey = <String, AppSales>{};
 
   for (final Map<String, dynamic> t in transactions) {
-    final String op = (t['operateur_cible'] ?? '').toString().trim().toLowerCase();
+    final String op =
+        (t['operateur_cible'] ?? '').toString().trim().toLowerCase();
     if (kNonBillableOperations.contains(op)) continue;
 
     final String key = op.isEmpty ? 'camtel_pre' : op;
@@ -150,8 +154,8 @@ SalesReport buildSalesReport({
 
     final String status = (t['status'] ?? '').toString().trim();
     final int amount = _montant(t['amount']) ?? 0;
-    final Set<String> delivered =
-        kDeliveredStatuses[key] ?? const <String>{'3', '8', '10', '21', '34', '41', '11', '5'};
+    final Set<String> delivered = kDeliveredStatuses[key] ??
+        const <String>{'3', '8', '10', '21', '34', '41', '11', '5'};
     final Set<String> failed =
         kFailedStatuses[key] ?? const <String>{'4', '22', '32', '35', '42'};
 
@@ -234,13 +238,13 @@ String composeAccountingMessage({
   } else {
     for (final AppSales a in report.appsActives) {
       b.writeln(a.label);
-      b.writeln('  Ventes   : ${formatFcfa(a.volume)} (${a.delivered} livrée(s))');
+      b.writeln(
+          '  Ventes   : ${formatFcfa(a.volume)} (${a.delivered} livrée(s))');
       if (a.failed > 0) b.writeln('  Échecs   : ${a.failed}');
       if (a.pending > 0) b.writeln('  En cours : ${a.pending}');
       if (a.commission > 0) {
         final double? taux = report.commissions[a.key];
-        b.writeln(
-            '  Comm.    : ${formatFcfa(a.commission)}'
+        b.writeln('  Comm.    : ${formatFcfa(a.commission)}'
             '${taux == null ? '' : ' (${taux.toStringAsFixed(taux == taux.roundToDouble() ? 0 : 1)} %)'}');
       }
     }
@@ -263,7 +267,8 @@ String composeAccountingMessage({
       final bool bas = seuilSolde != null && l.balance < seuilSolde;
       b.writeln('  ${l.label} : ${formatFcfa(l.balance)}'
           '${bas ? '  ⚠️ SOLDE BAS' : ''}');
-      b.writeln('    relevé le ${formatDate(l.at)} à ${formatHeure(l.at)} (${l.source})');
+      b.writeln(
+          '    relevé le ${formatDate(l.at)} à ${formatHeure(l.at)} (${l.source})');
     }
   }
 

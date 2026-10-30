@@ -17,7 +17,8 @@ class ServerStatusInfo {
 
   const ServerStatusInfo(this.label, this.color, this.icon, this.kind);
 
-  bool get isPending => kind == StatusKind.waiting || kind == StatusKind.processing;
+  bool get isPending =>
+      kind == StatusKind.waiting || kind == StatusKind.processing;
   bool get isSuccess => kind == StatusKind.success;
   bool get isFailure => kind == StatusKind.failed;
 }
@@ -36,14 +37,14 @@ ServerStatusInfo serverStatusInfo(Object? rawStatus) {
   switch (s) {
     // ── Cycle client (paiement) ────────────────────────────────────────────
     case '0':
-      return const ServerStatusInfo(
-          'En attente de paiement', _amber, Icons.schedule_rounded, StatusKind.waiting);
+      return const ServerStatusInfo('En attente de paiement', _amber,
+          Icons.schedule_rounded, StatusKind.waiting);
     case '1':
       return const ServerStatusInfo(
           'À livrer', _blue, Icons.bolt_rounded, StatusKind.processing);
     case '2':
-      return const ServerStatusInfo(
-          'En cours de livraison', _blue, Icons.sync_rounded, StatusKind.processing);
+      return const ServerStatusInfo('En cours de livraison', _blue,
+          Icons.sync_rounded, StatusKind.processing);
     case '3':
       return const ServerStatusInfo(
           'Livré', _green, Icons.check_circle_rounded, StatusKind.success);
@@ -56,14 +57,14 @@ ServerStatusInfo serverStatusInfo(Object? rawStatus) {
       return const ServerStatusInfo('CAMTEL postpayé', _blue,
           Icons.account_balance_rounded, StatusKind.processing);
     case '9':
-      return const ServerStatusInfo(
-          'SIM post en cours', _blue, Icons.sim_card_rounded, StatusKind.processing);
+      return const ServerStatusInfo('SIM post en cours', _blue,
+          Icons.sim_card_rounded, StatusKind.processing);
     case '10':
-      return const ServerStatusInfo(
-          'SIM rechargée', _green, Icons.check_circle_rounded, StatusKind.success);
+      return const ServerStatusInfo('SIM rechargée', _green,
+          Icons.check_circle_rounded, StatusKind.success);
     case '11':
-      return const ServerStatusInfo(
-          'Activé (point de vente)', _green, Icons.storefront_rounded, StatusKind.success);
+      return const ServerStatusInfo('Activé (point de vente)', _green,
+          Icons.storefront_rounded, StatusKind.success);
     case '12':
       return const ServerStatusInfo(
           'CAMTEL en cours', _blue, Icons.sync_rounded, StatusKind.processing);
@@ -71,16 +72,16 @@ ServerStatusInfo serverStatusInfo(Object? rawStatus) {
       return const ServerStatusInfo('Forfait activé (admin)', _green,
           Icons.card_giftcard_rounded, StatusKind.success);
     case '8':
-      return const ServerStatusInfo('Traité par SMS', _blue, Icons.sms_rounded,
-          StatusKind.success);
+      return const ServerStatusInfo(
+          'Traité par SMS', _blue, Icons.sms_rounded, StatusKind.success);
 
     // ── MTN crédit ────────────────────────────────────────────────────────
     case '20':
-      return const ServerStatusInfo(
-          'MTN — crédit en cours', _blue, Icons.sync_rounded, StatusKind.processing);
+      return const ServerStatusInfo('MTN — crédit en cours', _blue,
+          Icons.sync_rounded, StatusKind.processing);
     case '21':
-      return const ServerStatusInfo(
-          'MTN — crédit livré', _green, Icons.check_circle_rounded, StatusKind.success);
+      return const ServerStatusInfo('MTN — crédit livré', _green,
+          Icons.check_circle_rounded, StatusKind.success);
     case '22':
       return const ServerStatusInfo(
           'MTN — échec', _red, Icons.error_rounded, StatusKind.failed);
@@ -93,33 +94,32 @@ ServerStatusInfo serverStatusInfo(Object? rawStatus) {
       return const ServerStatusInfo('MTN — offres prêtes', _green,
           Icons.list_alt_rounded, StatusKind.success);
     case '32':
-      return const ServerStatusInfo(
-          'MTN — offres indisponibles', _red, Icons.error_rounded, StatusKind.failed);
+      return const ServerStatusInfo('MTN — offres indisponibles', _red,
+          Icons.error_rounded, StatusKind.failed);
     case '33':
-      return const ServerStatusInfo('MTN — activation', _blue,
-          Icons.sync_rounded, StatusKind.processing);
+      return const ServerStatusInfo(
+          'MTN — activation', _blue, Icons.sync_rounded, StatusKind.processing);
     case '34':
       return const ServerStatusInfo('MTN — forfait activé', _green,
           Icons.check_circle_rounded, StatusKind.success);
     case '35':
-      return const ServerStatusInfo(
-          'MTN — activation échouée', _red, Icons.error_rounded, StatusKind.failed);
+      return const ServerStatusInfo('MTN — activation échouée', _red,
+          Icons.error_rounded, StatusKind.failed);
 
     // ── Orange / à venir ──────────────────────────────────────────────────
     case '40':
-      return const ServerStatusInfo(
-          'Orange — en cours', _orange, Icons.sync_rounded, StatusKind.processing);
+      return const ServerStatusInfo('Orange — en cours', _orange,
+          Icons.sync_rounded, StatusKind.processing);
     case '41':
-      return const ServerStatusInfo(
-          'Orange — livré', _green, Icons.check_circle_rounded, StatusKind.success);
+      return const ServerStatusInfo('Orange — livré', _green,
+          Icons.check_circle_rounded, StatusKind.success);
     case '42':
       return const ServerStatusInfo(
           'Orange — échec', _red, Icons.error_rounded, StatusKind.failed);
 
     default:
-      return ServerStatusInfo(
-          s.isEmpty ? 'Statut inconnu' : 'Statut $s', _grey, Icons.help_outline_rounded,
-          StatusKind.neutral);
+      return ServerStatusInfo(s.isEmpty ? 'Statut inconnu' : 'Statut $s', _grey,
+          Icons.help_outline_rounded, StatusKind.neutral);
   }
 }
 

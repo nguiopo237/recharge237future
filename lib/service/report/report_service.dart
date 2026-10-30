@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
-import 'package:telephony/telephony.dart';
 
 import '../sendmail/send_mail.dart';
 import '../server/firestore_backoff.dart';
+import '../sms/sms_receiver.dart';
 import '../server/slot_config.dart';
 import 'sales_report.dart';
 import 'sms_balance_parser.dart';
@@ -117,17 +117,19 @@ class ReportService {
   void stop() {
     _timer?.cancel();
     _timer = null;
+    _smsSub?.cancel();
+    _smsSub = null;
     _smsActif = false;
   }
 
   Future<void> rechargerConfig() async {
     try {
-      final DocumentSnapshot<Map<String, dynamic>> doc =
-          await FirebaseFirestore.instance
-              .collection('app_config')
-              .doc('report')
-              .get()
-              .timeout(const Duration(seconds: 10));
+      final DocumentSnapshot<Map<String, dynamic>> doc = await FirebaseFirestore
+          .instance
+          .collection('app_config')
+          .doc('report')
+          .get()
+          .timeout(const Duration(seconds: 10));
       _config = ReportConfig.fromMap(doc.data());
     } catch (e) {
       debugPrint('[Report] config illisible, valeurs par défaut : $e');
@@ -139,12 +141,12 @@ class ReportService {
   Future<void> _rechargerSeuilsEmplacements() async {
     if (_deviceId.isEmpty) return;
     try {
-      final DocumentSnapshot<Map<String, dynamic>> doc =
-          await FirebaseFirestore.instance
-              .collection('servers')
-              .doc(_deviceId)
-              .get()
-              .timeout(const Duration(seconds: 10));
+      final DocumentSnapshot<Map<String, dynamic>> doc = await FirebaseFirestore
+          .instance
+          .collection('servers')
+          .doc(_deviceId)
+          .get()
+          .timeout(const Duration(seconds: 10));
       _seuilsParOperateur =
           minBalanceByOperator(slotSpecsFromDocument(doc.data() ?? const {}));
     } catch (e) {
@@ -198,19 +200,20 @@ class ReportService {
 
   Future<bool> _dejaEnvoye(DateTime jour) async {
     try {
-      final DocumentSnapshot<Map<String, dynamic>> doc =
-          await FirebaseFirestore.instance
-              .collection('reports')
-              .doc(_cle(jour))
-              .get(const GetOptions(source: Source.server))
-              .timeout(const Duration(seconds: 10));
+      final DocumentSnapshot<Map<String, dynamic>> doc = await FirebaseFirestore
+          .instance
+          .collection('reports')
+          .doc(_cle(jour))
+          .get(const GetOptions(source: Source.server))
+          .timeout(const Duration(seconds: 10));
       return doc.exists;
     } catch (e) {
       // [QUOTA 29/10/2026] Avant : une erreur répondait « pas encore
       // envoyé », et le bilan (qui relit toutes les transactions de la
       // veille) était relancé CHAQUE MINUTE tant que la base refusait. On
       // répond maintenant « ne rien faire » et on ralentit.
-      if (FirestoreBackoff.estTransitoire(e)) FirestoreBackoff.instance.echec(e);
+      if (FirestoreBackoff.estTransitoire(e))
+        FirestoreBackoff.instance.echec(e);
       return true;
     }
   }
@@ -225,7 +228,8 @@ class ReportService {
     final DateTime debut = DateTime(day.year, day.month, day.day);
     final DateTime fin = debut.add(const Duration(days: 1));
 
-    final List<Map<String, dynamic>> transactions = await _transactions(debut, fin);
+    final List<Map<String, dynamic>> transactions =
+        await _transactions(debut, fin);
     final SalesReport rapport = buildSalesReport(
       transactions: transactions,
       from: debut,
@@ -261,18 +265,19 @@ class ReportService {
   Future<List<Map<String, dynamic>>> _transactions(
       DateTime debut, DateTime fin) async {
     try {
-      final QuerySnapshot<Map<String, dynamic>> snap =
-          await FirebaseFirestore.instance
-              .collection('Transact')
-              .where('heure', isGreaterThanOrEqualTo: _iso(debut.toUtc()))
-              // [QUOTA 29/10/2026] Borne haute : sans elle, la requête relisait
-              // aussi toutes les transactions du jour en cours. Borne au JOUR
-              // suivant (« 2026-10-30 ») : quel que soit le format écrit
-              // (« T » ou espace), rien de la période n'est oublié ; le tri
-              // exact reste fait ci-dessous.
-              .where('heure', isLessThan: _jourSeul(fin.toUtc().add(const Duration(days: 1))))
-              .get()
-              .timeout(const Duration(seconds: 25));
+      final QuerySnapshot<Map<String, dynamic>> snap = await FirebaseFirestore
+          .instance
+          .collection('Transact')
+          .where('heure', isGreaterThanOrEqualTo: _iso(debut.toUtc()))
+          // [QUOTA 29/10/2026] Borne haute : sans elle, la requête relisait
+          // aussi toutes les transactions du jour en cours. Borne au JOUR
+          // suivant (« 2026-10-30 ») : quel que soit le format écrit
+          // (« T » ou espace), rien de la période n'est oublié ; le tri
+          // exact reste fait ci-dessous.
+          .where('heure',
+              isLessThan: _jourSeul(fin.toUtc().add(const Duration(days: 1))))
+          .get()
+          .timeout(const Duration(seconds: 25));
       final DateTime d = debut.toUtc();
       final DateTime f = fin.toUtc();
       final List<Map<String, dynamic>> out = <Map<String, dynamic>>[];
@@ -308,7 +313,8 @@ class ReportService {
           source: m['source']?.toString() ?? 'SMS',
         ));
       }
-      out.sort((BalanceLine a, BalanceLine b) => a.operator.compareTo(b.operator));
+      out.sort(
+          (BalanceLine a, BalanceLine b) => a.operator.compareTo(b.operator));
       return out;
     } catch (e) {
       debugPrint('[Report] soldes illisibles : $e');
@@ -333,7 +339,10 @@ class ReportService {
   Future<void> _ecrireRapport(
       DateTime debut, SalesReport rapport, String message) async {
     try {
-      await FirebaseFirestore.instance.collection('reports').doc(_cle(debut)).set(
+      await FirebaseFirestore.instance
+          .collection('reports')
+          .doc(_cle(debut))
+          .set(
         <String, dynamic>{
           'jour': _cle(debut),
           'deviceId': _deviceId,
@@ -364,14 +373,16 @@ class ReportService {
 
   // ── SMS opérateurs ───────────────────────────────────────────────────────
 
+  StreamSubscription<SmsRecu>? _smsSub;
+
+  /// [SMS 29/10/2026] Écoute des SMS opérateurs via le récepteur natif
+  /// (SmsReceiver, canal `r237/sms`), qui remplace le paquet `telephony`.
   void _demarrerSms() {
     if (_smsActif) return;
     try {
-      // `listenIncomingSms` ne rend rien à annuler : l'écoute vit tant que
-      // l'app tourne (c'est un serveur, il tourne 24/7).
-      Telephony.instance.listenIncomingSms(
-        onNewMessage: (SmsMessage m) => _onSms(m.body ?? '', m.address ?? ''),
-        listenInBackground: false,
+      _smsSub = SmsReceiver.flux.listen(
+        (SmsRecu m) => _onSms(m.body, m.address),
+        onError: (Object e) => debugPrint('[Report] SMS illisible : $e'),
       );
       _smsActif = true;
       debugPrint('[Report] écoute des SMS opérateurs démarrée');
@@ -385,12 +396,47 @@ class ReportService {
     final SmsParse parse = parseSmsBody(body, sender: sender);
     debugPrint('[SMS] $sender → '
         '${parse.recognised ? 'solde=${parse.balance} montant=${parse.amount} ${parse.directionLabel}' : 'non reconnu (${parse.reason})'}');
-    await _archiverSms(sender, body, parse);
+    // [QUOTA 29/10/2026] Chaque recharge déclenche un SMS de l'opérateur :
+    // l'archiver coûtait 1 écriture par commande, et enregistrer le solde
+    // 1 lecture + 1 écriture de plus. Sur le plan gratuit (20 000
+    // écritures/jour), c'était ~30 % du budget à 10 000 commandes.
+    //  - seuls les SMS NON reconnus sont archivés (ils servent à ajouter
+    //    des règles au lecteur de SMS) ;
+    //  - le solde est écrit au plus une fois toutes les 30 min par
+    //    opérateur, sauf passage sous le seuil d'alerte (immédiat).
+    if (!parse.recognised) await _archiverSms(sender, body, parse);
     if (parse.balance != null) {
-      await _enregistrerSolde(parse);
+      if (_soldeAEcrire(parse)) await _enregistrerSolde(parse);
     } else if (!parse.recognised) {
       await _signalerSms(sender, body, parse.reason);
     }
+  }
+
+  static const Duration _intervalleSolde = Duration(minutes: 30);
+  final Map<String, DateTime> _soldeEcritA = <String, DateTime>{};
+  final Map<String, int> _soldeEcrit = <String, int>{};
+
+  /// Vrai si ce relevé de solde doit partir dans la base maintenant.
+  bool _soldeAEcrire(SmsParse parse) {
+    final String op = parse.operator.isEmpty ? 'inconnu' : parse.operator;
+    final int balance = parse.balance!;
+    final DateTime? dernier = _soldeEcritA[op];
+    final int seuil = seuilPour(op);
+    final int? precedent = _soldeEcrit[op];
+    final bool passeSousSeuil = seuil > 0 &&
+        balance < seuil &&
+        (precedent == null || precedent >= seuil);
+    final bool du = dernier == null ||
+        DateTime.now().difference(dernier) >= _intervalleSolde;
+    if (!du && !passeSousSeuil) {
+      debugPrint('[Report] solde $op ${formatFcfa(balance)} gardé en mémoire '
+          '(prochaine écriture dans '
+          '${_intervalleSolde.inMinutes - DateTime.now().difference(dernier).inMinutes} min)');
+      return false;
+    }
+    _soldeEcritA[op] = DateTime.now();
+    _soldeEcrit[op] = balance;
+    return true;
   }
 
   Future<void> _archiverSms(String sender, String body, SmsParse parse) async {
@@ -488,10 +534,12 @@ class ReportService {
   }
 
   /// Somme des ventes LIVRÉES d'un opérateur depuis [depuis].
-  Future<int> _ventesLivrees(String operator, DateTime depuis, DateTime jusqu) async {
+  Future<int> _ventesLivrees(
+      String operator, DateTime depuis, DateTime jusqu) async {
     final Set<String> cles = <String>{};
     if (operator == 'mtn') {
-      cles.addAll(<String>['mtn_airtime', 'mtn_forfait_activate']);
+      cles.addAll(
+          <String>['mtn_airtime', 'mtn_forfait_activate', 'mtn_bundle']);
     } else if (operator == 'camtel') {
       cles.addAll(<String>['camtel_pre', 'camtel_post']);
     } else if (operator == 'orange') {

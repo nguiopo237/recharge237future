@@ -32,7 +32,8 @@ void main() {
     test('chaque carte annonce exactement ce qu\'elle peut livrer', () {
       expect(handlesOfCode(kSlotMtn),
           containsAll(<String>['mtn_airtime', 'mtn_forfait']));
-      expect(handlesOfCode(kSlotOrange), <String>['orange_airtime']);
+      expect(handlesOfCode(kSlotOrange),
+          <String>['orange_airtime', 'orange_forfait']);
       expect(handlesOfCode(kSlotCamtelPre), <String>['camtel_pre']);
       expect(handlesOfCode(kSlotCamtelPost), <String>['camtel_post']);
       expect(handlesOfCode(kSlotFree), isEmpty);
@@ -80,7 +81,8 @@ void main() {
       expect(s.first.code, 'mtn');
       expect(s.last.active, isFalse);
       expect(s.last.minBalance, 15000);
-      expect(s.last.handles, isEmpty, reason: 'carte désactivée : rien à servir');
+      expect(s.last.handles, isEmpty,
+          reason: 'carte désactivée : rien à servir');
     });
   });
 
@@ -126,7 +128,12 @@ void main() {
           <String, dynamic>{'slot': 0, 'operator': 'mtn'},
         ],
         'slots': <dynamic>[
-          <String, dynamic>{'slot': 0, 'code': 'mtn', 'pin': '1234', 'active': false},
+          <String, dynamic>{
+            'slot': 0,
+            'code': 'mtn',
+            'pin': '1234',
+            'active': false
+          },
         ],
       });
       expect(c.mtnConfigured, isFalse);
@@ -139,8 +146,10 @@ void main() {
           <String, dynamic>{'slot': 0, 'code': 'mtn', 'pin': ''},
         ],
       });
-      expect(c.mtnSimPresent, isTrue, reason: 'liste gratuite, aucun PIN requis');
-      expect(c.mtnConfigured, isFalse, reason: 'vente de crédit encore bloquée');
+      expect(c.mtnSimPresent, isTrue,
+          reason: 'liste gratuite, aucun PIN requis');
+      expect(c.mtnConfigured, isFalse,
+          reason: 'vente de crédit encore bloquée');
     });
 
     test('CAMTEL prépayé et postpayé sur deux emplacements distincts', () {
@@ -185,7 +194,8 @@ void main() {
     });
 
     test('aucune configuration : rien n\'est servi', () {
-      final SessionConfig c = SessionConfig.fromDocument(const <String, dynamic>{});
+      final SessionConfig c =
+          SessionConfig.fromDocument(const <String, dynamic>{});
       expect(c.mtnConfigured, isFalse);
       expect(c.camtelConfigured, isFalse);
       expect(c.orangeConfigured, isFalse);
@@ -211,8 +221,16 @@ void main() {
     test('seuil le plus élevé retenu quand deux cartes du même opérateur', () {
       final List<SlotSpec> s = slotSpecsFromDocument(<String, dynamic>{
         'slots': <dynamic>[
-          <String, dynamic>{'slot': 0, 'code': 'camtel_pre', 'minBalance': 5000},
-          <String, dynamic>{'slot': 1, 'code': 'camtel_post', 'minBalance': 30000},
+          <String, dynamic>{
+            'slot': 0,
+            'code': 'camtel_pre',
+            'minBalance': 5000
+          },
+          <String, dynamic>{
+            'slot': 1,
+            'code': 'camtel_post',
+            'minBalance': 30000
+          },
         ],
       });
       expect(minBalanceByOperator(s), <String, int>{'camtel': 30000});
@@ -299,6 +317,124 @@ void main() {
       });
       expect(s1, isNot(s2));
       expect(s1, isNot(s3));
+    });
+  });
+
+  // [CONFIG SIM 29/10/2026] Configuration depuis l'app serveur.
+  group('effectiveHandles', () {
+    test('slots font foi, handles oubliés ne laissent rien passer', () {
+      final Map<String, dynamic> d = <String, dynamic>{
+        'slots': <Map<String, dynamic>>[
+          {'slot': 0, 'code': 'camtel_post', 'pin': '1234', 'active': true},
+          {'slot': 1, 'code': 'camtel_pre', 'pin': '5678', 'active': true},
+        ],
+      };
+      expect(effectiveHandles(d), <String>['camtel_post', 'camtel_pre']);
+    });
+
+    test('slots contredisant handles : slots gagnent', () {
+      final Map<String, dynamic> d = <String, dynamic>{
+        'handles': <String>['mtn_airtime'],
+        'slots': <Map<String, dynamic>>[
+          {'slot': 0, 'code': 'camtel_pre', 'pin': '1234', 'active': true},
+        ],
+      };
+      expect(effectiveHandles(d), <String>['camtel_pre']);
+    });
+
+    test('téléphone sans aucune configuration : aucune commande', () {
+      final Map<String, dynamic> d = <String, dynamic>{
+        'sims': <Map<String, dynamic>>[
+          {'slot': 0, 'operator': 'camtel'},
+        ],
+      };
+      expect(isServerConfigured(d), isFalse);
+      expect(effectiveHandles(d), <String>[kNoHandles]);
+    });
+
+    test('emplacements tous désactivés : aucune commande', () {
+      final Map<String, dynamic> d = <String, dynamic>{
+        'slots': <Map<String, dynamic>>[
+          {'slot': 0, 'code': 'mtn', 'pin': '1234', 'active': false},
+        ],
+      };
+      expect(effectiveHandles(d), <String>[kNoHandles]);
+    });
+
+    test('ancienne configuration conservée', () {
+      final Map<String, dynamic> d = <String, dynamic>{
+        'simMTN': {'pin': '1234'},
+        'handles': <String>['MTN_airtime'],
+      };
+      expect(isServerConfigured(d), isTrue);
+      expect(effectiveHandles(d), <String>['mtn_airtime']);
+      expect(
+          effectiveHandles(<String, dynamic>{
+            'simMTN': {'pin': '1'}
+          }),
+          isEmpty);
+    });
+  });
+
+  group('validateSlots', () {
+    const Map<int, String> deuxCamtel = <int, String>{0: 'camtel', 1: 'camtel'};
+
+    test('configuration du Redmi M2003J15SC acceptée', () {
+      expect(
+        validateSlots(const <SlotSpec>[
+          SlotSpec(slot: 0, code: 'camtel_post', pin: '2006'),
+          SlotSpec(slot: 1, code: 'camtel_pre', pin: '1234'),
+        ], detected: deuxCamtel),
+        isEmpty,
+      );
+    });
+
+    test('PIN manquant ou invalide', () {
+      final List<String> p = validateSlots(const <SlotSpec>[
+        SlotSpec(slot: 0, code: 'camtel_post'),
+        SlotSpec(slot: 1, code: 'camtel_pre', pin: '12'),
+      ], detected: deuxCamtel);
+      expect(p, hasLength(2));
+      expect(p.first, contains('PIN'));
+    });
+
+    test('rôle en double refusé', () {
+      final List<String> p = validateSlots(const <SlotSpec>[
+        SlotSpec(slot: 0, code: 'camtel_pre', pin: '1234'),
+        SlotSpec(slot: 1, code: 'camtel_pre', pin: '5678'),
+      ], detected: deuxCamtel);
+      expect(p.single, contains('toutes les deux'));
+    });
+
+    test('rôle MTN sur une carte CAMTEL refusé', () {
+      final List<String> p = validateSlots(const <SlotSpec>[
+        SlotSpec(slot: 0, code: 'mtn', pin: '1234'),
+      ], detected: const <int, String>{
+        0: 'camtel'
+      });
+      expect(p.single, contains('CAMTEL'));
+    });
+
+    test('emplacement vide ou rien d’actif signalé', () {
+      expect(
+        validateSlots(const <SlotSpec>[
+          SlotSpec(slot: 1, code: 'mtn', pin: '1234'),
+        ]).single,
+        contains('aucune carte détectée'),
+      );
+      expect(
+        validateSlots(const <SlotSpec>[
+          SlotSpec(slot: 0, code: 'mtn', pin: '1234', active: false),
+        ]).single,
+        contains('Aucune SIM active'),
+      );
+    });
+
+    test('rôles proposés selon la carte détectée', () {
+      expect(codesForDetectedOperator('camtel'),
+          <String>['camtel_pre', 'camtel_post']);
+      expect(codesForDetectedOperator('mtn'), <String>['mtn']);
+      expect(codesForDetectedOperator('other'), hasLength(4));
     });
   });
 }

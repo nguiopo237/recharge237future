@@ -24,7 +24,6 @@ class Homecontolleurs with CodeAutoFill {
       listenForCode();
 
       print("✅ Écoute SMS active");
-
     } catch (e) {
       print("❌ Erreur initialisation SMS: $e");
     }

@@ -38,8 +38,9 @@ class TransactionCard extends StatelessWidget {
   }
 
   String get _target {
-    final String raw =
-        (data['numerocamtel'] ?? data['numerorecharge'] ?? '').toString().trim();
+    final String raw = (data['numerocamtel'] ?? data['numerorecharge'] ?? '')
+        .toString()
+        .trim();
     return raw.isEmpty ? '—' : raw;
   }
 
@@ -55,7 +56,8 @@ class TransactionCard extends StatelessWidget {
     final String operator = operatorLabel(data);
     final Color opColor = operatorColor(operator);
     final String reason = (data['failure_reason'] ?? '').toString().trim();
-    final bool showReason = reason.isNotEmpty && (status.isFailure || status.isPending);
+    final bool showReason =
+        reason.isNotEmpty && (status.isFailure || status.isPending);
 
     return Material(
       color: Colors.white,
@@ -148,7 +150,8 @@ class TransactionCard extends StatelessWidget {
                 const SizedBox(height: 9),
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                   decoration: BoxDecoration(
                     color: status.isFailure
                         ? const Color(0xFFFDECEC)

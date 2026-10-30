@@ -44,6 +44,8 @@ dependencies:
   get:
   mailer: ^6.1.0
   firebase_core: ^3.6.0
+  # [SUPABASE 29/10/2026] Base PostgreSQL complémentaire (docs/SUPABASE_STRATEGIE.md)
+  supabase_flutter: ^2.5.0
 
   connectivity_plus: ^7.0.0
   firebase_auth: ^5.3.1
@@ -63,8 +65,9 @@ dependencies:
   flutter_background_service: ^5.0.10
   internet_connection_checker: ^0.0.1+4
   flutter_launcher_icons: ^0.14.4
-  telephony: ^0.2.0
-  sms_advanced: ^1.1.0
+  # [29/10/2026] sms_advanced retiré : jamais utilisé dans le code (la lecture
+  # des SMS passait par `telephony`, lui aussi retiré), et il plantait au démarrage (il exige
+  # FlutterFragmentActivity). Voir ClassCastException dans les journaux.
   http:
 
 

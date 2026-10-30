@@ -11,17 +11,14 @@ import 'package:sizer/sizer.dart';
 import 'package:ussd_flutter/ussd_service.dart';
 import 'package:ussd_launcher/ussd_launcher.dart';
 
-
 import '../../model/listnumbermode.dart';
-
-
-
 
 class invoiceR237 extends StatefulWidget {
   final Listnumberspaymodel? post;
 
-  invoiceR237({super.key,
-    this.post ,
+  invoiceR237({
+    super.key,
+    this.post,
   });
 
   @override
@@ -51,7 +48,8 @@ class _invoiceR237State extends State<invoiceR237> {
   void _handleUssdResponse(UssdResponse response) {
     print("session d ecoute et reponse");
     setState(() {
-      _ussdMessages.add('${response.message}\n État de la sitation: ${response.state}');
+      _ussdMessages
+          .add('${response.message}\n État de la sitation: ${response.state}');
 
       if (response.state == UssdSessionState.error ||
           response.state == UssdSessionState.error ||
@@ -77,7 +75,8 @@ class _invoiceR237State extends State<invoiceR237> {
     });
   }
 
-  Future<void> launchMultiSessionUssd({amount,number,bool post = false}) async {
+  Future<void> launchMultiSessionUssd(
+      {amount, number, bool post = false}) async {
     print("ecoute du ussd kmille activation ");
     print(post);
     print("ecoute du ussd kmille");
@@ -88,18 +87,15 @@ class _invoiceR237State extends State<invoiceR237> {
     });
 
     try {
-
-
       // optionControllers.clear();
       List<String> options =
-      optionControllers.map((controller) => controller.text).toList();
+          optionControllers.map((controller) => controller.text).toList();
       print("ici");
 
       _ussdService.ussdResponseStream.listen((response) {
-
         setState(() {
           _ussdResult =
-          'Message: ${response.message}\nState: ${response.state}';
+              'Message: ${response.message}\nState: ${response.state}';
         });
       }, onError: (error) {
         setState(() {
@@ -112,7 +108,8 @@ class _invoiceR237State extends State<invoiceR237> {
         try {
           final response = await _ussdService.sendUssd(ussdCode);
           setState(() {
-            _ussdMessages.add('Message: ${response.message}\nÉtat: ${response.state}');
+            _ussdMessages
+                .add('Message: ${response.message}\nÉtat: ${response.state}');
           });
         } catch (e) {
           setState(() {
@@ -120,10 +117,13 @@ class _invoiceR237State extends State<invoiceR237> {
           });
         }
       }
+
       optionControllers.clear();
-      optionControllers.addAll([TextEditingController(text: "${number}"),TextEditingController(text: "${number}"),TextEditingController(text: "1")]);
-
-
+      optionControllers.addAll([
+        TextEditingController(text: "${number}"),
+        TextEditingController(text: "${number}"),
+        TextEditingController(text: "1")
+      ]);
 
       //  _sendUssdCode(_ussdController.text);
       // _launchMultiSessionUssd();
@@ -144,6 +144,7 @@ class _invoiceR237State extends State<invoiceR237> {
       });
     }
   }
+
   Future<void> loadSimCards() async {
     var status = await Permission.phone.request();
     if (status.isGranted) {
@@ -167,7 +168,7 @@ class _invoiceR237State extends State<invoiceR237> {
 
   void _setupUssdResponseListener() {
     _ussdSubscription = _ussdService.ussdResponseStream.listen(
-          (UssdResponse response) {
+      (UssdResponse response) {
         _handleUssdResponse(response);
       },
       onError: (error) {
@@ -175,7 +176,6 @@ class _invoiceR237State extends State<invoiceR237> {
       },
     );
   }
-
 
   @override
   void initState() {
@@ -189,33 +189,29 @@ class _invoiceR237State extends State<invoiceR237> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("tiket"),),
+      appBar: AppBar(
+        title: Text("tiket"),
+      ),
       body: Padding(
-        padding:  EdgeInsets.all(12.0),
+        padding: EdgeInsets.all(12.0),
         child: Container(
           padding: EdgeInsets.all(10),
-
-          height:120.h ,
+          height: 120.h,
           width: 120.w,
-          decoration:  BoxDecoration(
-            border: Border.all(color: Colors.black,width: 1.w/20),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.black, width: 1.w / 20),
             image: DecorationImage(
-
-              image: AssetImage("images/photoback.jpg",),
-
+              image: AssetImage(
+                "images/photoback.jpg",
+              ),
               fit: BoxFit.fitHeight,
               opacity: 000.2,
-
             ),
           ),
-
-
-
           child: SingleChildScrollView(
             child: Column(
               children: [
                 QrImageView(
-
                   data: widget.post!.idtransact.toString(),
                   version: QrVersions.auto,
                   size: 12.h,
@@ -223,11 +219,17 @@ class _invoiceR237State extends State<invoiceR237> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(" www.recharge237.com ",style: TextStyle(fontSize: 12.sp)),
+                    Text(" www.recharge237.com ",
+                        style: TextStyle(fontSize: 12.sp)),
                     SizedBox(
                       width: 8.w,
                       height: 8.h,
-                      child: Image.asset("images/photo.jpg",height: 6.h,width: 6.w,fit: BoxFit.cover,),
+                      child: Image.asset(
+                        "images/photo.jpg",
+                        height: 6.h,
+                        width: 6.w,
+                        fit: BoxFit.cover,
+                      ),
                     )
                   ],
                 ),
@@ -237,144 +239,193 @@ class _invoiceR237State extends State<invoiceR237> {
                 ),
                 Row(
                   children: [
-                    Text("Date d'édition: ",style: TextStyle(fontSize: 8.sp)),
-                    Text(DateTime.now().toString(),style: TextStyle(fontSize: 8.sp)),
+                    Text("Date d'édition: ", style: TextStyle(fontSize: 8.sp)),
+                    Text(DateTime.now().toString(),
+                        style: TextStyle(fontSize: 8.sp)),
                   ],
                 ),
-
-
                 Divider(),
-                SizedBox(height: 2.h,),
+                SizedBox(
+                  height: 2.h,
+                ),
                 Text(
                   "Transactions",
-                  style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold,decoration: TextDecoration.underline),
+                  style: TextStyle(
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.bold,
+                      decoration: TextDecoration.underline),
                 ),
-                SizedBox(height: 2.h,),
+                SizedBox(
+                  height: 2.h,
+                ),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
                       "Type",
-                      style: TextStyle( fontWeight: FontWeight.bold,fontSize: 12.sp),
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 12.sp),
                     ),
-                    Text("Transfert de crédit",style: TextStyle(fontSize: 12.sp)),
+                    Text("Transfert de crédit",
+                        style: TextStyle(fontSize: 12.sp)),
                   ],
                 ),
-                SizedBox(height: 1.h,),
+                SizedBox(
+                  height: 1.h,
+                ),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text("Montant rechargé",
-                      style: TextStyle( fontWeight: FontWeight.bold,fontSize: 12.sp),),
-
-                    Text("${widget.post!.amount.toString()} FCFA",style: TextStyle(fontSize: 12.sp)),
+                    Text(
+                      "Montant rechargé",
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 12.sp),
+                    ),
+                    Text("${widget.post!.amount.toString()} FCFA",
+                        style: TextStyle(fontSize: 12.sp)),
                   ],
                 ),
-                SizedBox(height: 1.h,),
+                SizedBox(
+                  height: 1.h,
+                ),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text("Date",
-                      style: TextStyle( fontWeight: FontWeight.bold,fontSize: 12.sp),),
+                    Text(
+                      "Date",
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 12.sp),
+                    ),
                     Text(
                         "il y'a ${timeago.format(DateTime.parse(widget.post!.heure!.toString()))}"),
                   ],
                 ),
-                SizedBox(height: 1.h,),
+                SizedBox(
+                  height: 1.h,
+                ),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text("Référence",style: TextStyle( fontWeight: FontWeight.bold,fontSize: 12.sp),),
-                    Text(widget.post!.id.toString(),style: TextStyle(fontSize: 12.sp)),
+                    Text(
+                      "Référence",
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 12.sp),
+                    ),
+                    Text(widget.post!.id.toString(),
+                        style: TextStyle(fontSize: 12.sp)),
                   ],
-                ), SizedBox(height: 1.h,),
+                ),
+                SizedBox(
+                  height: 1.h,
+                ),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text("Statut",style: TextStyle( fontWeight: FontWeight.bold,fontSize: 12.sp),),
-                    Text(widget.post!.statut==2?"Succès":"En Cour de traitement",style: TextStyle(fontSize: 12.sp)),
+                    Text(
+                      "Statut",
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 12.sp),
+                    ),
+                    Text(
+                        widget.post!.statut == 2
+                            ? "Succès"
+                            : "En Cour de traitement",
+                        style: TextStyle(fontSize: 12.sp)),
                   ],
                 ),
                 Divider(),
-                SizedBox(height: 4.h,),
-
-
-
-
-
+                SizedBox(
+                  height: 4.h,
+                ),
                 Column(
                   children: [
-
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
                           "Identifiant de la transaction",
-
-
-                          style: TextStyle( fontWeight: FontWeight.bold,fontSize: 12.sp
-                          ),
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 12.sp),
                         ),
-                        Text("IdBlue",style: TextStyle(fontSize: 12.sp)),
+                        Text("IdBlue", style: TextStyle(fontSize: 12.sp)),
                       ],
                     ),
-                    SizedBox(height: 2.h,),
+                    SizedBox(
+                      height: 2.h,
+                    ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text("Numéro de téléphone rechargé",
-                            style: TextStyle( fontWeight: FontWeight.bold,fontSize: 12.sp)),
-
-                        Text(widget.post!.numeros.toString(),style: TextStyle(fontSize: 12.sp)),
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 12.sp)),
+                        Text(widget.post!.numeros.toString(),
+                            style: TextStyle(fontSize: 12.sp)),
                       ],
                     ),
-                    SizedBox(height: 2.h,),
+                    SizedBox(
+                      height: 2.h,
+                    ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text("Numéro de téléphone payeur",
-                          style: TextStyle( fontWeight: FontWeight.bold,fontSize: 12.sp),),
-
-                        Text(widget.post!.numeror.toString(),style: TextStyle(fontSize: 12.sp)),
+                        Text(
+                          "Numéro de téléphone payeur",
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 12.sp),
+                        ),
+                        Text(widget.post!.numeror.toString(),
+                            style: TextStyle(fontSize: 12.sp)),
                       ],
                     ),
-                    SizedBox(height: 2.h,),
+                    SizedBox(
+                      height: 2.h,
+                    ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text("Référence Orange Money",style: TextStyle( fontWeight: FontWeight.bold,fontSize: 12.sp),),
-                        Text(widget.post!.id.toString(),style: TextStyle(fontSize: 12.sp)),
+                        Text(
+                          "Référence Orange Money",
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 12.sp),
+                        ),
+                        Text(widget.post!.id.toString(),
+                            style: TextStyle(fontSize: 12.sp)),
                       ],
                     ),
-                    SizedBox(height: 2.h,),
+                    SizedBox(
+                      height: 2.h,
+                    ),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text("Référence Blue/CAMTEL",style: TextStyle( fontWeight: FontWeight.bold,fontSize: 12.sp),),
-                        Text(widget.post!.numeros.toString(),style: TextStyle(fontSize: 12.sp)),
+                        Text(
+                          "Référence Blue/CAMTEL",
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 12.sp),
+                        ),
+                        Text(widget.post!.numeros.toString(),
+                            style: TextStyle(fontSize: 12.sp)),
                       ],
                     ),
-
                     Divider(),
-
-
                     Padding(
                       padding: const EdgeInsets.only(bottom: 20.0),
                       child: MiddleText(
                         text:
-                        '© 2024, Proudly developed by LOUOKDOM \nServices Sarl All right reserved',
+                            '© 2024, Proudly developed by LOUOKDOM \nServices Sarl All right reserved',
                         //color: Colors.white,
                         size: 9.sp,
                         textAlign: TextAlign.center,
                       ),
                     )
-                  ],),
-
+                  ],
+                ),
               ],
             ),
-          ),),
+          ),
+        ),
       ),
-
     );
   }
 }

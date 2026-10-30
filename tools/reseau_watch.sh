@@ -7,7 +7,7 @@
 #
 # Usage : bash tools/reseau_watch.sh   (lancé en tâche de fond)
 ADB="/c/Users/wlouo/AppData/Local/Android/Sdk/platform-tools/adb.exe"
-LOG="/c/Users/wlouo/IdeaProjects/recharge237future/logs/reseau.log"
+LOG="/c/Users/wlouo/IdeaProjects/serveur_recharge237/logs/reseau.log"
 mkdir -p "$(dirname "$LOG")"
 
 echo "$(date '+%Y-%m-%d %H:%M:%S') | surveillance démarrée" >> "$LOG"

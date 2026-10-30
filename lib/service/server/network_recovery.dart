@@ -128,8 +128,7 @@ class NetworkRecovery {
         'slot': slot,
         'onMs': airplaneOn.inMilliseconds,
         'waitMs': registrationWait.inMilliseconds,
-      })
-          .timeout(nativeTimeout);
+      }).timeout(nativeTimeout);
     } catch (e) {
       debugPrint('[Recovery] cycle forcé impossible : $e');
     } finally {
@@ -241,8 +240,7 @@ class NetworkRecovery {
         'slot': slot,
         'onMs': airplaneOn.inMilliseconds,
         'waitMs': registrationWait.inMilliseconds,
-      })
-          .timeout(nativeTimeout);
+      }).timeout(nativeTimeout);
     } catch (e) {
       debugPrint('[Recovery] cycle impossible : $e');
     } finally {

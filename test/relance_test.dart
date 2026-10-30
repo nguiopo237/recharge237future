@@ -12,7 +12,8 @@ void main() {
       expect(relaunchStatusFor({'operateur_cible': 'camtel_post'}), '6');
       expect(relaunchStatusFor({'operateur_cible': 'mtn_airtime'}), '1');
       expect(relaunchStatusFor({'operateur_cible': 'mtn_forfait'}), '0');
-      expect(relaunchStatusFor({'operateur_cible': 'mtn_forfait_activate'}), '1');
+      expect(
+          relaunchStatusFor({'operateur_cible': 'mtn_forfait_activate'}), '1');
     });
 
     test('Orange ne se relance pas : aucun flow USSD', () {
@@ -79,7 +80,10 @@ void main() {
       // Même si le téléphone a effacé son serverId à la main.
       expect(
         TransactionClaimer.canClaim(
-            status: '1', owner: 'ancien', attempts: 3, relaunchRequested: false),
+            status: '1',
+            owner: 'ancien',
+            attempts: 3,
+            relaunchRequested: false),
         isFalse,
       );
     });

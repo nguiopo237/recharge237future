@@ -135,6 +135,38 @@ class UssdAccessibilityService : AccessibilityService() {
             return dismissed
         }
 
+        /**
+         * [29/10/2026] Fermeture d'une fenêtre USSD ORPHELINE (contrôle de
+         * santé toutes les 5 min, hors session).
+         *
+         * Contrairement à [cancelSession] : ne touche QUE les fenêtres du
+         * téléphone (USSD_PACKAGES) et n'appuie JAMAIS sur Retour. Constaté
+         * le 29/10 : quand aucune fenêtre n'était ouverte, cancelSession
+         * appuyait sur Retour, ce qui fermait (puis mettait en arrière-plan)
+         * l'app serveur elle-même toutes les 5 minutes.
+         */
+        fun dismissStaleUssd(): Boolean {
+            val service = instance ?: return false
+            var dismissed = false
+            try {
+                for (w in service.windows) {
+                    val r = w.root ?: continue
+                    try {
+                        val pkg = r.packageName?.toString() ?: ""
+                        if (!dismissed && USSD_PACKAGES.contains(pkg)) {
+                            dismissed = clickDismissButton(r)
+                        }
+                    } finally {
+                        r.recycle()
+                    }
+                }
+            } catch (e: Exception) {
+                println("UssdAccessibilityService: fermeture orpheline impossible : ${e.message}")
+            }
+            if (dismissed) resetState()
+            return dismissed
+        }
+
         private val cancelHandler = Handler(Looper.getMainLooper())
 
         /** Cherche et clique un bouton de fermeture dans toutes les fenêtres. */

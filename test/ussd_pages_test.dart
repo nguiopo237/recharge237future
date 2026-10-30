@@ -113,8 +113,7 @@ Offres MTN Boost pour 237677156949:
       final List<UssdOffer> offres =
           offerRecords(<String>[page1Reelle, page2Reelle]);
       expect(offres, hasLength(8));
-      final UssdOffer cinq =
-          offres.firstWhere((UssdOffer o) => o.index == '5');
+      final UssdOffer cinq = offres.firstWhere((UssdOffer o) => o.index == '5');
       // « 5) 2 » + « 50U=… » = la vraie offre 250U=900U+75MB+2500U/3D.
       expect(cinq.label, startsWith('250U=900U'));
       expect(cinq.price, 13);
@@ -148,8 +147,10 @@ Offres MTN Boost pour 237677156949:
         '500U=1GB/30D: C=25F': '1 Go / 30 jours',
         '1000U=2.1GB/30D: C=50F': '2,1 Go / 30 jours',
         '250U=500MB+100 SMS/3D: C=13F': '500 Mo + 100 SMS / 3 jours',
-        '1200U=6700U+13170U+732MB/7D: C=60F': '6700U + 13170U + 732 Mo / 7 jours',
-        '500U=5237U + 237MB+6200U/3D: C=25F': '5237U + 237 Mo + 6200U / 3 jours',
+        '1200U=6700U+13170U+732MB/7D: C=60F':
+            '6700U + 13170U + 732 Mo / 7 jours',
+        '500U=5237U + 237MB+6200U/3D: C=25F':
+            '5237U + 237 Mo + 6200U / 3 jours',
         '1000U=1GB/1D: C=25F': '1 Go / 1 jour',
       };
       cas.forEach((String brut, String attendu) {

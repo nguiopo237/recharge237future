@@ -96,9 +96,13 @@ String operatorOfCode(String code) {
 List<String> handlesOfCode(String code) {
   switch (code) {
     case kSlotMtn:
-      return const <String>['mtn_airtime', 'mtn_forfait', 'mtn_forfait_activate'];
+      return const <String>[
+        'mtn_airtime',
+        'mtn_forfait',
+        'mtn_forfait_activate'
+      ];
     case kSlotOrange:
-      return const <String>['orange_airtime'];
+      return const <String>['orange_airtime', 'orange_forfait'];
     case kSlotCamtelPre:
       return const <String>['camtel_pre'];
     case kSlotCamtelPost:
@@ -113,12 +117,30 @@ List<String> handlesOfCode(String code) {
 /// « prpaye » et l'emplacement serait déclaré libre par erreur.
 String _sansAccents(String s) {
   const Map<String, String> table = <String, String>{
-    'á': 'a', 'à': 'a', 'â': 'a', 'ä': 'a', 'ã': 'a',
-    'é': 'e', 'è': 'e', 'ê': 'e', 'ë': 'e',
-    'í': 'i', 'ì': 'i', 'î': 'i', 'ï': 'i',
-    'ó': 'o', 'ò': 'o', 'ô': 'o', 'ö': 'o', 'õ': 'o',
-    'ú': 'u', 'ù': 'u', 'û': 'u', 'ü': 'u',
-    'ç': 'c', 'ñ': 'n',
+    'á': 'a',
+    'à': 'a',
+    'â': 'a',
+    'ä': 'a',
+    'ã': 'a',
+    'é': 'e',
+    'è': 'e',
+    'ê': 'e',
+    'ë': 'e',
+    'í': 'i',
+    'ì': 'i',
+    'î': 'i',
+    'ï': 'i',
+    'ó': 'o',
+    'ò': 'o',
+    'ô': 'o',
+    'ö': 'o',
+    'õ': 'o',
+    'ú': 'u',
+    'ù': 'u',
+    'û': 'u',
+    'ü': 'u',
+    'ç': 'c',
+    'ñ': 'n',
   };
   final StringBuffer out = StringBuffer();
   for (final int unit in s.runes) {
@@ -200,7 +222,8 @@ class SlotSpec {
     final int slot = (m['slot'] as num?)?.toInt() ?? fallbackSlot;
     // `operator` est accepté en plus de `code` : l'admin peut écrire l'un ou
     // l'autre depuis la console Firestore.
-    final String raw = (m['code'] ?? m['operator'] ?? m['type'] ?? '').toString();
+    final String raw =
+        (m['code'] ?? m['operator'] ?? m['type'] ?? '').toString();
     return SlotSpec(
       slot: slot < 0 ? 0 : slot,
       code: normalizeSlotCode(raw),
@@ -330,4 +353,136 @@ Map<String, int> minBalanceByOperator(List<SlotSpec> slots) {
     if (known == null || s.minBalance > known) out[op] = s.minBalance;
   }
   return out;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// [CONFIG SIM 29/10/2026] Configuration depuis l'app serveur elle-même.
+//
+// Constaté le 29/10 sur le Redmi M2003J15SC (2 SIM CAMTEL) : configurer les
+// SIM à la main dans la console Firebase a pris une heure — type `int64`
+// introuvable, `code` rempli avec le PIN, PIN oublié, `handles` oublié (le
+// téléphone aurait alors pris TOUTES les commandes, MTN comprises). D'où :
+//  - un écran dans l'app serveur (lib/view/config/sim_config_screen.dart)
+//    qui écrit `slots` à partir de choix guidés, contrôlés ci-dessous ;
+//  - `slots` fait désormais foi pour le routage : `handles` en est déduit,
+//    il ne peut plus être oublié ni contredire les emplacements ;
+//  - un téléphone sans AUCUNE configuration ne prend plus aucune commande.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Marqueur de routage « aucune commande » : téléphone non configuré, ou
+/// emplacements tous désactivés.
+const String kNoHandles = 'none';
+
+/// Anciens champs de configuration encore lus par compatibilité.
+const List<String> kLegacySimKeys = <String>[
+  'simMTN',
+  'simCamtelPre',
+  'simCamtelPost',
+  'simOrange',
+];
+
+/// Vrai si le téléphone a reçu une configuration, quelle qu'en soit la forme.
+bool isServerConfigured(Map<String, dynamic> d) {
+  if (hasDynamicSlots(d)) return true;
+  if (kLegacySimKeys.any((String k) => d[k] is Map)) return true;
+  final Object? h = d['handles'];
+  return h is List && h.any((Object? e) => '${e ?? ''}'.trim().isNotEmpty);
+}
+
+/// Commandes que ce téléphone doit écouter.
+///
+/// - `slots` déclarés : déduites des emplacements actifs (ils font foi) ;
+/// - ancienne configuration : le champ `handles` tel quel (vide = tout) ;
+/// - aucune configuration : [kNoHandles].
+List<String> effectiveHandles(Map<String, dynamic> d) {
+  if (hasDynamicSlots(d)) {
+    final List<String> h = handlesForSlots(slotSpecsFromDocument(d));
+    return h.isEmpty ? const <String>[kNoHandles] : h;
+  }
+  if (!isServerConfigured(d)) return const <String>[kNoHandles];
+  final Object? raw = d['handles'];
+  return raw is List
+      ? raw
+          .map((Object? e) => '${e ?? ''}'.trim().toLowerCase())
+          .where((String e) => e.isNotEmpty)
+          .toList()
+      : const <String>[];
+}
+
+/// PIN accepté : 4 à 8 chiffres.
+bool isValidPin(String pin) => RegExp(r'^\d{4,8}$').hasMatch(pin.trim());
+
+/// Contrôle une configuration avant enregistrement.
+///
+/// [detected] : opérateur détecté par emplacement (`mtn`, `orange`, `camtel`,
+/// `other`, ou absent). Rend la liste des problèmes, vide si tout est bon.
+List<String> validateSlots(
+  List<SlotSpec> slots, {
+  Map<int, String> detected = const <int, String>{},
+}) {
+  final List<String> problems = <String>[];
+  final Map<String, int> vus = <String, int>{};
+  for (final SlotSpec s in slots) {
+    if (!s.isPresent) continue;
+    final String sim = 'SIM ${s.slot + 1}';
+    if (s.pin.isEmpty) {
+      problems
+          .add('$sim : saisis le PIN de la carte ${slotCodeLabel(s.code)}.');
+    } else if (!isValidPin(s.pin)) {
+      problems.add('$sim : le PIN doit contenir 4 à 8 chiffres.');
+    }
+    final String det = (detected[s.slot] ?? '').toLowerCase();
+    if (det.isEmpty) {
+      problems.add('$sim : aucune carte détectée dans cet emplacement.');
+    } else if (det != 'other' && det != s.operator) {
+      problems.add('$sim : la carte détectée est ${_operateurLisible(det)}, '
+          'pas ${slotCodeLabel(s.code)}.');
+    }
+    final int? autre = vus[s.code];
+    if (autre != null) {
+      problems.add('SIM ${autre + 1} et $sim servent toutes les deux '
+          '${slotCodeLabel(s.code)} : choisis un rôle différent.');
+    } else {
+      vus[s.code] = s.slot;
+    }
+  }
+  if (!slots.any((SlotSpec s) => s.isPresent)) {
+    problems
+        .add('Aucune SIM active : ce téléphone ne livrera aucune commande.');
+  }
+  return problems;
+}
+
+String _operateurLisible(String op) {
+  switch (op) {
+    case 'mtn':
+      return 'MTN';
+    case 'orange':
+      return 'Orange';
+    case 'camtel':
+      return 'CAMTEL';
+    default:
+      return op;
+  }
+}
+
+/// Rôles proposés pour une carte détectée : seuls ceux de son opérateur,
+/// pour qu'un USSD ne puisse jamais partir sur la mauvaise carte.
+List<String> codesForDetectedOperator(String detected) {
+  switch (detected.toLowerCase()) {
+    case 'mtn':
+      return const <String>[kSlotMtn];
+    case 'orange':
+      return const <String>[kSlotOrange];
+    case 'camtel':
+      return const <String>[kSlotCamtelPre, kSlotCamtelPost];
+    default:
+      // Carte étrangère ou illisible : tout est proposé, l'admin tranche.
+      return const <String>[
+        kSlotMtn,
+        kSlotOrange,
+        kSlotCamtelPre,
+        kSlotCamtelPost
+      ];
+  }
 }

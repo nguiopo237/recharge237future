@@ -13,9 +13,11 @@ import 'internet_watch.dart';
 import 'network_watch.dart' show dureeCourte;
 import 'order_filters.dart' as filters;
 import 'sim_probe.dart';
+import 'slot_config.dart';
 
 /// Gère l'enregistrement de ce téléphone comme serveur de recharge
-/// et envoie un heartbeat toutes les 2 minutes ([heartbeatInterval]).
+/// et écrit un heartbeat toutes les 30 minutes (contrôle par lecture toutes
+/// les 5 min, cf. [heartbeatInterval]).
 ///
 /// Chaque téléphone se configure dans Firestore via
 /// `servers/{deviceId}` :
@@ -71,8 +73,24 @@ class ServerManager {
   /// lectures en moins chez chaque admin qui regarde la liste des serveurs.
   /// Les scripts du PC (`_claude_keepalive.sh`, `_claude_watch_servers.js`)
   /// ont été réglés en conséquence : ne pas raccourcir l'un sans l'autre.
-  static const Duration heartbeatInterval = Duration(minutes: 2);
-  static const Duration _staleAfter = Duration(minutes: 5);
+  ///
+  /// [QUOTA 29/10/2026 bis] 4 min : 360 écritures/jour/téléphone au lieu de
+  /// 720 (3 téléphones = ~1 000 écritures/jour économisées sur 20 000, soit
+  /// ~200 commandes de plus par jour). Seuils associés : figé après 9 min
+  /// ici, « SILENCIEUX » après 9 min dans l'écran admin, relance par le PC
+  /// après 540 s.
+  ///
+  /// [QUOTA 29/10/2026 ter] Demande de l'admin : battement ÉCRIT toutes les
+  /// 30 min seulement (48 écritures/jour/téléphone au lieu de 720). Entre
+  /// deux écritures, un contrôle toutes les 5 min par une LECTURE serveur
+  /// (1 lecture : le quota de lectures est 2,5 fois plus large) garde la
+  /// détection d'une base figée en ~10 min au lieu d'une heure.
+  /// Seuils associés : « SILENCIEUX » après 65 min dans l'écran admin,
+  /// relance par le PC après 3 900 s.
+  static const Duration heartbeatInterval = Duration(minutes: 5);
+  static const Duration ecritureInterval = Duration(minutes: 30);
+  static const Duration _staleAfter = Duration(minutes: 11);
+  DateTime? _derniereEcriture;
 
   /// Évite d'envoyer une alerte Telegram « quota » à chaque battement raté.
   bool _quotaSignale = false;
@@ -111,15 +129,32 @@ class ServerManager {
   /// Types d'opération confiés à ce téléphone par l'admin (`handles`).
   List<String> get handles => List<String>.unmodifiable(_handles);
 
+  /// [CONFIG SIM 29/10/2026] Faux tant que l'admin n'a déclaré aucune SIM :
+  /// le téléphone ne prend alors aucune commande et l'écran le signale.
+  bool get configured => _configured;
+  bool _configured = true;
+
   /// Vrai si ce téléphone doit exécuter [type] (`camtel_pre`, `camtel_post`,
   /// `mtn_airtime`, `mtn_forfait`). Liste vide = tout ce que le matériel
   /// permet.
-  bool handlesOperation(String type) => filters.handlesOperation(_handles, type);
+  bool handlesOperation(String type) =>
+      filters.handlesOperation(_handles, type);
 
   // Préfixes Orange Cameroun
   static const _orangePrefixes = ['069', '065', '655', '656', '657', '659'];
   // Préfixes MTN Cameroun
-  static const _mtnPrefixes   = ['067', '068', '650', '651', '652', '653', '654', '677', '678', '679'];
+  static const _mtnPrefixes = [
+    '067',
+    '068',
+    '650',
+    '651',
+    '652',
+    '653',
+    '654',
+    '677',
+    '678',
+    '679'
+  ];
 
   /// À appeler une seule fois dans `initState` du widget principal.
   Future<void> initialize() async {
@@ -162,7 +197,8 @@ class ServerManager {
       (_) => _sendHeartbeat(),
     );
 
-    debugPrint('[ServerManager] Démarré — deviceId=$_deviceId, operators=$_operators');
+    debugPrint(
+        '[ServerManager] Démarré — deviceId=$_deviceId, operators=$_operators');
   }
 
   /// Recharge la liste des opérateurs depuis Firestore (appelé par reload_config)
@@ -213,23 +249,28 @@ class ServerManager {
         'simsDetectedAt': FieldValue.serverTimestamp(),
       });
       _signaturePubliee = signature;
-      debugPrint('[ServerManager] Matériel publié : ${hw.model} — ${hw.sims.join(', ')}');
+      debugPrint(
+          '[ServerManager] Matériel publié : ${hw.model} — ${hw.sims.join(', ')}');
 
       if (avant is String && avant.isNotEmpty && avant != signature) {
         await _signalerChangementSim(avant, hw.sims);
       }
     } catch (e) {
-      if (FirestoreBackoff.estTransitoire(e)) FirestoreBackoff.instance.echec(e);
+      if (FirestoreBackoff.estTransitoire(e))
+        FirestoreBackoff.instance.echec(e);
       debugPrint('[ServerManager] Publication du matériel impossible : $e');
     }
   }
 
   /// Annonce sur Telegram un changement de cartes, avec l'avant et l'après.
-  Future<void> _signalerChangementSim(String avant, List<DetectedSim> apres) async {
+  Future<void> _signalerChangementSim(
+      String avant, List<DetectedSim> apres) async {
     final String avantLisible = simSignatureVersTexte(avant);
     final String apresLisible = apres.isEmpty
         ? 'aucune carte'
-        : apres.map((s) => simSignatureVersTexte(simSignatureOf(<DetectedSim>[s]))).join('\n');
+        : apres
+            .map((s) => simSignatureVersTexte(simSignatureOf(<DetectedSim>[s])))
+            .join('\n');
     try {
       await SendEmail.sendMessagewithtelegram(
         message: 'Recharge237 — CHANGEMENT DE SIM\n'
@@ -257,11 +298,15 @@ class ServerManager {
         if (raw is List && raw.isNotEmpty) {
           _operators = raw.map((e) => e.toString()).toList();
         }
-        final rawHandles = data?['handles'];
-        _handles = rawHandles is List
-            ? rawHandles.map((e) => e.toString().trim().toLowerCase()).where((e) => e.isNotEmpty).toList()
-            : const <String>[];
+        // [CONFIG SIM 29/10/2026] `slots` fait foi : `handles` en est déduit.
+        _handles = effectiveHandles(data ?? const <String, dynamic>{});
+        _configured = isServerConfigured(data ?? const <String, dynamic>{});
+      } else {
+        _handles = const <String>[kNoHandles];
+        _configured = false;
       }
+      debugPrint(
+          '[ServerManager] Routage : ${_configured ? _handles.join(', ') : 'NON CONFIGURÉ — aucune commande prise'}');
     } catch (e) {
       debugPrint('[ServerManager] _loadConfig error: $e');
     }
@@ -356,11 +401,23 @@ class ServerManager {
     // par jour et par téléphone pour la même information.
     bool joignable;
     try {
-      await FirebaseFirestore.instance
-          .collection('servers')
-          .doc(_deviceId)
-          .update({'status': 'online', 'lastSeen': FieldValue.serverTimestamp()})
-          .timeout(_heartbeatTimeout);
+      final DateTime maintenant = DateTime.now();
+      final bool ecrire = _derniereEcriture == null ||
+          maintenant.difference(_derniereEcriture!) >= ecritureInterval;
+      final DocumentReference<Map<String, dynamic>> ref =
+          FirebaseFirestore.instance.collection('servers').doc(_deviceId);
+      if (ecrire) {
+        await ref.update({
+          'status': 'online',
+          'lastSeen': FieldValue.serverTimestamp()
+        }).timeout(_heartbeatTimeout);
+        _derniereEcriture = maintenant;
+      } else {
+        // Contrôle de liaison sans écriture : lecture forcée sur le serveur.
+        await ref
+            .get(const GetOptions(source: Source.server))
+            .timeout(_heartbeatTimeout);
+      }
       joignable = true;
       FirestoreBackoff.instance.succes();
       if (_quotaSignale) {
@@ -399,10 +456,10 @@ class ServerManager {
       if (evenement == InternetEvent.retour) {
         await _surInternetOk(coupure: _internet.derniereCoupure);
       }
-      // Inventaire des cartes toutes les 30 min (15 battements de 2 min) ;
+      // Inventaire des cartes toutes les 30 min (6 contrôles de 5 min) ;
       // il ne touche la base que si une carte a changé.
       _beats++;
-      if (_beats % 15 == 0) {
+      if (_beats % 6 == 0) {
         await _publishHardware();
       }
       return;
@@ -428,9 +485,8 @@ class ServerManager {
         'internetLastOkAt': FieldValue.serverTimestamp(),
       });
     } catch (_) {}
-    final String duree = coupure == null
-        ? ''
-        : '\nCoupure   : ${dureeCourte(coupure)}';
+    final String duree =
+        coupure == null ? '' : '\nCoupure   : ${dureeCourte(coupure)}';
     try {
       await SendEmail.sendMessagewithtelegram(
         message: 'Recharge237 — INTERNET REVENU\n'
@@ -442,7 +498,8 @@ class ServerManager {
     } catch (e) {
       debugPrint('[ServerManager] Telegram injoignable : $e');
     }
-    debugPrint('[ServerManager] Internet revenu${coupure == null ? '' : ' après ${dureeCourte(coupure)}'}');
+    debugPrint(
+        '[ServerManager] Internet revenu${coupure == null ? '' : ' après ${dureeCourte(coupure)}'}');
   }
 
   Future<void> _envoyerTelegram(String message) async {
@@ -455,10 +512,12 @@ class ServerManager {
 
   /// Message Telegram (best effort : sans Internet il ne partira pas — c'est
   /// justement pourquoi le script côté PC surveille aussi le silence).
-  Future<void> _alerterInternet(int muetSecondes, {required bool rappel}) async {
+  Future<void> _alerterInternet(int muetSecondes,
+      {required bool rappel}) async {
     try {
       await SendEmail.sendMessagewithtelegram(
-        message: '${rappel ? 'Recharge237 — TOUJOURS SANS INTERNET' : 'Recharge237 — INTERNET COUPÉ'}\n'
+        message:
+            '${rappel ? 'Recharge237 — TOUJOURS SANS INTERNET' : 'Recharge237 — INTERNET COUPÉ'}\n'
             'Téléphone : $_deviceId\n'
             'Base de données injoignable depuis ${dureeCourte(Duration(seconds: muetSecondes))}\n'
             'Effet : ce téléphone ne livre plus rien. Il ne peut pas prévenir '
@@ -494,7 +553,8 @@ class ServerManager {
       await FirebaseFirestore.instance
           .collection('servers')
           .doc(_deviceId)
-          .update({'status': 'offline', 'lastSeen': FieldValue.serverTimestamp()});
+          .update(
+              {'status': 'offline', 'lastSeen': FieldValue.serverTimestamp()});
     } catch (_) {}
   }
 
@@ -508,18 +568,20 @@ class ServerManager {
     final prefix = numeroorange.length >= 3 ? numeroorange.substring(0, 3) : '';
 
     // Filtrage par type de recharge
-    if (_operators.contains('prepaid')  && (status == '1' || status == '9')) return true;
-    if (_operators.contains('postpaid') && (status == '6'))                  return true;
+    if (_operators.contains('prepaid') && (status == '1' || status == '9'))
+      return true;
+    if (_operators.contains('postpaid') && (status == '6')) return true;
 
     // Filtrage par opérateur payeur
-    if (_operators.contains('orange') && _orangePrefixes.contains(prefix)) return true;
-    if (_operators.contains('mtn')    && _mtnPrefixes.contains(prefix))    return true;
+    if (_operators.contains('orange') && _orangePrefixes.contains(prefix))
+      return true;
+    if (_operators.contains('mtn') && _mtnPrefixes.contains(prefix))
+      return true;
 
     return false;
   }
 
-  String _fallbackId() =>
-      'srv_${DateTime.now().millisecondsSinceEpoch}';
+  String _fallbackId() => 'srv_${DateTime.now().millisecondsSinceEpoch}';
 }
 
 // ── Empreinte des cartes (traçabilité Telegram) ────────────────────────────

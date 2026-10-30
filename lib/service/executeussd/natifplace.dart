@@ -37,7 +37,7 @@ class UssdLauncher {
       final String? response = await _channel.invokeMethod('multisessionUssd', {
         'ussdCode': ussdCode,
         'slotIndex': 0,
-        'options': ["1","2"],
+        'options': ["1", "2"],
       });
       print("resultat de la reponse 2.0");
       return response;

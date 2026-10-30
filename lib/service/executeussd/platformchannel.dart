@@ -3,9 +3,12 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 
 class NativeUssdService {
-  static const MethodChannel _channel = MethodChannel('com.example.ussd/native');
-  static const EventChannel _responseChannel = EventChannel('com.example.ussd/responses');
-  static const EventChannel _errorChannel = EventChannel('com.example.ussd/errors');
+  static const MethodChannel _channel =
+      MethodChannel('com.example.ussd/native');
+  static const EventChannel _responseChannel =
+      EventChannel('com.example.ussd/responses');
+  static const EventChannel _errorChannel =
+      EventChannel('com.example.ussd/errors');
 
   Stream<String>? _responseStream;
   Stream<String>? _errorStream;
@@ -72,9 +75,8 @@ class NativeUssdService {
 
   // Obtenir le stream des erreurs
   Stream<String> get errorStream {
-    _errorStream ??= _errorChannel
-        .receiveBroadcastStream()
-        .map((error) => error.toString());
+    _errorStream ??=
+        _errorChannel.receiveBroadcastStream().map((error) => error.toString());
     return _errorStream!;
   }
 

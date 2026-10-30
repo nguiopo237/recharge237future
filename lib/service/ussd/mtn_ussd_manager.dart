@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
+import '../notification/client_push.dart';
+import '../sendmail/send_mail.dart';
 import '../server/server_manager.dart';
 import '../server/transaction_claimer.dart';
 import 'session_config.dart';
@@ -16,9 +18,9 @@ enum UssdResult { success, failed, timeout, noNetwork }
 
 class UssdSessionResult {
   final UssdResult result;
-  final String rawMessage;        // Dernier message USSD brut
+  final String rawMessage; // Dernier message USSD brut
   final List<String> allMessages; // Tous les écrans de la session
-  final String log;               // Journal lisible (PIN masqué)
+  final String log; // Journal lisible (PIN masqué)
 
   // [MESURE 28/10/2026] Durée réelle de la session, étape par étape, écrite
   // dans la commande : plus besoin d'adb pour savoir où partent les secondes.
@@ -122,22 +124,27 @@ class MtnUssdManager {
     required SimConfig sim,
   }) async {
     if (sim.pin.isEmpty) {
-      debugPrint('[MtnUssdManager] PIN MTN non configuré dans Firestore (servers/{id}.simMTN.pin)');
+      debugPrint(
+          '[MtnUssdManager] PIN MTN non configuré dans Firestore (servers/{id}.simMTN.pin)');
       await _write(docId, {
         'status': '22',
-        'failure_reason': 'PIN MTN non configuré sur ce téléphone (servers/{id}.simMTN.pin)',
+        'failure_reason':
+            'PIN MTN non configuré sur ce téléphone (servers/{id}.simMTN.pin)',
       });
-      return const UssdSessionResult(result: UssdResult.failed, rawMessage: 'PIN non configuré');
+      return const UssdSessionResult(
+          result: UssdResult.failed, rawMessage: 'PIN non configuré');
     }
 
     await _updateStatus(docId, '20');
-    debugPrint('[MtnUssdManager] Airtime → $clientNumber, $amount FCFA, slot=${sim.slot}');
+    debugPrint(
+        '[MtnUssdManager] Airtime → $clientNumber, $amount FCFA, slot=${sim.slot}');
 
     final UssdRunResult run = await UssdSessionRunner.instance.run(
       code: '*126#',
       slot: sim.slot,
       rules: [
-        _ruleOptionFor('menu-vente-credit', ['vendre', 'vente de credit', 'vente de crédit']),
+        _ruleOptionFor('menu-vente-credit',
+            ['vendre', 'vente de credit', 'vente de crédit']),
         _ruleMontant(amount),
         _ruleNumero(clientNumber),
         _rulePin(sim.pin),
@@ -171,7 +178,8 @@ class MtnUssdManager {
       ..._timingFields(run),
     });
 
-    debugPrint('[MtnUssdManager] Airtime résultat: ${result.result} — ${run.reason}');
+    debugPrint(
+        '[MtnUssdManager] Airtime résultat: ${result.result} — ${run.reason}');
     return result;
   }
 
@@ -187,14 +195,29 @@ class MtnUssdManager {
     required String docId,
     required String clientNumber,
     required SimConfig sim,
+    String operateur = 'mtn',
   }) async {
+    // [OFFRES PERSO 29/10/2026] Code de requête réglé par l'admin
+    // (`app_config/public.ussd_gooddeal_{mtn|orange}`). MTN : défaut
+    // *126*7*{numero}#. Orange : aucun défaut, il doit être configuré.
+    final String code = await _codeOffresPerso(operateur, clientNumber);
+    if (code.isEmpty) {
+      await _write(docId, {
+        'status': '32',
+        'failure_reason':
+            'Offres ${operateur.toUpperCase()} indisponibles : code USSD '
+                'non configuré (app_config/public.ussd_gooddeal_$operateur).',
+      });
+      unawaited(ClientPush.offresMtn(docId: docId, pretes: false));
+      return const <String>[];
+    }
     await _updateStatus(docId, '30');
-    debugPrint('[MtnUssdManager] ForfaitQuery → $clientNumber, slot=${sim.slot}');
+    debugPrint(
+        '[MtnUssdManager] ForfaitQuery $operateur → $clientNumber, slot=${sim.slot}');
 
-    // Raccourci direct MTN Boost / Good Deal : *126*7*{numéroClient}#
-    // « suite » / « 00 » charge la page suivante quand MTN pagine.
+    // « suite » / « 00 » charge la page suivante quand l'opérateur pagine.
     final UssdRunResult run = await UssdSessionRunner.instance.run(
-      code: '*126*7*$clientNumber#',
+      code: code,
       slot: sim.slot,
       rules: [
         UssdRule(
@@ -221,7 +244,7 @@ class MtnUssdManager {
       maxScreens: 12,
       // [RESEAU 28/10/2026] Requête gratuite : inutile de la lancer si la SIM
       // MTN n'a pas de réseau (ou si l'emplacement n'est pas une carte MTN).
-      expectedOperator: 'mtn',
+      expectedOperator: operateur,
     );
 
     // [RESEAU 28/10/2026] Requête non lancée faute de réseau : commande gardée
@@ -240,16 +263,18 @@ class MtnUssdManager {
       // côté du réseau ou de la carte : `run.reason` le dit (hors réseau, mode
       // avion, mauvaise SIM...). Avant, la commande affichait seulement
       // « aucun écran capté », ce qui n'aidait pas l'admin.
-      final String detail = run.screens.isEmpty
-          ? run.reason
-          : run.screens.join(' | ');
+      final String detail =
+          run.screens.isEmpty ? run.reason : run.screens.join(' | ');
       await _write(docId, {
         'status': '32',
-        'failure_reason': 'Aucune offre MTN (${run.outcome.name}, SIM ${sim.slot + 1}) : $detail',
+        'failure_reason':
+            'Aucune offre MTN (${run.outcome.name}, SIM ${sim.slot + 1}) : $detail',
         'ussd_outcome': run.outcomeCode,
         'ussd_log': run.log,
         ..._timingFields(run),
       });
+      // [OFFRES ASYNC 29/10/2026] Le client a pu fermer l'app : on le prévient.
+      unawaited(ClientPush.offresMtn(docId: docId, pretes: false));
       return [];
     }
 
@@ -276,6 +301,11 @@ class MtnUssdManager {
       ..._timingFields(run),
     });
 
+    // [OFFRES ASYNC 29/10/2026] « Vos offres MTN sont prêtes » au client.
+    unawaited(ClientPush.offresMtn(
+        docId: docId,
+        pretes: true,
+        nombre: records.isNotEmpty ? records.length : lines.length));
     debugPrint('[MtnUssdManager] Forfaits récupérés : ${lines.length} offres');
     return lines;
   }
@@ -298,11 +328,12 @@ class MtnUssdManager {
     required String forfaitIndex,
     required SimConfig sim,
     String sourceOrder = '',
+    String operateur = 'mtn',
   }) async {
-
     if (sim.pin.isEmpty) {
       await _updateStatus(docId, '35');
-      return const UssdSessionResult(result: UssdResult.failed, rawMessage: 'PIN non configuré');
+      return const UssdSessionResult(
+          result: UssdResult.failed, rawMessage: 'PIN non configuré');
     }
 
     // ── Garde anti-fraude sur le prix ────────────────────────────────────────
@@ -339,10 +370,22 @@ class MtnUssdManager {
     }
 
     await _updateStatus(docId, '33');
-    debugPrint('[MtnUssdManager] ActivateForfait → $clientNumber, offre=$forfaitIndex, slot=${sim.slot}');
+    debugPrint(
+        '[MtnUssdManager] ActivateForfait → $clientNumber, offre=$forfaitIndex, slot=${sim.slot}');
 
+    // [OFFRES PERSO 29/10/2026] Même menu que la requête (code configuré).
+    final String code = await _codeOffresPerso(operateur, clientNumber);
+    if (code.isEmpty) {
+      await _write(docId, {
+        'status': '35',
+        'failure_reason': 'Code USSD des offres ${operateur.toUpperCase()} non '
+            'configuré : activation impossible, aucun code composé.',
+      });
+      return const UssdSessionResult(
+          result: UssdResult.failed, rawMessage: 'Code USSD non configuré');
+    }
     final UssdRunResult run = await UssdSessionRunner.instance.run(
-      code: '*126*7*$clientNumber#',
+      code: code,
       slot: sim.slot,
       rules: [
         // L'offre choisie peut se trouver sur une page suivante : on ne saisit
@@ -358,10 +401,13 @@ class MtnUssdManager {
             // une autre offre. Le numéro reste un repli pour les commandes
             // créées avant l'arrivée des offres structurées.
             if (offer != null) {
-              final String? parLibelle = findOptionForLabel(screen, offer.label);
+              final String? parLibelle =
+                  findOptionForLabel(screen, offer.label);
               if (parLibelle != null) return parLibelle;
             }
-            return menuLineFor(screen, forfaitIndex) != null ? forfaitIndex : null;
+            return menuLineFor(screen, forfaitIndex) != null
+                ? forfaitIndex
+                : null;
           },
         ),
         UssdRule(
@@ -372,16 +418,19 @@ class MtnUssdManager {
         UssdRule(
           label: 'confirmer',
           answer: (screen, done) =>
-              _asksTo(screen, const ['confirmer', 'confirmez', 'valider']) ? '1' : null,
+              _asksTo(screen, const ['confirmer', 'confirmez', 'valider'])
+                  ? '1'
+                  : null,
         ),
         _rulePin(sim.pin),
       ],
       isSuccess: _isSuccessScreen,
       // Cinq pages de menu + choix de l'offre + confirmation + PIN + verdict.
       maxScreens: 14,
-      // [RESEAU 28/10/2026] Une commande MTN ne part que sur une carte MTN :
-      // la garde vérifie le réseau de l'emplacement ET son opérateur.
-      expectedOperator: 'mtn',
+      // [RESEAU 28/10/2026] Une commande ne part que sur une carte du bon
+      // opérateur : la garde vérifie le réseau de l'emplacement ET son
+      // opérateur.
+      expectedOperator: operateur,
     );
 
     // [RESEAU 28/10/2026] Même règle : rien n'a été composé, on garde.
@@ -404,8 +453,223 @@ class MtnUssdManager {
       ..._timingFields(run),
     });
 
-    debugPrint('[MtnUssdManager] Forfait résultat: ${result.result} — ${run.reason}');
+    debugPrint(
+        '[MtnUssdManager] Forfait résultat: ${result.result} — ${run.reason}');
     return result;
+  }
+
+  /// [OFFRES PERSO 29/10/2026] Code USSD des offres personnalisées de
+  /// [operateur] pour [numero], lu dans `app_config/public` (1 lecture).
+  /// Vide si non configuré (Orange) : aucune session n'est alors lancée.
+  Future<String> _codeOffresPerso(String operateur, String numero) async {
+    String regle = operateur == 'mtn' ? '*126*7*{numero}#' : '';
+    try {
+      final pub = await FirebaseFirestore.instance
+          .collection('app_config')
+          .doc('public')
+          .get();
+      final String v =
+          (pub.data()?['ussd_gooddeal_$operateur'] ?? '').toString().trim();
+      if (v.contains('{numero}') || (v.startsWith('*') && v.endsWith('#'))) {
+        regle = v;
+      }
+    } catch (e) {
+      debugPrint('[MtnUssdManager] code des offres $operateur illisible : $e');
+    }
+    return regle.replaceAll('{numero}', numero);
+  }
+
+  // ── Forfaits du catalogue (29/10/2026) ───────────────────────────────────
+
+  /// Active un forfait du CATALOGUE (Surf Day, Giga surf, MTN Home…) payé par
+  /// le client, par le même menu que Boost.
+  ///
+  /// Le forfait est connu d'avance (document `Forfait` dont le `code` est
+  /// dans `retry`) : le serveur compose le code, cherche la ligne de CE
+  /// forfait sur l'écran affiché (prix, puis volume et durée), tape son
+  /// numéro dès qu'il la voit et ne passe à la page suivante que si elle n'y
+  /// est pas ; puis PIN, puis lecture du verdict.
+  ///
+  /// Le code de départ se règle dans `app_config/public.ussd_forfait_mtn`
+  /// (défaut `*126*7*{numero}#`, le menu de Boost), sans republier l'app.
+  ///
+  /// Statuts : "33" en cours, "34" activé, "35" échec (raison écrite).
+  Future<UssdSessionResult> activateCatalogBundle({
+    required String docId,
+    required String clientNumber,
+    required String forfaitCode,
+    required SimConfig sim,
+  }) async {
+    // [CATALOGUE 29/10/2026] Un échec n'est pas un remboursement : le client
+    // a payé, l'ADMIN active le forfait à la main. Il est prévenu sur
+    // Telegram avec tout ce qu'il faut ; le client lit un message simple.
+    Future<UssdSessionResult> echec(String raison,
+        {String forfait = ''}) async {
+      await _write(docId, {
+        'status': '35',
+        'failure_reason': _messageClientForfait,
+        'admin_detail': raison,
+        'a_traiter_admin': true,
+      });
+      unawaited(_alerterAdminForfait(docId, clientNumber,
+          forfait.isEmpty ? forfaitCode : forfait, raison));
+      unawaited(ClientPush.forfait(docId: docId, active: false));
+      return UssdSessionResult(result: UssdResult.failed, rawMessage: raison);
+    }
+
+    if (sim.pin.isEmpty) {
+      return echec(
+          'PIN MTN non configuré sur ce téléphone : aucun code composé.');
+    }
+
+    // Le forfait payé, tel qu'il est au catalogue.
+    Map<String, dynamic>? forfait;
+    String depart = '*126*7*{numero}#';
+    try {
+      final FirebaseFirestore db = FirebaseFirestore.instance;
+      final q = await db
+          .collection('Forfait')
+          .where('code', isEqualTo: forfaitCode)
+          .limit(1)
+          .get();
+      if (q.docs.isNotEmpty) forfait = q.docs.first.data();
+      final pub = await db.collection('app_config').doc('public').get();
+      final String regle =
+          (pub.data()?['ussd_forfait_mtn'] ?? '').toString().trim();
+      if (regle.contains('{numero}')) depart = regle;
+    } catch (e) {
+      debugPrint(
+          '[MtnUssdManager] lecture du forfait $forfaitCode impossible : $e');
+    }
+    if (forfait == null) {
+      return echec(
+          'Forfait « $forfaitCode » introuvable au catalogue : aucun code composé.');
+    }
+
+    final dynamic brut =
+        forfait['montant'] ?? forfait['prix'] ?? forfait['price'];
+    final int prix = brut is num
+        ? brut.toInt()
+        : int.tryParse('$brut'.replaceAll(RegExp(r'[^0-9]'), '')) ?? -1;
+    final int paye = int.tryParse(await _paidAmountOf(docId)) ?? -2;
+    if (prix <= 0 || paye != prix) {
+      return echec(
+          'Montant payé ($paye F) différent du prix du forfait ($prix F) : '
+          'aucun code composé.');
+    }
+    final String nom =
+        (forfait['nom'] ?? forfait['name'] ?? forfaitCode).toString();
+    final String volume =
+        (forfait['volume_data'] ?? forfait['volume'] ?? '').toString();
+    final String validite =
+        (forfait['validite'] ?? forfait['validity'] ?? '').toString();
+
+    await _updateStatus(docId, '33');
+    debugPrint(
+        '[MtnUssdManager] Catalogue → $clientNumber : $nom ($prix F, $volume, $validite)');
+
+    bool trouve = false;
+    final UssdRunResult run = await UssdSessionRunner.instance.run(
+      code: depart.replaceAll('{numero}', clientNumber),
+      slot: sim.slot,
+      rules: [
+        UssdRule(
+          label: 'choix-forfait',
+          answer: (screen, done) {
+            final String? cle = findBundleOption(
+              screen,
+              price: prix,
+              volume: volume,
+              validite: validite,
+            );
+            if (cle != null) trouve = true;
+            return cle;
+          },
+        ),
+        UssdRule(
+          label: 'page-suivante',
+          answer: (screen, done) => trouve ? null : findMorePageKey(screen),
+          maxUses: 5,
+        ),
+        UssdRule(
+          label: 'confirmer',
+          answer: (screen, done) =>
+              _asksTo(screen, const ['confirmer', 'confirmez', 'valider'])
+                  ? '1'
+                  : null,
+        ),
+        _rulePin(sim.pin),
+      ],
+      isSuccess: _isSuccessScreen,
+      maxScreens: 14,
+      expectedOperator: 'mtn',
+    );
+
+    if (run.networkBlocked) {
+      await _garder(docId, run, '1');
+      return _toResult(run);
+    }
+
+    final result = _toResult(run);
+    final bool success = result.result == UssdResult.success;
+    final String detail = !trouve
+        ? 'Forfait « $nom » ($prix F, $volume, $validite) introuvable dans le menu '
+            'MTN pour ce numéro : rien n\'a été activé.'
+        : (result.rawMessage.isEmpty
+            ? 'Aucune réponse MTN (${result.result.name}, SIM ${sim.slot + 1}) — ${run.reason}'
+            : '${result.result.name} : ${result.rawMessage}');
+    await _write(docId, {
+      'status': success ? '34' : '35',
+      if (!success) ...<String, dynamic>{
+        'failure_reason': _messageClientForfait,
+        'admin_detail': detail,
+        'a_traiter_admin': true,
+      },
+      'ussd_outcome': run.outcomeCode,
+      'ussd_log': run.log,
+      ..._timingFields(run),
+    });
+    if (!success) {
+      unawaited(_alerterAdminForfait(
+          docId, clientNumber, '$nom ($prix F)', detail,
+          ecrans: run.screens));
+    }
+    unawaited(ClientPush.forfait(docId: docId, active: success));
+    debugPrint(
+        '[MtnUssdManager] Catalogue résultat : ${result.result} — ${run.reason}');
+    return result;
+  }
+
+  /// Message montré au client quand l'activation automatique n'aboutit pas.
+  static const String _messageClientForfait =
+      'Votre paiement est bien reçu. L’activation automatique n’a pas abouti : '
+      'notre équipe active votre forfait et vous prévient.';
+
+  /// Alerte Telegram à l'admin : tout ce qu'il faut pour activer à la main.
+  Future<void> _alerterAdminForfait(
+    String docId,
+    String clientNumber,
+    String forfait,
+    String raison, {
+    List<String> ecrans = const <String>[],
+  }) async {
+    try {
+      final String menu = ecrans.isEmpty
+          ? ''
+          : '\nMenu MTN vu :\n${ecrans.map((String e) => e.trim()).join('\n— — —\n')}';
+      await SendEmail.sendMessagewithtelegram(
+        message: 'Recharge237 — FORFAIT À ACTIVER À LA MAIN\n'
+            'Téléphone : ${ServerManager.instance.deviceId}\n'
+            'Client    : $clientNumber\n'
+            'Forfait   : $forfait\n'
+            'Commande  : $docId\n'
+            'Raison    : $raison\n'
+            'Le client a PAYÉ : active le forfait puis passe la commande à 34.'
+            '${menu.length > 2500 ? menu.substring(0, 2500) : menu}',
+      );
+    } catch (e) {
+      debugPrint('[MtnUssdManager] alerte admin impossible : $e');
+    }
   }
 
   // ── Règles de lecture d'écran ─────────────────────────────────────────────
@@ -425,14 +689,23 @@ class MtnUssdManager {
   UssdRule _ruleMontant(String amount) => UssdRule(
         label: 'montant',
         answer: (screen, done) =>
-            _asksTo(screen, const ['montant', 'amount', 'somme']) ? amount : null,
+            _asksTo(screen, const ['montant', 'amount', 'somme'])
+                ? amount
+                : null,
       );
 
   UssdRule _ruleNumero(String clientNumber) => UssdRule(
         label: 'numero',
         answer: (screen, done) => _asksTo(
           screen,
-          const ['numéro', 'numero', 'bénéficiaire', 'beneficiaire', 'destinataire', 'téléphone'],
+          const [
+            'numéro',
+            'numero',
+            'bénéficiaire',
+            'beneficiaire',
+            'destinataire',
+            'téléphone'
+          ],
         )
             ? clientNumber
             : null,
@@ -455,7 +728,8 @@ class MtnUssdManager {
   String? _optionNumber(String screen, List<String> keywords) {
     for (final String raw in screen.split('\n')) {
       final String line = raw.trim();
-      final RegExpMatch? m = RegExp(r'^(\d{1,2})\s*[).\-:]\s*(.+)$').firstMatch(line);
+      final RegExpMatch? m =
+          RegExp(r'^(\d{1,2})\s*[).\-:]\s*(.+)$').firstMatch(line);
       if (m == null) continue;
       final String libelle = _normalize(m.group(2) ?? '');
       if (keywords.any((k) => libelle.contains(k))) return m.group(1);
@@ -541,7 +815,8 @@ class MtnUssdManager {
   /// statut remis dans son état d'attente : la file de reprise la retrouvera
   /// au retour du réseau, dans l'ordre d'arrivée. Aucun code n'a été composé,
   /// donc aucun risque de double crédit.
-  Future<void> _garder(String docId, UssdRunResult run, String statutAttente) async {
+  Future<void> _garder(
+      String docId, UssdRunResult run, String statutAttente) async {
     await TransactionClaimer.instance
         .release(docId, ServerManager.instance.deviceId);
     await _write(docId, {
@@ -636,5 +911,4 @@ class MtnUssdManager {
       debugPrint('[MtnUssdManager] écriture Firestore impossible : $e');
     }
   }
-
 }

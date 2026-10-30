@@ -23,8 +23,7 @@ void main() {
         airplaneMode: airplane,
         simState: simState,
         downSince: down == null ? null : maintenant.subtract(down),
-        lastAttempt:
-            sinceLast == null ? null : maintenant.subtract(sinceLast),
+        lastAttempt: sinceLast == null ? null : maintenant.subtract(sinceLast),
         now: maintenant,
         sessionBusy: busy,
       );
@@ -72,7 +71,8 @@ void main() {
   });
 
   group('durées du cycle', () {
-    test('le cycle complet tient en moins de 2 minutes hors attente native', () {
+    test('le cycle complet tient en moins de 2 minutes hors attente native',
+        () {
       final Duration total =
           NetworkRecovery.airplaneOn + NetworkRecovery.registrationWait;
       expect(total.inSeconds, lessThan(120));

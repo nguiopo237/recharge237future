@@ -79,65 +79,63 @@ class _ForfaitScreenState extends State<ForfaitScreen> {
 
   TransactControlleur controlleur = TransactControlleur();
 
-  getforfait({order,payToken}) {
+  getforfait({order, payToken}) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-      Container(width: 100.w,
-        child: Wrap(children: [
-          Container(
-            child: StreamBuilder(
-              stream: firestore
-                  .collection('Forfait')
-              // .where("idphone",isEqualTo: idphone)
-              // .orderBy("heure", descending: true)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(child: CircularProgressIndicator());
-                } else if (snapshot.hasError) {
-                  return Text('Erreur : ${snapshot.error}');
-                } else if (!snapshot.hasData) {
-                  return Text('Pas de données disponibles');
-                } else {
-                  // scrollToIndex1();
+        Container(
+          width: 100.w,
+          child: Wrap(
+            children: [
+              Container(
+                child: StreamBuilder(
+                  stream: firestore
+                      .collection('Forfait')
+                      // .where("idphone",isEqualTo: idphone)
+                      // .orderBy("heure", descending: true)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return Center(child: CircularProgressIndicator());
+                    } else if (snapshot.hasError) {
+                      return Text('Erreur : ${snapshot.error}');
+                    } else if (!snapshot.hasData) {
+                      return Text('Pas de données disponibles');
+                    } else {
+                      // scrollToIndex1();
 
-                  return ListView.builder(
-
-                    controller: _controller,
-                    reverse: false,
-                    shrinkWrap: true,
-                    itemCount: snapshot.data!.docs.length,
-                    itemBuilder: (context, index) {
-                      final data = snapshot.data!.docs![index];
-                      return    Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: FilterChip(
-                          backgroundColor: Colors.blue,
-                          label: Middletext(
-                            text: data["name"],
-                            color: Colors.white,
-                          ),
-                          selected: _currentFilter == "1",
-                          onSelected: (selected) {
-                            APIORANGE.updateValueforfait(
-                                order: order,
-                                payToken: payToken
-                            );
-                            print("yes");
-
-                          },
-                        ),
+                      return ListView.builder(
+                        controller: _controller,
+                        reverse: false,
+                        shrinkWrap: true,
+                        itemCount: snapshot.data!.docs.length,
+                        itemBuilder: (context, index) {
+                          final data = snapshot.data!.docs![index];
+                          return Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: FilterChip(
+                              backgroundColor: Colors.blue,
+                              label: Middletext(
+                                text: data["name"],
+                                color: Colors.white,
+                              ),
+                              selected: _currentFilter == "1",
+                              onSelected: (selected) {
+                                APIORANGE.updateValueforfait(
+                                    order: order, payToken: payToken);
+                                print("yes");
+                              },
+                            ),
+                          );
+                        },
                       );
-                    },
-                  );
-                }
-              },
-            ),
+                    }
+                  },
+                ),
+              ),
+            ],
           ),
-        ],),
-      )
-
+        )
       ],
     );
   }
@@ -179,8 +177,8 @@ class _ForfaitScreenState extends State<ForfaitScreen> {
                   onTap: () {
                     Get.back();
                     APIORANGE.updateValueforfait(
-                        order: order,
-                        payToken: payToken,
+                      order: order,
+                      payToken: payToken,
                       code: data['code'],
                     );
                     print("yes");
@@ -208,7 +206,6 @@ class _ForfaitScreenState extends State<ForfaitScreen> {
       },
     );
   }
-
 
   // List<QueryDocumentSnapshot<Map<String, dynamic>>>transact =[];
   //
@@ -295,7 +292,7 @@ class _ForfaitScreenState extends State<ForfaitScreen> {
   Widget _buildQuickFilters() {
     // Liste des catégories uniques
     Set<String> categories = transactions.map((t) => t.category).toSet();
-    List<String> allCategories = ['Toutes',"User","PArse"];
+    List<String> allCategories = ['Toutes', "User", "PArse"];
 
     return SizedBox(
       height: 60,
@@ -360,8 +357,12 @@ class _ForfaitScreenState extends State<ForfaitScreen> {
                 Transaction post = Transaction(
                   statut: datas['status'].toString(),
                   title: datas['numerocamtel'].toString(),
-                  idtransact:datas['idtransact'].toString(),
-                  icon: datas['status'].toString()=="3"?Icons.shopping_cart: datas['status'].toString()=="5"? Icons.work : Icons.restaurant,
+                  idtransact: datas['idtransact'].toString(),
+                  icon: datas['status'].toString() == "3"
+                      ? Icons.shopping_cart
+                      : datas['status'].toString() == "5"
+                          ? Icons.work
+                          : Icons.restaurant,
                   category: datas['numeroorange'].toString(),
                   date: DateTime.parse(datas['heure'].toString()),
                   amount: double.parse(datas['amount'].toString()),
@@ -380,7 +381,10 @@ class _ForfaitScreenState extends State<ForfaitScreen> {
 
                 return InkWell(
                     onTap: () {
-                      c.getmodal(sectionview: _buildForfaitGrid(payToken:  datas['payToken'],order: datas['order']));
+                      c.getmodal(
+                          sectionview: _buildForfaitGrid(
+                              payToken: datas['payToken'],
+                              order: datas['order']));
                     },
                     child: _buildTransactionItem(post));
               },
@@ -440,21 +444,26 @@ class _ForfaitScreenState extends State<ForfaitScreen> {
             ),
             Expanded(
               child: Text(
-                "${transaction.statut == "0" ? "en attente de validations " : transaction.statut == "1" ? "en attente de traitement" : transaction.statut == "2" ? "en cour de traitement" : transaction.statut == "3"?  "Recharge de credit Effectuée":  transaction.statut == "4"?'en Attente de validation du forfait': "Forfait Valider "}",
+                "${transaction.statut == "0" ? "en attente de validations " : transaction.statut == "1" ? "en attente de traitement" : transaction.statut == "2" ? "en cour de traitement" : transaction.statut == "3" ? "Recharge de credit Effectuée" : transaction.statut == "4" ? 'en Attente de validation du forfait' : "Forfait Valider "}",
                 style: TextStyle(
                     color: transaction.statut == "0"
                         ? Colors.orangeAccent
                         : transaction.statut == "1"
-                        ? Colors.blue
-                        : transaction.statut == "2"
-                        ? Colors.deepPurple
-                        :  transaction.statut == "3" ?Colors.green:transaction.statut == "5"?Colors.blueAccent:Colors.cyan),
+                            ? Colors.blue
+                            : transaction.statut == "2"
+                                ? Colors.deepPurple
+                                : transaction.statut == "3"
+                                    ? Colors.green
+                                    : transaction.statut == "5"
+                                        ? Colors.blueAccent
+                                        : Colors.cyan),
               ),
             ),
-
-
-
-            Expanded(child: Middletext(text: transaction.idtransact.toString()??"",fontWeight: FontWeight.bold,))
+            Expanded(
+                child: Middletext(
+              text: transaction.idtransact.toString() ?? "",
+              fontWeight: FontWeight.bold,
+            ))
           ],
         ),
       ),

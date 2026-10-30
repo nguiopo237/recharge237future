@@ -11,20 +11,17 @@ import 'package:intl/src/intl/date_format.dart';
 import 'package:intl/src/intl/number_format.dart';
 
 import 'Reload_controlleur.dart';
+
 TransactControlleur t = Get.find();
 // TransactControlleur t = Get.put(TransactControlleur());
 
-class TransactControlleur extends GetxController{
-  RxList<QueryDocumentSnapshot<Map<String, dynamic>>>transact =<QueryDocumentSnapshot<Map<String, dynamic>>>[].obs;
+class TransactControlleur extends GetxController {
+  RxList<QueryDocumentSnapshot<Map<String, dynamic>>> transact =
+      <QueryDocumentSnapshot<Map<String, dynamic>>>[].obs;
 
   RxDouble totalBalance = 0.0.obs;
 
   late ScrollController controller;
-
-
-
-
-
 
   String getStatutText({int statut = 0}) {
     switch (statut) {
@@ -64,17 +61,15 @@ class TransactControlleur extends GetxController{
     }
   }
 
-
   Widget buildTransactionItem(Transactions transaction) {
-    String operatorLogoall ="";
+    String operatorLogoall = "";
 
-    String? prefix = transaction?.category.substring(0,3);
+    String? prefix = transaction?.category.substring(0, 3);
 
     if (r.numbersRegex.hasMatch(prefix!)) {
       operatorLogoall = "images/MTN_logo.png";
     } else if (r.numberoRegex.hasMatch(prefix)) {
       operatorLogoall = "images/omlogo.png";
-
     }
 
     return Card(
@@ -82,7 +77,9 @@ class TransactControlleur extends GetxController{
       elevation: 1,
       child: ListTile(
         onTap: () {
-          Get.to(ChatScreen(transaction: transaction,));
+          Get.to(ChatScreen(
+            transaction: transaction,
+          ));
         },
         contentPadding: EdgeInsets.zero,
         leading: Container(
@@ -92,7 +89,7 @@ class TransactControlleur extends GetxController{
             color: Colors.transparent,
             borderRadius: BorderRadius.circular(20),
           ),
-          child:  SizedBox(
+          child: SizedBox(
               height: 1.h,
               width: 19.w,
               child: Padding(
@@ -112,9 +109,18 @@ class TransactControlleur extends GetxController{
           children: [
             Row(
               children: [
-                Text(transaction.category,style: TextStyle(fontWeight: FontWeight.bold,fontSize: 8.sp),),
-                Text("-->",style: TextStyle(fontWeight: FontWeight.bold,fontSize: 8.sp),),
-                Text(transaction.title,style: TextStyle(fontWeight: FontWeight.bold,fontSize: 8.sp),),
+                Text(
+                  transaction.category,
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 8.sp),
+                ),
+                Text(
+                  "-->",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 8.sp),
+                ),
+                Text(
+                  transaction.title,
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 8.sp),
+                ),
               ],
             ),
             Text(
@@ -157,12 +163,12 @@ class TransactControlleur extends GetxController{
     );
   }
 
-
-   buildTransactionsList({filter}) {
+  buildTransactionsList({filter}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: StreamBuilder<QuerySnapshot>(
-        stream: firestore.collection('Transact')
+        stream: firestore
+            .collection('Transact')
             .where("idphone", isEqualTo: idphone)
             .orderBy("heure", descending: true)
             .snapshots(),
@@ -182,13 +188,25 @@ class TransactControlleur extends GetxController{
           final transactions = snapshot.data!.docs;
 
           return ListView.builder(
-           // controller: controller,
+            // controller: controller,
             shrinkWrap: true,
-            itemCount:filter==null?transactions.length:transactions.where((element) => element["status"]=="${filter}",).length,
+            itemCount: filter == null
+                ? transactions.length
+                : transactions
+                    .where(
+                      (element) => element["status"] == "${filter}",
+                    )
+                    .length,
             itemBuilder: (context, index) {
-              final data =filter==null?transactions[index].data() as Map<String, dynamic>:transactions.where((element) => element["status"]=="${filter}",).toList()[index].data() as Map<String, dynamic>;
+              final data = filter == null
+                  ? transactions[index].data() as Map<String, dynamic>
+                  : transactions
+                      .where(
+                        (element) => element["status"] == "${filter}",
+                      )
+                      .toList()[index]
+                      .data() as Map<String, dynamic>;
               final transaction = Transactions.fromMap(data);
-
 
               return buildTransactionItem(transaction);
             },
@@ -197,6 +215,4 @@ class TransactControlleur extends GetxController{
       ),
     );
   }
-
-
 }

@@ -9,11 +9,13 @@ void main() {
   // quand une commande attend (fenêtre de réseau à attraper), relâché sinon.
   group('cadence de surveillance', () {
     test('5 min quand des commandes attendent', () {
-      expect(NetworkWatch.cadenceFor(pending: true), const Duration(minutes: 5));
+      expect(
+          NetworkWatch.cadenceFor(pending: true), const Duration(minutes: 5));
     });
 
     test('30 min quand la file est vide', () {
-      expect(NetworkWatch.cadenceFor(pending: false), const Duration(minutes: 30));
+      expect(
+          NetworkWatch.cadenceFor(pending: false), const Duration(minutes: 30));
     });
   });
 
@@ -43,7 +45,8 @@ void main() {
       );
       final List<SimTarget> t = networkTargets(c);
       expect(t.map((SimTarget e) => e.slot).toList(), <int>[0, 1]);
-      expect(t.map((SimTarget e) => e.operator).toList(), <String>['mtn', 'camtel']);
+      expect(t.map((SimTarget e) => e.operator).toList(),
+          <String>['mtn', 'camtel']);
     });
 
     test('même carte en prépayée et postpayée : un seul contrôle', () {

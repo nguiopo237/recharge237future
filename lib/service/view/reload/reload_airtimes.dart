@@ -324,8 +324,6 @@ class RechargeScreen extends GetView<ReloadControlleur> {
   double _montantSelectionne = 0.0;
   bool _isLoading = false;
 
-
-
   @override
   Widget build(BuildContext context) {
     Color baseColor = Color(0xFF2DD4BF);
@@ -355,22 +353,19 @@ class RechargeScreen extends GetView<ReloadControlleur> {
               ),
               child: Container(
                 padding: EdgeInsets.all(12),
-
                 decoration: BoxDecoration(
                   image: DecorationImage(
                       //opacity: 0.5,
-                      image: AssetImage("assets/logo/icon.png")
-                  ),
+                      image: AssetImage("assets/logo/icon.png")),
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      Colors.deepPurple ,
+                      Colors.deepPurple,
                       Colors.purple,
                     ],
                   ),
                   borderRadius: BorderRadius.circular(8.sp),
-
                   boxShadow: [
                     BoxShadow(
                       color: Colors.grey,
@@ -413,7 +408,9 @@ class RechargeScreen extends GetView<ReloadControlleur> {
 
             // Section historique rapide
             _buildHistoriqueRapide(),
-            SizedBox(height: 4.h,)
+            SizedBox(
+              height: 4.h,
+            )
           ],
         ),
       ),
@@ -684,7 +681,9 @@ class RechargeScreen extends GetView<ReloadControlleur> {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: controller.detectedOperator1.value != "Camtel" ? null : _effectuerRecharge,
+        onPressed: controller.detectedOperator1.value != "Camtel"
+            ? null
+            : _effectuerRecharge,
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.white,
           foregroundColor: Colors.deepPurple,
@@ -695,36 +694,30 @@ class RechargeScreen extends GetView<ReloadControlleur> {
           ),
         ),
         child:
-        // controller.detectedOperator1.value != "Camtel"
-        // //     || controller.error2.value == false
-        // // || controller.detectedOperator.value == ""
-        //     ? SizedBox(
-        //         height: 20,
-        //         width: 20,
-        //         child: CircularProgressIndicator(
-        //           strokeWidth: 2,
-        //           valueColor: AlwaysStoppedAnimation<Color>(Colors.deepPurple),
-        //         ),
-        //       )
-        //     :
-        Text(
-                'EFFECTUER LA RECHARGE',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+            // controller.detectedOperator1.value != "Camtel"
+            // //     || controller.error2.value == false
+            // // || controller.detectedOperator.value == ""
+            //     ? SizedBox(
+            //         height: 20,
+            //         width: 20,
+            //         child: CircularProgressIndicator(
+            //           strokeWidth: 2,
+            //           valueColor: AlwaysStoppedAnimation<Color>(Colors.deepPurple),
+            //         ),
+            //       )
+            //     :
+            Text(
+          'EFFECTUER LA RECHARGE',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }
 
-
-
-
-
-
   Widget _buildHistoriqueRapide() {
-
     final FirebaseFirestore firestore = FirebaseFirestore.instance;
     Widget _buildTransactionsList() {
       return Padding(
@@ -732,7 +725,10 @@ class RechargeScreen extends GetView<ReloadControlleur> {
         child: StreamBuilder<QuerySnapshot>(
           stream: firestore
               .collection('Transact')
-              .where("idphone", isEqualTo: idphone,)
+              .where(
+                "idphone",
+                isEqualTo: idphone,
+              )
               .orderBy("heure", descending: true)
               .limit(3)
               .snapshots(),
@@ -754,59 +750,66 @@ class RechargeScreen extends GetView<ReloadControlleur> {
             return Column(
               children: [
                 ListView.builder(
-                 // controller: _controller,
+                  // controller: _controller,
                   shrinkWrap: true,
                   reverse: false,
                   physics: NeverScrollableScrollPhysics(),
                   itemCount: transactions.length,
                   itemBuilder: (context, index) {
-                    final data = transactions[index].data() as Map<String, dynamic>;
+                    final data =
+                        transactions[index].data() as Map<String, dynamic>;
                     final transaction = Transactions.fromMap(data);
-                    return transaction.statut!="9"||transaction.statut!="10"?t.buildTransactionItem(transaction):SizedBox();
+                    return transaction.statut != "9" ||
+                            transaction.statut != "10"
+                        ? t.buildTransactionItem(transaction)
+                        : SizedBox();
                   },
                 ),
                 InkWell(
                   onTap: () {
-                    c.getmodal(sectionview: Container(
-                      height: Get.height/1.5,
+                    c.getmodal(
+                        sectionview: Container(
+                      height: Get.height / 1.5,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-
                           Padding(
                             padding: const EdgeInsets.all(8.0),
                             child: Text(
-                                                    'Mes Recharges',
-                                                    style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.deepPurple,
-                              decoration: TextDecoration.underline
-
-                                                    ),),
+                              'Mes Recharges',
+                              style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.deepPurple,
+                                  decoration: TextDecoration.underline),
+                            ),
                           ),
-                        SizedBox(height: 2.h,),
-                       Expanded(child:  t.buildTransactionsList())
-                      ],),));
+                          SizedBox(
+                            height: 2.h,
+                          ),
+                          Expanded(child: t.buildTransactionsList())
+                        ],
+                      ),
+                    ));
                   },
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                    Text(
-                      'Voir plus',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.deepPurple,
-                        decoration: TextDecoration.underline
-
+                      Text(
+                        'Voir plus',
+                        style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.deepPurple,
+                            decoration: TextDecoration.underline),
                       ),
-                    ),
-                      Icon(Icons.navigate_next,color:  Colors.deepPurple,size: 18.sp,),
-
-
-
-                  ],),
+                      Icon(
+                        Icons.navigate_next,
+                        color: Colors.deepPurple,
+                        size: 18.sp,
+                      ),
+                    ],
+                  ),
                 ),
               ],
             );
@@ -814,11 +817,6 @@ class RechargeScreen extends GetView<ReloadControlleur> {
         ),
       );
     }
-
-
-
-
-
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -832,10 +830,7 @@ class RechargeScreen extends GetView<ReloadControlleur> {
           ),
         ),
         SizedBox(height: 1.h),
-
         _buildTransactionsList(),
-
-
       ],
     );
   }
@@ -871,7 +866,8 @@ class RechargeScreen extends GetView<ReloadControlleur> {
     }
 
     if (controller.detectedOperator1.value != "Camtel" ||
-        controller.error2.value == false|| controller.detectedOperator.value == "") {
+        controller.error2.value == false ||
+        controller.detectedOperator.value == "") {
       _showMessage('Veuillez remplir tous les champs');
       return;
     } else {
@@ -909,7 +905,4 @@ class RechargeScreen extends GetView<ReloadControlleur> {
       ),
     );
   }
-
-
-
 }

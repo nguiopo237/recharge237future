@@ -3,13 +3,13 @@ import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server/gmail.dart';
 import 'package:http/http.dart' as http;
 
-class SendEmail{
-
-
-  static Future<void> updateValueInFirestore(String collectionName, String documentId, String fieldName, dynamic newValue) async {
+class SendEmail {
+  static Future<void> updateValueInFirestore(String collectionName,
+      String documentId, String fieldName, dynamic newValue) async {
     try {
       // Récupérer une référence à la collection et au document
-      DocumentReference docRef = FirebaseFirestore.instance.collection(collectionName).doc(documentId);
+      DocumentReference docRef =
+          FirebaseFirestore.instance.collection(collectionName).doc(documentId);
 
       // Mettre à jour la valeur
       await docRef.update({fieldName: newValue});
@@ -20,10 +20,10 @@ class SendEmail{
     }
   }
 
-
-
-  static sendMyMail({required String recipientEmail , String phoneNumber = "",bool update = false}) async
-  {
+  static sendMyMail(
+      {required String recipientEmail,
+      String phoneNumber = "",
+      bool update = false}) async {
     String username = 'camillenguiopo@gmail.com';
     String password = 'nsrp httq pxbw hhwb';
 
@@ -37,38 +37,39 @@ class SendEmail{
     // Formatage de la date
     final now = DateTime.now();
     final formattedDate = "${now.day} ${_getMonthName(now.month)} ${now.year}";
-    final formattedTime = "${now.hour}:${now.minute.toString().padLeft(2, '0')}";
+    final formattedTime =
+        "${now.hour}:${now.minute.toString().padLeft(2, '0')}";
     RegExp regExp = RegExp(r'\b\d{9}\b');
     String? numeroTelephone = regExp.stringMatch(recipientEmail);
-    RegExp regExpdate = RegExp(r'\b(\d{2}/\d{2}/\d{2}\s\d{2}:\d{2}\s(?:AM|PM))\b');
+    RegExp regExpdate =
+        RegExp(r'\b(\d{2}/\d{2}/\d{2}\s\d{2}:\d{2}\s(?:AM|PM))\b');
     RegExp regExpDateSeule = RegExp(r'\b(\d{2}/\d{2}/\d{2})\b');
     RegExp regExpheure = RegExp(r'\b\d{2}:\d{2}\s(?:AM|PM)\b');
     String? dateHeureComplete = regExpdate.stringMatch(recipientEmail);
     String? dateSeule = regExpDateSeule.stringMatch(recipientEmail);
     String? heureComplete = regExpheure.stringMatch(recipientEmail);
-    int result=0;
-
+    int result = 0;
 
     RegExp regExptransact = RegExp(r'TransactionID is (\d+)');
-    String transactionId = regExptransact.firstMatch(recipientEmail)?.group(1) ?? '';
+    String transactionId =
+        regExptransact.firstMatch(recipientEmail)?.group(1) ?? '';
 
-    RegExp regExpTransactionID = RegExp(r'TransactionID (\d+), (\d{2}-\d{2}-\d{4}) at (\d{2}:\d{2}:\d{2})');
+    RegExp regExpTransactionID = RegExp(
+        r'TransactionID (\d+), (\d{2}-\d{2}-\d{4}) at (\d{2}:\d{2}:\d{2})');
     var transactionDetails = regExpTransactionID.firstMatch(recipientEmail);
     String transactionID = transactionDetails?.group(1) ?? '';
     String date = transactionDetails?.group(2) ?? '';
     String time = transactionDetails?.group(3) ?? '';
 
-
     RegExp regExpost = RegExp(r'- ([A-Z0-9_]+)');
     String codePOS = regExpost.firstMatch(recipientEmail)?.group(1) ?? '';
-
-
 
     RegExp regExpAmount = RegExp(r'amount is ([\d.,]+) FCFA');
     RegExp regExpAmountfailed = RegExp(r'send ([\d.,]+) FCFA');
     RegExp regExpAmounts = RegExp(r'Amount is ([\d,.]+) FCFA');
     String amount = regExpAmount.firstMatch(recipientEmail)?.group(1) ?? '';
-    String amountf = regExpAmountfailed.firstMatch(recipientEmail)?.group(1) ?? '';
+    String amountf =
+        regExpAmountfailed.firstMatch(recipientEmail)?.group(1) ?? '';
     String amounts = regExpAmounts.firstMatch(recipientEmail)?.group(1) ?? '';
 
     // Extraire le solde
@@ -77,39 +78,32 @@ class SendEmail{
     String balance = regExpBalance.firstMatch(recipientEmail)?.group(1) ?? '';
     String balances = regExpBalances.firstMatch(recipientEmail)?.group(1) ?? '';
 
-
     print("Montant de recharge: $amount FCFA");
     print("Montant de rechargef: $amountf FCFA");
     print("Montant de recharges: $codePOS FCFA");
     print("Solde actuel: $balance FCFA");
-
-
 
     print("Numéro de téléphone extrait: $numeroTelephone");
     print("Date complète (avec heure): $dateHeureComplete");
     print("Date seule: $dateSeule");
     print("Date seule: $balance");
     print("resultat");
-    print(recipientEmail.contains("POS")&&recipientEmail.contains("DSM"));
+    print(recipientEmail.contains("POS") && recipientEmail.contains("DSM"));
     print(recipientEmail.contains("DSM"));
     print("resultat");
-      if( recipientEmail.contains("MASTER")||recipientEmail.contains("POS")&&recipientEmail.contains("DSM")){
-        print("ce messages est pour la dsm ");
-        print("voici sa balance: $balance");
-        print("voici sa balance: $balances");
-        SendEmail.updateValueInFirestore("solde","jNIO5y2lj8s9PiTSV4cU","dsm","${balances}");
-      }else{
-        print("ce messages est pour la post");
-        SendEmail.updateValueInFirestore("solde","MrLq19BDw8Jng5hzXnSx","soldepost","${balance}");
-      }
+    if (recipientEmail.contains("MASTER") ||
+        recipientEmail.contains("POS") && recipientEmail.contains("DSM")) {
+      print("ce messages est pour la dsm ");
+      print("voici sa balance: $balance");
+      print("voici sa balance: $balances");
+      SendEmail.updateValueInFirestore(
+          "solde", "jNIO5y2lj8s9PiTSV4cU", "dsm", "${balances}");
+    } else {
+      print("ce messages est pour la post");
+      SendEmail.updateValueInFirestore(
+          "solde", "MrLq19BDw8Jng5hzXnSx", "soldepost", "${balance}");
+    }
     print("mail envoyer seul");
-
-
-
-
-
-
-
 
     // HTML amélioré avec l'interface attractive
     final htmlContent = """
@@ -843,10 +837,13 @@ class SendEmail{
       ..from = Address(username, 'Recharge 237')
       ..recipients.add("recharge2370@gmail.com")
       ..subject = 'Confirmation de recharge - ${amount} FCFA - $formattedDate'
-      ..text = 'Confirmation de recharge\n\nVous avez effectué une recharge de ${amount} FCFA le $formattedDate à $formattedTime.\n\n Numéro: $phoneNumber\nID Transaction: TRX-${now.millisecondsSinceEpoch.toString().substring(5)}\n\nMerci pour votre confiance!'
-      ..html = recipientEmail.contains("Failed")?htmlContenterror:
-      recipientEmail.contains("top-up")?
-      htmlContent: htmlContentpost;
+      ..text =
+          'Confirmation de recharge\n\nVous avez effectué une recharge de ${amount} FCFA le $formattedDate à $formattedTime.\n\n Numéro: $phoneNumber\nID Transaction: TRX-${now.millisecondsSinceEpoch.toString().substring(5)}\n\nMerci pour votre confiance!'
+      ..html = recipientEmail.contains("Failed")
+          ? htmlContenterror
+          : recipientEmail.contains("top-up")
+              ? htmlContent
+              : htmlContentpost;
 
     try {
       final sendReport = await send(message, smtpServer);
@@ -864,15 +861,14 @@ class SendEmail{
   static Future<void> sendMessagewithtelegram({
     required String message,
     List<String>? chatIds,
-  }) async
-  {
+  }) async {
     try {
       // Token du bot (à externaliser pour la sécurité)
       const botToken = '8465693687:AAGSAKJ2BXv8IG33lAbY9mgGIsbTz9Tm1o8';
       const botTokens = '7650275482:AAGI3zb-jkk7VIFrlL2LgKVrFGOVQoM8XtI';
 
       // Liste des chat IDs par défaut
-      final defaultChatIds = ['7402111158','1470497195','6039338540'];
+      final defaultChatIds = ['7402111158', '1470497195', '6039338540'];
       final targetChatIds = chatIds ?? defaultChatIds;
 
       // Encoder le message pour l'URL
@@ -880,18 +876,18 @@ class SendEmail{
 
       // Envoyer à tous les chat IDs
       for (final chatId in targetChatIds) {
-        final url = Uri.parse(
-            'https://api.telegram.org/bot$botTokens/sendMessage'
+        final url =
+            Uri.parse('https://api.telegram.org/bot$botTokens/sendMessage'
                 '?chat_id=$chatId'
-                '&text=$encodedMessage'
-        );
+                '&text=$encodedMessage');
 
         final response = await http.post(url);
 
         if (response.statusCode == 200) {
           print('Message envoyé avec succès à $chatId: ${response.body}');
         } else {
-          print('Erreur pour $chatId: ${response.statusCode} - ${response.body}');
+          print(
+              'Erreur pour $chatId: ${response.statusCode} - ${response.body}');
         }
 
         // Petite pause pour éviter de surcharger l'API
@@ -907,8 +903,18 @@ class SendEmail{
   // Helper function to get month name
   static String _getMonthName(int month) {
     const months = [
-      'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
-      'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'
+      'janvier',
+      'février',
+      'mars',
+      'avril',
+      'mai',
+      'juin',
+      'juillet',
+      'août',
+      'septembre',
+      'octobre',
+      'novembre',
+      'décembre'
     ];
     return months[month - 1];
   }

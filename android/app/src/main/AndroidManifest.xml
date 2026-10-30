@@ -37,7 +37,7 @@
          (lib/service/server/network_recovery.dart → MainActivity.airplaneCycle).
          Permission réservée : elle ne s'obtient pas par une fenêtre Android mais
          par une commande adb unique sur chaque téléphone serveur :
-           adb shell pm grant com.example.projettest android.permission.WRITE_SECURE_SETTINGS
+           adb shell pm grant com.recharge237.serveur android.permission.WRITE_SECURE_SETTINGS
          Sans elle, le cycle est refusé par le système et l'app le signale à
          l'admin au lieu de laisser le téléphone sans réseau. -->
     <uses-permission
@@ -48,6 +48,10 @@
     <!-- NOTIFICATIONS (Android 13+)                                  -->
     <!-- ──────────────────────────────────────────────────────────── -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- [RENOMMAGE 29/10/2026] Proposer la désinstallation de l'ancienne
+         version (com.example.projettest), qui sinon continuerait à prendre
+         des commandes en parallèle. -->
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
 
     <application
         android:label="ServeurApp Recharge237"
@@ -102,15 +106,9 @@
             </intent-filter>
         </receiver>
 
-        <!-- ── Réception SMS en arrière-plan (package telephony) ───── -->
-        <receiver
-            android:name="com.shounakmulay.telephony.sms.IncomingSmsReceiver"
-            android:exported="true"
-            android:permission="android.permission.BROADCAST_SMS">
-            <intent-filter>
-                <action android:name="android.provider.Telephony.SMS_RECEIVED"/>
-            </intent-filter>
-        </receiver>
+        <!-- [29/10/2026] Récepteur du paquet `telephony` retiré avec lui : la
+             classe n'existe plus, Android plantait l'app à chaque SMS reçu.
+             Les SMS passent désormais par MainActivity (canal r237/sms). -->
 
         <!-- ── Service d'accessibilité : lecture des menus USSD ─────── -->
         <!--
@@ -140,6 +138,8 @@
     </application>
 
     <queries>
+        <!-- [RENOMMAGE 29/10/2026] Détecter l'ancienne version de l'app. -->
+        <package android:name="com.example.projettest" />
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>

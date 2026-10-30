@@ -114,8 +114,8 @@ void main() {
   });
 
   test('journée sans vente : message explicite, pas vide', () {
-    final SalesReport r =
-        buildSalesReport(transactions: const <Map<String, dynamic>>[], from: from, to: to);
+    final SalesReport r = buildSalesReport(
+        transactions: const <Map<String, dynamic>>[], from: from, to: to);
     final String msg =
         composeAccountingMessage(report: r, balances: const <BalanceLine>[]);
     expect(msg, contains('Aucune vente sur la période'));
