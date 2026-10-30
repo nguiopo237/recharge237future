@@ -239,6 +239,8 @@ class ReportService {
     );
     final List<BalanceLine> soldes = await _soldes();
     final List<String> alertes = _alertesDepuis(soldes, debut);
+    // [FIDÉLITÉ 31/10/2026] Coût du programme de points sur la journée.
+    final String? fidelite = await _resumeFidelite(debut);
 
     final String message = composeAccountingMessage(
       report: rapport,
@@ -247,6 +249,7 @@ class ReportService {
       deviceId: _deviceId,
       title: motif.isEmpty ? 'BILAN DES VENTES' : 'BILAN DES VENTES — $motif',
       seuilSolde: _config.seuilSolde,
+      loyalty: fidelite,
     );
 
     await SendEmail.sendMessagewithtelegram(message: message);
@@ -294,6 +297,35 @@ class ReportService {
     } catch (e) {
       debugPrint('[Report] lecture des commandes impossible : $e');
       return const <Map<String, dynamic>>[];
+    }
+  }
+
+  /// [FIDÉLITÉ 31/10/2026] Résumé du jour pour le bilan, lu dans
+  /// `loyalty_stats/{aaaa-mm-jj}` (un seul document, écrit par
+  /// [LoyaltyService] à chaque commande créditée).
+  ///
+  /// Rend `null` quand rien n'a été distribué : le bilan n'affiche alors
+  /// aucune section fidélité, plutôt qu'une ligne à zéro tous les jours.
+  Future<String?> _resumeFidelite(DateTime jour) async {
+    try {
+      final DocumentSnapshot<Map<String, dynamic>> doc =
+          await FirebaseFirestore.instance
+              .collection('loyalty_stats')
+              .doc(_cle(jour))
+              .get(const GetOptions(source: Source.server))
+              .timeout(const Duration(seconds: 10));
+      final Map<String, dynamic>? m = doc.data();
+      if (m == null) return null;
+      final int points = (m['points'] as num?)?.toInt() ?? 0;
+      final int commandes = (m['commandes'] as num?)?.toInt() ?? 0;
+      final int volume = (m['volume'] as num?)?.toInt() ?? 0;
+      if (points <= 0) return null;
+      return '$points point(s) sur $commandes commande(s) '
+          '(${formatFcfa(volume)} de ventes) — réserve consommable : '
+          '${formatFcfa(points)}.';
+    } catch (e) {
+      debugPrint('[Report] résumé fidélité illisible : $e');
+      return null;
     }
   }
 

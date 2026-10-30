@@ -223,6 +223,7 @@ String composeAccountingMessage({
   String deviceId = '',
   String title = 'BILAN DES VENTES',
   int? seuilSolde,
+  String? loyalty,
 }) {
   final StringBuffer b = StringBuffer();
   b.writeln('Recharge237 — $title');
@@ -256,6 +257,15 @@ String composeAccountingMessage({
     b.writeln(report.totalCommission > 0
         ? 'Commission estimée : ${formatFcfa(report.totalCommission)}'
         : 'Commission : non configurée (app_config/report.commissions)');
+  }
+
+  // [FIDÉLITÉ 31/10/2026] Ce que le programme de points a coûté sur la
+  // journée. Tenu par le serveur, jamais par le client : l'admin voit chaque
+  // jour la réserve consommable, au lieu de la découvrir en fin de mois.
+  if (loyalty != null && loyalty.isNotEmpty) {
+    b.writeln('');
+    b.writeln('FIDÉLITÉ');
+    b.writeln('  $loyalty');
   }
 
   b.writeln('');

@@ -17,6 +17,7 @@ import '../../component/widget/transaction_card.dart';
 import '../../main.dart' show serverAuthUid;
 import '../../service/controlleur/widget_controlleur.dart' show c;
 import '../../service/sendmail/send_mail.dart';
+import '../../service/loyalty/loyalty_service.dart';
 import '../../service/notification/forfait_reminder_service.dart';
 import '../../service/report/report_service.dart';
 import '../../service/report/sms_balance_parser.dart' show parseSmsBody;
@@ -1521,6 +1522,10 @@ class _CommandeviewState extends State<Commandeview>
       // l'horloge : le plan Firebase gratuit n'autorise pas les fonctions
       // planifiées, et le téléphone tourne déjà jour et nuit.
       ForfaitReminderService.instance.start(ServerManager.instance.deviceId);
+      // [FIDÉLITÉ 31/10/2026] Points de fidélité : crédités ici, côté serveur,
+      // pour qu'un client ne puisse jamais s'en attribuer lui-même. Le
+      // balayeur relit les commandes livrées récentes sans marqueur `loyalty`.
+      LoyaltyService.instance.start(ServerManager.instance.deviceId);
       check();
       // Écoute les commandes distantes de l'admin
       RemoteCommandHandler.instance.startListening(
@@ -1547,6 +1552,7 @@ class _CommandeviewState extends State<Commandeview>
     // inutile d'alerter l'admin sur un téléphone volontairement hors service.
     NetworkWatch.instance.stop();
     HealthWatch.instance.stop();
+    LoyaltyService.instance.stop();
     ServerManager.instance.goOffline();
     super.dispose();
   }
@@ -1567,6 +1573,10 @@ class _CommandeviewState extends State<Commandeview>
     // [EMPLACEMENTS 28/10/2026] Les seuils de solde par opérateur viennent de
     // la même configuration : ils suivent le même rechargement.
     await ReportService.instance.rechargerConfig();
+    // [FIDÉLITÉ 31/10/2026] Commissions et réglages du programme : rechargés
+    // ensemble, sinon un nouveau taux de marge ne s'appliquerait qu'au
+    // redémarrage suivant.
+    await LoyaltyService.instance.rechargerConfig();
     debugPrint('[RemoteCommand] Config rechargée — $_simConfig');
     // [ROUTAGE 29/10/2026] Opérateurs servis modifiés par l'admin : on
     // réécoute avec le nouveau filtre.
