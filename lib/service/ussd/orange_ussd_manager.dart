@@ -348,7 +348,13 @@ class OrangeUssdManager {
   }
 
   /// Écran qui demande une confirmation explicite.
+  ///
+  /// [PIN 31/10/2026] Un écran qui réclame le code secret n'est pas une simple
+  /// confirmation : « Entrez votre code PIN pour confirmer… » contient
+  /// « confirmer ». Sans ce garde-fou, on répondait « 1 » à la place du
+  /// secret et l'opérateur rejetait l'opération (même piège que MTN).
   bool _demandeConfirmation(String screen) {
+    if (_demandeCodeSecret(screen)) return false;
     final String s = normalizeUssd(screen);
     return s.contains('confirmer') ||
         s.contains('confirmez') ||

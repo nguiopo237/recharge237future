@@ -235,4 +235,32 @@ Offres MTN Boost pour 237677156949:
       );
     });
   });
+
+  // [PIN 31/10/2026] Écran réel MTN relevé dans le journal d'une activation
+  // Boost échouée (commande wZwsOyYDa3Jx17QF7fcK) : il contient « confirmer »
+  // ET réclame le PIN. La règle de confirmation répondait « 1 », MTN refusait
+  // le code et AUCUNE activation Boost ne pouvait aboutir.
+  group('isPlainConfirmScreen', () {
+    const String ecranPin = '''
+Entrez votre code PIN pour confirmer la vente de 500U=1GB/30D + 500 SMS: C=25F a 237674583531. Cout: 500.0 FCFA, Commission: 25 FCFA''',
+        pinExplicite = 'Entrez votre code PIN a 5 chiffres',
+        confirmation = '1. Confirmer\n2. Annuler',
+        confirmationSimple = 'Voulez-vous confirmer cette operation ?';
+
+    test('le PIN a la priorité sur « confirmer »', () {
+      expect(isPlainConfirmScreen(ecranPin), isFalse);
+      expect(isPlainConfirmScreen(pinExplicite), isFalse);
+      expect(isPlainConfirmScreen('Code secret : '), isFalse);
+      expect(isPlainConfirmScreen('Saisissez votre mot de passe'), isFalse);
+    });
+
+    test('une vraie confirmation reste une confirmation', () {
+      expect(isPlainConfirmScreen(confirmation), isTrue);
+      expect(isPlainConfirmScreen(confirmationSimple), isTrue);
+    });
+
+    test('un écran neutre ne déclenche aucune réponse', () {
+      expect(isPlainConfirmScreen('Votre solde est de 500 FCFA'), isFalse);
+    });
+  });
 }

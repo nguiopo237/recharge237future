@@ -32,6 +32,11 @@ void main() {
     int aujourdHui = 0,
     int total = 0,
     bool croise = false,
+    // [IDENTITÉ 31/10/2026] Vrai par défaut ici : ces tests portent sur le
+    // budget et les plafonds, pas sur l'identité (testée séparément plus bas
+    // et dans identity_rules_test.dart).
+    bool identiteFilleul = true,
+    bool identiteParrain = true,
   }) =>
       ContexteParrainage(
         filleulUid: filleul,
@@ -45,6 +50,8 @@ void main() {
         recompensesParrainAujourdhui: aujourdHui,
         recompensesParrainTotal: total,
         parrainEstFilleulDuFilleul: croise,
+        identiteFilleulComplete: identiteFilleul,
+        identiteParrainComplete: identiteParrain,
       );
 
   test('1 000 F MTN : 10 pts de base, donc 10 au filleul + 10 au parrain '
@@ -266,5 +273,42 @@ void main() {
       cleCompteurParrain('abc', DateTime.utc(2026, 11, 1)),
       'abc_2026-11-01',
     );
+  });
+
+  // [IDENTITÉ 31/10/2026] Aucun bonus sans nom complet + téléphone
+  // camerounais + email, des DEUX côtés. Ces tests verrouillent le fait que
+  // le parrainage ne peut pas servir de robinet à points pour des comptes
+  // anonymes créés en série.
+  test('filleul non identifié : aucun bonus (ni pour lui, ni pour le parrain)',
+      () {
+    final DecisionParrainage d = decisionParrainage(
+      base: pointsPour(1000, mtn),
+      rate: mtn,
+      contexte: contexte(identiteFilleul: false),
+    );
+    expect(d.recompenser, isFalse);
+    expect(d.total, 0);
+    expect(d.motif, 'identité du filleul incomplète');
+  });
+
+  test('parrain non identifié : aucun bonus', () {
+    final DecisionParrainage d = decisionParrainage(
+      base: pointsPour(1000, mtn),
+      rate: mtn,
+      contexte: contexte(identiteParrain: false),
+    );
+    expect(d.recompenser, isFalse);
+    expect(d.motif, 'identité du parrain incomplète');
+  });
+
+  test('identités complètes : la récompense repasse normalement', () {
+    final DecisionParrainage d = decisionParrainage(
+      base: pointsPour(1000, mtn),
+      rate: mtn,
+      contexte: contexte(identiteFilleul: true, identiteParrain: true),
+    );
+    expect(d.recompenser, isTrue);
+    expect(d.pointsParrain, 10);
+    expect(d.pointsFilleulExtra, 10);
   });
 }

@@ -397,10 +397,7 @@ class MtnUssdManager {
         ),
         UssdRule(
           label: 'confirmer',
-          answer: (screen, done) =>
-              _asksTo(screen, const ['confirmer', 'confirmez', 'valider'])
-                  ? '1'
-                  : null,
+          answer: (screen, done) => _demandeConfirmation(screen) ? '1' : null,
         ),
         _rulePin(sim.pin),
       ],
@@ -578,10 +575,7 @@ class MtnUssdManager {
         ),
         UssdRule(
           label: 'confirmer',
-          answer: (screen, done) =>
-              _asksTo(screen, const ['confirmer', 'confirmez', 'valider'])
-                  ? '1'
-                  : null,
+          answer: (screen, done) => _demandeConfirmation(screen) ? '1' : null,
         ),
         _rulePin(sim.pin),
       ],
@@ -698,15 +692,20 @@ class MtnUssdManager {
 
   UssdRule _rulePin(String pin) => UssdRule(
         label: 'pin',
-        answer: (screen, done) => _asksTo(
-          screen,
-          const ['code secret', 'mot de passe', 'pin', 'password', 'code mtn'],
-        )
-            ? pin
-            : null,
+        answer: (screen, done) =>
+            _asksTo(screen, kUssdPinWords) ? pin : null,
         secret: true,
         commits: true,
       );
+
+  /// Écran de confirmation qui n'est PAS une demande de code secret.
+  ///
+  /// [PIN 31/10/2026] Voir [isPlainConfirmScreen] : MTN demande « Entrez votre
+  /// code PIN pour confirmer la vente de … ». La règle de confirmation,
+  /// déclarée avant celle du PIN, répondait « 1 » et MTN la rejetait
+  /// (« Code PIN incorrect ») : aucune activation Boost ne pouvait aboutir.
+  bool _demandeConfirmation(String screen) =>
+      !_asksTo(screen, kUssdPinWords) && isPlainConfirmScreen(screen);
 
   /// Numéro de l'option dont la ligne contient un des mots-clés.
   /// `null` si l'écran n'est pas un menu ou ne propose pas ce choix.

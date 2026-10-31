@@ -488,6 +488,30 @@ bool asksPhoneNumber(String raw) =>
 String? findConfirmOption(String raw) => findMenuOption(
     raw, RegExp(r'^(confirmer|valider|oui|accepter|yes|confirm)'));
 
+/// Mots d'un écran qui réclame le code secret de l'agent.
+const List<String> kUssdPinWords = <String>[
+  'code secret',
+  'mot de passe',
+  'pin',
+  'password',
+  'code mtn',
+];
+
+/// Vrai si l'écran demande une simple confirmation ("1) Confirmer / 2) Annuler").
+///
+/// [PIN 31/10/2026] MTN écrit « Entrez votre code PIN pour confirmer la vente
+/// de … » : cet écran contient « confirmer » **et** attend le code secret. Une
+/// règle de confirmation répondait donc « 1 » à la place du PIN, MTN refusait
+/// (« Code PIN incorrect ») et aucune activation Boost ne pouvait aboutir. Un
+/// écran qui réclame le secret n'est jamais une confirmation.
+bool isPlainConfirmScreen(String raw) {
+  final String s = normalizeUssd(raw);
+  if (kUssdPinWords.any(s.contains)) return false;
+  return s.contains('confirmer') ||
+      s.contains('confirmez') ||
+      s.contains('valider');
+}
+
 /// Numéros de téléphone camerounais (9 chiffres, éventuellement précédés
 /// de 237) cités dans l'écran.
 List<String> mentionedPhones(String raw) => RegExp(r'(?:237)?(6\d{8})\b')

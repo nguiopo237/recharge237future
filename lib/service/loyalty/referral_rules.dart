@@ -103,6 +103,17 @@ class ContexteParrainage {
   /// codes entre deux comptes complices : on refuse la boucle).
   final bool parrainEstFilleulDuFilleul;
 
+  /// [IDENTITÉ 31/10/2026] Profil du filleul complet (nom, téléphone
+  /// camerounais, email — voir `identity_rules.dart`).
+  ///
+  /// Défaut `false` VOLONTAIREMENT : si un jour le service oublie de
+  /// transmettre l'information, on ne paie pas. Un bonus versé à un profil
+  /// anonyme est irrécupérable ; un bonus non versé est rattrapable.
+  final bool identiteFilleulComplete;
+
+  /// Idem pour le parrain : un parrain anonyme ne peut pas être payé.
+  final bool identiteParrainComplete;
+
   const ContexteParrainage({
     required this.filleulUid,
     required this.parrainUid,
@@ -115,6 +126,8 @@ class ContexteParrainage {
     this.recompensesParrainAujourdhui = 0,
     this.recompensesParrainTotal = 0,
     this.parrainEstFilleulDuFilleul = false,
+    this.identiteFilleulComplete = false,
+    this.identiteParrainComplete = false,
   });
 }
 
@@ -183,6 +196,17 @@ DecisionParrainage decisionParrainage({
   }
   if (contexte.parrainEstFilleulDuFilleul) {
     return const DecisionParrainage(motif: 'parrainage croisé');
+  }
+
+  // ── Barrières d'identité [31/10/2026] ────────────────────────────────────
+  // Placées AVANT les autres refus (plafonds, verrou de marge) : la raison
+  // « profil incomplet » est celle qui doit remonter à l'admin quand un
+  // client se plaint de n'avoir rien touché.
+  if (!contexte.identiteFilleulComplete) {
+    return const DecisionParrainage(motif: 'identité du filleul incomplète');
+  }
+  if (!contexte.identiteParrainComplete) {
+    return const DecisionParrainage(motif: 'identité du parrain incomplète');
   }
   if (contexte.dejaRecompense) {
     return const DecisionParrainage(motif: 'déjà récompensé');

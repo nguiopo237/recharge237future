@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../report/report_service.dart' show ReportConfig;
 import '../server/firestore_backoff.dart';
+import 'identity_rules.dart';
 import 'loyalty_rules.dart';
 import 'redemption_rules.dart';
 import 'referral_rules.dart';
@@ -354,6 +355,31 @@ class LoyaltyService {
         final DocumentSnapshot<Map<String, dynamic>> j = await tx.get(journal);
         if (j.exists) return false;
 
+        // ── IDENTITÉ [31/10/2026] : trois preuves avant de payer ────────────
+        // Les points valent de l'argent : un profil anonyme est impossible à
+        // poursuivre en cas d'abus et permet de multiplier les comptes pour
+        // récolter des bonus de parrainage. La décision est prise par la
+        // règle pure `identiteDe` (nom complet + téléphone camerounais +
+        // email), pas par le client.
+        //
+        // La commande est MARQUÉE même quand on ne crédite rien : sans ce
+        // marqueur elle serait relue à chaque passage du balayeur (toutes les
+        // 10 minutes) sans jamais rien produire. Le client peut compléter son
+        // profil puis recharger à nouveau : il gagnera ses points au titre de
+        // la nouvelle commande.
+        final DocumentSnapshot<Map<String, dynamic>> profilDoc =
+            await tx.get(db.collection('users').doc(uid));
+        final IdentiteClient identite = identiteDe(profilDoc.data());
+        if (!identite.complete) {
+          tx.update(commande, <String, dynamic>{
+            'loyalty': 0,
+            'loyalty_at': FieldValue.serverTimestamp(),
+            'loyalty_motif': identite.motifIncomplet,
+          });
+          debugPrint('[Fidélité] 0 pt → $uid : ${identite.motifIncomplet}');
+          return false;
+        }
+
         final DocumentSnapshot<Map<String, dynamic>> w =
             await tx.get(portefeuille);
         final Map<String, dynamic>? wd = w.data();
@@ -376,8 +402,8 @@ class LoyaltyService {
             lienEnAttente = (rd['statut'] ?? 'en_attente').toString() == 'en_attente';
           }
           if (lienEnAttente) {
-            final Map<String, dynamic>? pf =
-                (await tx.get(db.collection('users').doc(uid))).data();
+            // Le profil du filleul est DÉJÀ lu plus haut (barrière d'identité).
+            final Map<String, dynamic>? pf = profilDoc.data();
             final Map<String, dynamic>? pp = parrain.isEmpty
                 ? null
                 : (await tx.get(db.collection('users').doc(parrain))).data();
@@ -417,6 +443,11 @@ class LoyaltyService {
                 recompensesParrainTotal:
                     (pw?['parrainagesTotal'] as num?)?.toInt() ?? 0,
                 parrainEstFilleulDuFilleul: croise,
+                // [IDENTITÉ 31/10/2026] Les DEUX côtés doivent être
+                // identifiés : sinon un parrain anonyme encaisserait les
+                // points d'un filleul identifié, sans être lui-même traçable.
+                identiteFilleulComplete: identite.complete,
+                identiteParrainComplete: identiteDe(pp).complete,
               ),
             );
             if (!decision.recompenser) {
