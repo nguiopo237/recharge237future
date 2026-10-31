@@ -116,7 +116,9 @@ Offres MTN Boost pour 237677156949:
       final UssdOffer cinq = offres.firstWhere((UssdOffer o) => o.index == '5');
       // « 5) 2 » + « 50U=… » = la vraie offre 250U=900U+75MB+2500U/3D.
       expect(cinq.label, startsWith('250U=900U'));
-      expect(cinq.price, 13);
+      // [PRIX 30/10/2026] 250 (le dépôt « 250U »), PAS 13 qui est la
+      // commission « C=13F » : c'est le bug financier corrigé ici.
+      expect(cinq.price, 250);
       expect(cinq.displayTitle, '900U + 75 Mo + 2500U / 3 jours');
       // La ligne de continuation ne crée pas d'offre fantôme sans numéro.
       expect(offres.where((UssdOffer o) => o.index.isEmpty), isEmpty);
@@ -170,6 +172,67 @@ Offres MTN Boost pour 237677156949:
     test('un libellé déjà propre n\'est pas abîmé', () {
       expect(offerDisplayTitle('1 Go / 30 jours'), '1 Go / 30 jours');
       expect(offerDisplayTitle('Appels illimités'), 'Appels illimités');
+    });
+  });
+
+  // ── Prix client vs commission (30/10/2026) ───────────────────────────────
+  // Le prix facturé au client ne doit JAMAIS être la commission « C=… ».
+  group('parseOfferPrice', () {
+    test('la commission « C= » n\'est jamais le prix', () {
+      // Relevés réels MTN Boost : le montant payé est celui de gauche.
+      const Map<String, int> cas = <String, int>{
+        'Depot de 100F; C=50F': 100,
+        '500U=1GB/30D: C=25F': 500,
+        '250U=500MB+100 SMS/3D: C=13F': 250,
+        '1000U=2.1GB/30D: C=50F': 1000,
+        '1200U=6700U+13170U+732MB/7D: C=60F': 1200,
+        '500U=5237U + 237MB+6200U/3D: C=25F': 500,
+        '1000U de credit + bonus de 2000U d appels MTN valide jusqu a minuit : C=0F':
+            1000,
+      };
+      cas.forEach((String texte, int attendu) {
+        expect(parseOfferPrice(texte), attendu, reason: texte);
+      });
+    });
+
+    test('prix écrit en francs, commission séparée ou non', () {
+      expect(parseOfferPrice('Pack 200 Mo à 200F'), 200);
+      expect(parseOfferPrice('1 000 FCFA'), 1000);
+      // Formes de commission rencontrées ou plausibles.
+      expect(parseOfferPrice('Depot de 300F ; com=70F'), 300);
+      expect(parseOfferPrice('Depot de 300F C:70F'), 300);
+      expect(parseOfferPrice('Depot de 300F cout=70F'), 300);
+    });
+
+    test('commission seule : prix illisible, donc aucun prix', () {
+      // Mieux vaut refuser l'activation que facturer 25 F une offre à 500 F.
+      expect(parseOfferPrice('C=25F'), isNull);
+      expect(parseOfferPrice('Offre réservée aux revendeurs'), isNull);
+      expect(parseOfferPrice(''), isNull);
+    });
+
+    test('un écran Boost complet donne tous les bons prix', () {
+      const String page1 = '''
+Offres MTN Boost pour 237677156949:
+1) Depot de 100F; C=50F
+2) 1200U=6700U+13170U+732MB/7D: C=60F
+3) 500U=1GB/30D: C=25F
+4) 1000U=2.1GB/30D: C=50F
+5) 2
+00. Next
+''';
+      const String page2 = '''
+50U=900U+75MB+2500U/3D: C=13F
+6) 500U=5237U + 237MB+6200U/3D: C=25F
+7) 250U=500MB+100 SMS/3D: C=13F
+8) 1000U de credit + bonus de 2000U d appels MTN valide jusqu a minuit : C=0F
+''';
+      final List<UssdOffer> offres =
+          offerRecords(<String>[page1, page2]);
+      expect(
+        offres.map((UssdOffer o) => o.price).toList(),
+        <int>[100, 1200, 500, 1000, 250, 500, 250, 1000],
+      );
     });
   });
 }

@@ -192,15 +192,58 @@ List<String> offerLines(List<String> screens) {
   return out;
 }
 
+/// Codes techniques de l'opérateur : « C=25F », « C:25F », « ; com=50F ».
+///
+/// [PRIX 30/10/2026] C'est la COMMISSION du revendeur, jamais ce que le
+/// client paie. Elle est retirée AVANT toute lecture de prix : sans cela,
+/// « Depot de 100F; C=50F » donnait 50 F (la commission) comme prix de vente.
+final RegExp _commissionRe = RegExp(
+    r'[;,]?\s*\b(?:c|com|comm|commission|cout|coût)\s*[=:]\s*\d+(?:[.,]\d+)?\s*(?:f|fcfa|xaf)\b',
+    caseSensitive: false);
+
 /// Dernier montant suivi de F/FCFA dans un texte (le prix figure presque
 /// toujours en fin de libellé MTN, ex. « Pack 200 Mo à 200F »).
 final RegExp _amountRe = RegExp(r'(\d[\d\s]{0,9})\s*F', caseSensitive: false);
 
 /// Prix lu dans un libellé d'offre, ou `null` s'il est absent.
+///
+/// [PRIX 30/10/2026] Trois formes réelles, dans cet ordre :
+///   • « 500U=1GB/30D: C=25F » : la valeur de gauche du « U= » est le montant
+///     débité au client (U = francs chez MTN) → 500 ;
+///   • « Depot de 100F; C=50F » : le prix est le montant en F **hors
+///     commission** → 100 (et jamais 50) ;
+///   • « 1000U de credit + bonus… » : le dépôt en tête est le prix → 1000.
+///
+/// La commission (`C=…`) n'est JAMAIS un prix : si rien d'autre n'est
+/// lisible, on renvoie `null` et l'activation est refusée plutôt que
+/// facturée au mauvais montant (garde anti-fraude de MtnUssdManager).
 int? parseOfferPrice(String text) {
-  final List<RegExpMatch> found = _amountRe.allMatches(text).toList();
-  if (found.isEmpty) return null;
-  return int.tryParse(found.last.group(1)!.replaceAll(' ', ''));
+  final String utile = text.replaceAll(_commissionRe, ' ');
+
+  // 1. Forme revendeur « 500U=… ».
+  final RegExpMatch? debit =
+      RegExp(r'(\d[\d\s]{0,9})\s*U\s*=', caseSensitive: false)
+          .firstMatch(utile);
+  if (debit != null) {
+    final int? v = int.tryParse(debit.group(1)!.replaceAll(' ', ''));
+    if (v != null && v > 0) return v;
+  }
+
+  // 2. Montant en francs hors commission.
+  final List<RegExpMatch> found = _amountRe.allMatches(utile).toList();
+  if (found.isNotEmpty) {
+    final int? prix = int.tryParse(found.last.group(1)!.replaceAll(' ', ''));
+    if (prix != null && prix > 0) return prix;
+  }
+
+  // 3. Dépôt en unités en tête (« 1000U de credit + bonus… »).
+  final RegExpMatch? depot =
+      RegExp(r'^\s*(\d[\d\s]{0,9})\s*U\b', caseSensitive: false)
+          .firstMatch(utile);
+  if (depot != null) {
+    return int.tryParse(depot.group(1)!.replaceAll(' ', ''));
+  }
+  return null;
 }
 
 /// Libellé d'offre destiné AU CLIENT.
@@ -220,12 +263,9 @@ int? parseOfferPrice(String text) {
 /// nettoyé.
 String offerDisplayTitle(String raw) {
   String t = raw.replaceAll(RegExp(r'\s+'), ' ').trim();
-  // 1. Codes techniques : « C=25F », « ; com=50F », « cout=... ».
-  t = t.replaceAll(
-      RegExp(
-          r'[;,]?\s*\b(?:c|com|comm|commission|cout|coût)\s*=\s*\d+(?:[.,]\d+)?\s*(?:f|fcfa|xaf)\b',
-          caseSensitive: false),
-      '');
+  // 1. Codes techniques : « C=25F », « ; com=50F », « cout=... » — même
+  //    définition que pour le prix (cf. [_commissionRe]).
+  t = t.replaceAll(_commissionRe, '');
   // 2. « 500U=1GB/30D » : la gauche est ce que ça coûte, la droite ce que le
   //    client reçoit. On n'affiche que la droite.
   final RegExpMatch? debit =
