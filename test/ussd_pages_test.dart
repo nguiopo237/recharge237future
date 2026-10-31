@@ -240,6 +240,36 @@ Offres MTN Boost pour 237677156949:
   // Boost échouée (commande wZwsOyYDa3Jx17QF7fcK) : il contient « confirmer »
   // ET réclame le PIN. La règle de confirmation répondait « 1 », MTN refusait
   // le code et AUCUNE activation Boost ne pouvait aboutir.
+  // [PRIX 31/10/2026] Menu réel de la session d'activation qui a vendu une
+  // offre à 500 F après un paiement de 100 F : l'offre à 100 F avait disparu
+  // du menu et la touche « 1 » désignait autre chose.
+  group('findOptionForPrice', () {
+    const String menuSans100 = '''
+Offres MTN Boost pour 237674583531:
+1) 500U=1GB/30D + 500 SMS: C=25F
+2) 500U=3800U + 500MB+ 3400U + 500 SMS /7D : C=25F
+''',
+        menuAvec100 = '''
+Offres MTN Boost pour 237674583531:
+1) Depot de 100F; C=50F
+2) 500U=1GB/30D + 500 SMS: C=25F
+''';
+
+    test('le prix payé décide de la touche, pas la position', () {
+      expect(findOptionForPrice(menuAvec100, 100), '1');
+      expect(findOptionForPrice(menuAvec100, 500), '2');
+      expect(findOptionForPrice(menuSans100, 500), '1');
+    });
+
+    test('offre absente du menu : aucune touche (jamais d\'index au hasard)',
+        () {
+      // C'est exactement le cas qui a coûté 400 F : ne rien composer.
+      expect(findOptionForPrice(menuSans100, 100), isNull);
+      expect(findOptionForPrice(menuSans100, 250), isNull);
+      expect(findOptionForPrice(menuSans100, 0), isNull);
+    });
+  });
+
   group('isPlainConfirmScreen', () {
     const String ecranPin = '''
 Entrez votre code PIN pour confirmer la vente de 500U=1GB/30D + 500 SMS: C=25F a 237674583531. Cout: 500.0 FCFA, Commission: 25 FCFA''',

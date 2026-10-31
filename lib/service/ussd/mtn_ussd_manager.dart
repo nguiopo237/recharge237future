@@ -322,8 +322,10 @@ class MtnUssdManager {
     // modifié peut déclarer le montant qu'il veut : sans ce contrôle il payait
     // 100 F pour une offre à 1 000 F et l'offre était activée quand même.
     final UssdOffer? offer = await _offerOf(sourceOrder, forfaitIndex);
+    // [PRIX 31/10/2026] Le montant payé sert AUSSI à choisir l'offre dans le
+    // menu de l'activation : il est donc lu ici, pas seulement dans la garde.
+    final int paye = int.tryParse(await _paidAmountOf(docId)) ?? -1;
     if (offer != null) {
-      final int paye = int.tryParse(await _paidAmountOf(docId)) ?? -1;
       final int? prix = offer.price;
       if (prix == null) {
         await _write(docId, {
@@ -364,6 +366,10 @@ class MtnUssdManager {
       return const UssdSessionResult(
           result: UssdResult.failed, rawMessage: 'Code USSD non configuré');
     }
+    // [PRIX 31/10/2026] Vrai dès qu'une ligne portant le PRIX PAYÉ a été
+    // trouvée et composée. Sinon, l'échec s'explique autrement (offre retirée
+    // du menu entre la requête et l'achat) et il faut le dire clairement.
+    bool offrePayeeTrouvee = false;
     final UssdRunResult run = await UssdSessionRunner.instance.run(
       code: code,
       slot: sim.slot,
@@ -378,16 +384,24 @@ class MtnUssdManager {
             // [PRIX 28/10/2026] On cherche d'abord l'offre par son LIBELLÉ :
             // MTN peut renuméroter chaque page à partir de 1, donc taper
             // « 3 » sur la première page où l'offre apparaît peut désigner
-            // une autre offre. Le numéro reste un repli pour les commandes
-            // créées avant l'arrivée des offres structurées.
+            // une autre offre.
             if (offer != null) {
               final String? parLibelle =
                   findOptionForLabel(screen, offer.label);
-              if (parLibelle != null) return parLibelle;
+              if (parLibelle != null) {
+                offrePayeeTrouvee = true;
+                return parLibelle;
+              }
             }
-            return menuLineFor(screen, forfaitIndex) != null
-                ? forfaitIndex
-                : null;
+            // [PRIX 31/10/2026] PLUS JAMAIS l'index seul en repli. MTN fait
+            // tourner son menu : un test réel a payé 100 F et le code a tapé
+            // « 1 », qui désignait ce jour-là l'offre à 500 F — la carte a
+            // été débitée de 500 F pour une vente de 100 F. On ne compose donc
+            // une touche que si la ligne affichée porte EXACTEMENT le prix
+            // payé.
+            final String? parPrix = findOptionForPrice(screen, paye);
+            if (parPrix != null) offrePayeeTrouvee = true;
+            return parPrix;
           },
         ),
         UssdRule(
@@ -422,11 +436,16 @@ class MtnUssdManager {
     await _write(docId, {
       'status': success ? '34' : '35',
       if (!success)
-        'failure_reason': result.rawMessage.isEmpty
-            ? 'Aucune réponse MTN (${result.result.name}, SIM ${sim.slot + 1}) — ${run.reason}'
-            : '${result.result.name} : ${result.rawMessage}',
+        'failure_reason': !offrePayeeTrouvee && paye > 0
+            ? 'L’offre à $paye F n’était plus proposée par MTN pour ce '
+                'numéro au moment de l’activation : aucune touche composée, '
+                'rien n’a été vendu ni débité. Réessayez la consultation.'
+            : (result.rawMessage.isEmpty
+                ? 'Aucune réponse MTN (${result.result.name}, SIM ${sim.slot + 1}) — ${run.reason}'
+                : '${result.result.name} : ${result.rawMessage}'),
       'ussd_outcome': run.outcomeCode,
       'ussd_log': run.log,
+      'offre_payee_trouvee': offrePayeeTrouvee,
       ..._timingFields(run),
     });
 

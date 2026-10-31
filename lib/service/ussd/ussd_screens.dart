@@ -470,6 +470,22 @@ String? findOptionForLabel(String raw, String label) {
   return null;
 }
 
+/// Touche à composer pour l'offre dont le PRIX affiché est exactement [prix].
+///
+/// [PRIX 31/10/2026] C'est le SEUL repli acceptable à l'activation quand le
+/// libellé n'est plus retrouvé : MTN fait tourner son menu d'une session à
+/// l'autre. Un test réel a payé 100 F, le code a tapé « 1 » (l'ancienne
+/// position de cette offre) et MTN a vendu celle à 500 F : la carte a été
+/// débitée de 500 F pour une vente de 100 F. On ne compose donc une touche que
+/// si la ligne affichée porte le prix payé.
+String? findOptionForPrice(String raw, int prix) {
+  if (prix <= 0) return null;
+  for (final UssdOffer o in offerRecords(<String>[raw])) {
+    if (o.price != null && o.price == prix && o.key.isNotEmpty) return o.key;
+  }
+  return null;
+}
+
 bool asksPin(String raw) {
   final String s = normalizeUssd(raw);
   return RegExp(r'\bpin\b|code secret|mot de passe|password|passcode')
